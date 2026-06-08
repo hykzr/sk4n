@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 INVALID_PATH_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 MULTISPACE = re.compile(r"\s+")
 ACADEMIC_TERM = re.compile(
@@ -255,7 +254,10 @@ def merge_course_records(
         if course_id is not None:
             ensure(str(course_id)).add_source("dashboard_card", item)
 
-    return sorted(records.values(), key=lambda record: (record.course_code or record.name or "", record.id))
+    return sorted(
+        records.values(),
+        key=lambda record: (record.course_code or record.name or "", record.id),
+    )
 
 
 def unique_folder_names(records: list[CourseRecord]) -> dict[str, str]:

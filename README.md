@@ -20,8 +20,39 @@ courses from Canvas's `/courses` page are included as well. Cover images are
 downloaded beside `course.json` as `cover_image.*`.
 
 When a course exposes the relevant Canvas navigation tab, the sync also writes
-separate JSON files beside `course.json`: `announcements.json`,
-`discussions.json`, `people.json`, `pages.json`, `syllabus.json`, and
-`modules.json`. Page records include each page's Canvas `body`; discussions
-include the topic message and best-effort reply view data when Canvas allows it.
-Closed tabs are skipped and any stale file for that content type is removed.
+content files beside `course.json`:
+
+- `announcements/announcements.json`
+- `discussions/discussions.json`
+- `people.json`
+- `pages/pages.json`
+- `syllabus.json` and `syllabus.html`
+- `modules.json`
+
+Announcement, discussion, page, and syllabus HTML bodies are written to `.html`
+files. The old Canvas `message`, `body`, or `content` field is replaced with a
+relative path to that HTML file. Paths stored inside course JSON files are
+relative to the JSON file that contains them.
+
+Existing courses are incremental by default. `course.json` and `people.json` are
+assumed stable and are not refreshed unless forced. Pages are checked through
+Canvas page summaries and page bodies are fetched only for new or changed pages.
+Discussion reply views are fetched only for new or changed discussion topics.
+Announcements and discussion topic lists on NUS Canvas already include the
+message body, so the sync compares cached signatures and avoids rewriting
+unchanged local files. Syllabus bodies do not have a cheap update signal, so
+existing `syllabus.html` is skipped unless forced.
+
+Useful options:
+
+```bash
+python -m canvas_sync.cli --course CG2023 --course 85096
+python -m canvas_sync.cli --refresh-course
+python -m canvas_sync.cli --refresh-people
+python -m canvas_sync.cli --refresh-pages --refresh-discussions
+python -m canvas_sync.cli --refresh-content
+```
+
+`--course` accepts one or more course IDs or exact course codes and can be
+repeated. The CLI prints Rich progress and a summary table showing which tabs
+were created, updated, unchanged, skipped, or failed.

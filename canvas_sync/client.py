@@ -6,9 +6,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urljoin
-
 import requests
-
 from tools import RequestTools
 
 
@@ -47,7 +45,9 @@ class CanvasClient:
         path_or_url: str,
         params: dict[str, Any] | Iterable[tuple[str, Any]] | None = None,
     ) -> Any:
-        url = path_or_url if path_or_url.startswith("http") else self.api_url(path_or_url)
+        url = (
+            path_or_url if path_or_url.startswith("http") else self.api_url(path_or_url)
+        )
         try:
             response = self._rt.get(url, params=params)
         except requests.HTTPError as exc:
@@ -94,7 +94,9 @@ class CanvasClient:
                 )
             data = response.json()
             if not isinstance(data, list):
-                raise CanvasAPIError(f"Expected a JSON list from {url}, got {type(data).__name__}.")
+                raise CanvasAPIError(
+                    f"Expected a JSON list from {url}, got {type(data).__name__}."
+                )
             items.extend(data)
             next_url = parse_next_link(response.headers.get("link"))
             if not next_url:
@@ -106,7 +108,9 @@ class CanvasClient:
     def profile(self) -> dict[str, Any]:
         data = self.get_json("/api/v1/users/self/profile")
         if not isinstance(data, dict) or "id" not in data:
-            raise CanvasAPIError("Canvas profile response did not look like a logged-in user.")
+            raise CanvasAPIError(
+                "Canvas profile response did not look like a logged-in user."
+            )
         return data
 
     def active_courses(self) -> list[dict[str, Any]]:
@@ -136,7 +140,9 @@ class CanvasClient:
             ],
         )
         if not isinstance(data, dict):
-            raise CanvasAPIError(f"Course details response for {course_id} was not a JSON object.")
+            raise CanvasAPIError(
+                f"Course details response for {course_id} was not a JSON object."
+            )
         return data
 
     def past_course_ids_from_courses_page(self) -> list[str]:
@@ -193,14 +199,33 @@ class CanvasClient:
         return [item for item in data if isinstance(item, dict)]
 
     def course_announcements(self, course_id: str | int) -> list[dict[str, Any]]:
+        return self.course_discussion_topics(course_id, only_announcements=True)
+
+    def course_discussion_topics(
+        self,
+        course_id: str | int,
+        *,
+        only_announcements: bool | None = None,
+    ) -> list[dict[str, Any]]:
+        params: list[tuple[str, Any]] = [("per_page", "100")]
+        if only_announcements is True:
+            params.insert(0, ("only_announcements", "true"))
         data = self.get_paginated(
-            f"/api/v1/courses/{course_id}/discussion_topics",
-            params=[
-                ("only_announcements", "true"),
-                ("per_page", "100"),
-            ],
+            f"/api/v1/courses/{course_id}/discussion_topics", params=params
         )
         return [item for item in data if isinstance(item, dict)]
+
+    def course_discussion_view(
+        self, course_id: str | int, topic_id: str | int
+    ) -> dict[str, Any]:
+        data = self.get_json(
+            f"/api/v1/courses/{course_id}/discussion_topics/{topic_id}/view"
+        )
+        if not isinstance(data, dict):
+            raise CanvasAPIError(
+                f"Discussion view response for {course_id}/{topic_id} was not a JSON object."
+            )
+        return data
 
     def course_discussions(
         self,
@@ -208,10 +233,7 @@ class CanvasClient:
         *,
         include_entries: bool = True,
     ) -> list[dict[str, Any]]:
-        data = self.get_paginated(
-            f"/api/v1/courses/{course_id}/discussion_topics",
-            params=[("per_page", "100")],
-        )
+        data = self.course_discussion_topics(course_id, only_announcements=False)
         topics = [
             dict(item)
             for item in data
@@ -223,14 +245,11 @@ class CanvasClient:
                 if topic_id is None:
                     continue
                 try:
-                    view = self.get_json(
-                        f"/api/v1/courses/{course_id}/discussion_topics/{topic_id}/view"
-                    )
+                    view = self.course_discussion_view(course_id, topic_id)
                 except CanvasAPIError as exc:
                     topic["_canvas_sync_view_error"] = str(exc)
                     continue
-                if isinstance(view, dict):
-                    topic["view"] = view
+                topic["view"] = view
         return topics
 
     def course_people(self, course_id: str | int) -> list[dict[str, Any]]:
@@ -243,28 +262,38 @@ class CanvasClient:
         )
         return [item for item in data if isinstance(item, dict)]
 
-    def course_pages(self, course_id: str | int) -> list[dict[str, Any]]:
-        pages = self.get_paginated(
+    def course_page_summaries(self, course_id: str | int) -> list[dict[str, Any]]:
+        data = self.get_paginated(
             f"/api/v1/courses/{course_id}/pages",
             params=[("per_page", "100")],
         )
+        return [item for item in data if isinstance(item, dict)]
+
+    def course_page_detail(self, course_id: str | int, page_url: str) -> dict[str, Any]:
+        encoded_page_url = quote(str(page_url), safe="")
+        data = self.get_json(f"/api/v1/courses/{course_id}/pages/{encoded_page_url}")
+        if not isinstance(data, dict):
+            raise CanvasAPIError(
+                f"Page detail response for {course_id}/{page_url} was not a JSON object."
+            )
+        return data
+
+    def course_pages(self, course_id: str | int) -> list[dict[str, Any]]:
+        pages = self.course_page_summaries(course_id)
         detailed_pages: list[dict[str, Any]] = []
         for page in pages:
-            if not isinstance(page, dict):
-                continue
             page_url = page.get("url")
             if not page_url:
                 detailed_pages.append(dict(page))
                 continue
-            encoded_page_url = quote(str(page_url), safe="")
             try:
-                detail = self.get_json(f"/api/v1/courses/{course_id}/pages/{encoded_page_url}")
+                detail = self.course_page_detail(course_id, str(page_url))
             except CanvasAPIError as exc:
                 fallback = dict(page)
                 fallback["_canvas_sync_detail_error"] = str(exc)
                 detailed_pages.append(fallback)
                 continue
-            detailed_pages.append(detail if isinstance(detail, dict) else dict(page))
+            detailed_pages.append(detail)
         return detailed_pages
 
     def course_syllabus(self, course_id: str | int) -> dict[str, Any]:
@@ -276,7 +305,9 @@ class CanvasClient:
             ],
         )
         if not isinstance(data, dict):
-            raise CanvasAPIError(f"Syllabus response for {course_id} was not a JSON object.")
+            raise CanvasAPIError(
+                f"Syllabus response for {course_id} was not a JSON object."
+            )
         return data
 
     def course_modules(self, course_id: str | int) -> list[dict[str, Any]]:

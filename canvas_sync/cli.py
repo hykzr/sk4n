@@ -3,15 +3,20 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
-
 import pyrootutils
+from rich.console import Console
 
 pyroot = pyrootutils.setup_root(__file__, dotenv=True, pythonpath=True, cwd=True)
 
 try:
     from .auth import DEFAULT_LOGIN_WAIT_SECONDS
     from .client import CanvasAPIError
-    from .sync import DEFAULT_BASE_URL, DEFAULT_DATA_PATH, DEFAULT_SITE_NAME, sync_canvas
+    from .sync import (
+        DEFAULT_BASE_URL,
+        DEFAULT_DATA_PATH,
+        DEFAULT_SITE_NAME,
+        sync_canvas,
+    )
 except ImportError:
     from auth import DEFAULT_LOGIN_WAIT_SECONDS
     from client import CanvasAPIError
@@ -44,9 +49,58 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional debugging limit for the number of courses to sync.",
     )
     parser.add_argument(
+        "--course",
+        action="append",
+        nargs="+",
+        default=[],
+        help="Sync only matching course IDs or course codes. Can be repeated.",
+    )
+    parser.add_argument(
+        "--refresh-course",
+        action="store_true",
+        help="Refresh existing course.json metadata, tabs, cover image, and syllabus.",
+    )
+    parser.add_argument(
+        "--refresh-people",
+        action="store_true",
+        help="Refresh people.json for existing courses.",
+    )
+    parser.add_argument(
+        "--refresh-content",
+        action="store_true",
+        help="Force refresh all supported content tabs.",
+    )
+    parser.add_argument(
+        "--refresh-announcements",
+        action="store_true",
+        help="Force refresh announcements even when cached signatures match.",
+    )
+    parser.add_argument(
+        "--refresh-discussions",
+        action="store_true",
+        help="Force refresh discussions and discussion reply views.",
+    )
+    parser.add_argument(
+        "--refresh-pages",
+        action="store_true",
+        help="Force refresh page bodies even when Canvas page summaries look unchanged.",
+    )
+    parser.add_argument(
+        "--refresh-syllabus",
+        action="store_true",
+        help="Force refresh syllabus body.",
+    )
+    parser.add_argument(
+        "--refresh-modules",
+        action="store_true",
+        help="Force refresh modules.json.",
+    )
+    parser.add_argument(
         "--login-wait-seconds",
         type=int,
-        default=int(os.getenv("CANVAS_LOGIN_WAIT_SECONDS", str(DEFAULT_LOGIN_WAIT_SECONDS))),
+        default=int(
+            os.getenv("CANVAS_LOGIN_WAIT_SECONDS", str(DEFAULT_LOGIN_WAIT_SECONDS))
+        ),
         help="How long to wait for browser login when the saved session is invalid.",
     )
     return parser
@@ -54,6 +108,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
+    console = Console()
+    course_selectors = [item for group in args.course for item in group]
     try:
         result = sync_canvas(
             data_path=Path(args.data_path),
@@ -61,16 +117,27 @@ def main() -> None:
             site_name=args.site_name,
             max_courses=args.max_courses,
             login_wait_seconds=args.login_wait_seconds,
+            course_selectors=course_selectors,
+            refresh_course=args.refresh_course,
+            refresh_people=args.refresh_people,
+            refresh_content=args.refresh_content,
+            refresh_announcements=args.refresh_announcements,
+            refresh_discussions=args.refresh_discussions,
+            refresh_pages=args.refresh_pages,
+            refresh_syllabus=args.refresh_syllabus,
+            refresh_modules=args.refresh_modules,
+            show_progress=True,
+            console=console,
         )
     except CanvasAPIError as exc:
         raise SystemExit(str(exc)) from exc
 
-    print(f"Synced {result.course_count} course(s) into {result.data_path}")
-    print(f"Index: {result.index_path}")
+    console.print(f"Synced {result.course_count} course(s) into {result.data_path}")
+    console.print(f"Index: {result.index_path}")
     if result.session_refreshed:
-        print("Canvas session was refreshed through browser login.")
+        console.print("Canvas session was refreshed through browser login.")
     else:
-        print("Canvas session was valid; no browser login needed.")
+        console.print("Canvas session was valid; no browser login needed.")
 
 
 if __name__ == "__main__":
