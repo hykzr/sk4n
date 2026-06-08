@@ -5,7 +5,7 @@ import re
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 
 import requests
 
@@ -189,6 +189,103 @@ class CanvasClient:
         data = self.get_paginated(
             f"/api/v1/courses/{course_id}/tabs",
             params=[("include[]", "external")],
+        )
+        return [item for item in data if isinstance(item, dict)]
+
+    def course_announcements(self, course_id: str | int) -> list[dict[str, Any]]:
+        data = self.get_paginated(
+            f"/api/v1/courses/{course_id}/discussion_topics",
+            params=[
+                ("only_announcements", "true"),
+                ("per_page", "100"),
+            ],
+        )
+        return [item for item in data if isinstance(item, dict)]
+
+    def course_discussions(
+        self,
+        course_id: str | int,
+        *,
+        include_entries: bool = True,
+    ) -> list[dict[str, Any]]:
+        data = self.get_paginated(
+            f"/api/v1/courses/{course_id}/discussion_topics",
+            params=[("per_page", "100")],
+        )
+        topics = [
+            dict(item)
+            for item in data
+            if isinstance(item, dict) and item.get("is_announcement") is not True
+        ]
+        if include_entries:
+            for topic in topics:
+                topic_id = topic.get("id")
+                if topic_id is None:
+                    continue
+                try:
+                    view = self.get_json(
+                        f"/api/v1/courses/{course_id}/discussion_topics/{topic_id}/view"
+                    )
+                except CanvasAPIError as exc:
+                    topic["_canvas_sync_view_error"] = str(exc)
+                    continue
+                if isinstance(view, dict):
+                    topic["view"] = view
+        return topics
+
+    def course_people(self, course_id: str | int) -> list[dict[str, Any]]:
+        data = self.get_paginated(
+            f"/api/v1/courses/{course_id}/users",
+            params=[
+                ("include[]", "enrollments"),
+                ("per_page", "100"),
+            ],
+        )
+        return [item for item in data if isinstance(item, dict)]
+
+    def course_pages(self, course_id: str | int) -> list[dict[str, Any]]:
+        pages = self.get_paginated(
+            f"/api/v1/courses/{course_id}/pages",
+            params=[("per_page", "100")],
+        )
+        detailed_pages: list[dict[str, Any]] = []
+        for page in pages:
+            if not isinstance(page, dict):
+                continue
+            page_url = page.get("url")
+            if not page_url:
+                detailed_pages.append(dict(page))
+                continue
+            encoded_page_url = quote(str(page_url), safe="")
+            try:
+                detail = self.get_json(f"/api/v1/courses/{course_id}/pages/{encoded_page_url}")
+            except CanvasAPIError as exc:
+                fallback = dict(page)
+                fallback["_canvas_sync_detail_error"] = str(exc)
+                detailed_pages.append(fallback)
+                continue
+            detailed_pages.append(detail if isinstance(detail, dict) else dict(page))
+        return detailed_pages
+
+    def course_syllabus(self, course_id: str | int) -> dict[str, Any]:
+        data = self.get_json(
+            f"/api/v1/courses/{course_id}",
+            params=[
+                ("include[]", "syllabus_body"),
+                ("include[]", "term"),
+            ],
+        )
+        if not isinstance(data, dict):
+            raise CanvasAPIError(f"Syllabus response for {course_id} was not a JSON object.")
+        return data
+
+    def course_modules(self, course_id: str | int) -> list[dict[str, Any]]:
+        data = self.get_paginated(
+            f"/api/v1/courses/{course_id}/modules",
+            params=[
+                ("include[]", "items"),
+                ("per_page", "100"),
+            ],
         )
         return [item for item in data if isinstance(item, dict)]
 

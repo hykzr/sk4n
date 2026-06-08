@@ -18,6 +18,3 @@ dependencies = [
     "requests>=2.34.2",
     "rich>=15.0.0",
 ]
-
-[project.scripts]
-canvas-sync = "canvas_sync.cli:main"

@@ -9,14 +9,24 @@ import pyrootutils
 
 pyroot = pyrootutils.setup_root(__file__, dotenv=True, pythonpath=True, cwd=True)
 
-from auth import DEFAULT_LOGIN_WAIT_SECONDS, ensure_canvas_session
-from client import CanvasClient
-from models import (
-    merge_course_records,
-    now_utc_iso,
-    path_for_course,
-    unique_course_folder_names_by_term,
-)
+try:
+    from .auth import DEFAULT_LOGIN_WAIT_SECONDS, ensure_canvas_session
+    from .client import CanvasAPIError, CanvasClient
+    from .models import (
+        merge_course_records,
+        now_utc_iso,
+        path_for_course,
+        unique_course_folder_names_by_term,
+    )
+except ImportError:
+    from auth import DEFAULT_LOGIN_WAIT_SECONDS, ensure_canvas_session
+    from client import CanvasAPIError, CanvasClient
+    from models import (
+        merge_course_records,
+        now_utc_iso,
+        path_for_course,
+        unique_course_folder_names_by_term,
+    )
 
 
 DEFAULT_BASE_URL = "https://canvas.nus.edu.sg"
@@ -24,6 +34,22 @@ DEFAULT_SITE_NAME = "nus_canvas"
 DEFAULT_DATA_PATH = pyroot / "data" / "canvas"
 COURSE_METADATA_FILE = "course.json"
 INDEX_FILE = "index.json"
+CONTENT_FILES = {
+    "announcements": "announcements.json",
+    "discussions": "discussions.json",
+    "people": "people.json",
+    "pages": "pages.json",
+    "syllabus": "syllabus.json",
+    "modules": "modules.json",
+}
+CONTENT_TAB_IDS = {
+    "announcements": "announcements",
+    "discussions": "discussions",
+    "people": "people",
+    "pages": "pages",
+    "syllabus": "syllabus",
+    "modules": "modules",
+}
 
 
 @dataclass(frozen=True)
@@ -40,6 +66,148 @@ def write_json(path: Path, data: dict[str, Any]) -> None:
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     tmp_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     tmp_path.replace(path)
+
+
+def open_tab_ids(tabs: list[dict[str, Any]]) -> set[str]:
+    return {
+        str(tab.get("id"))
+        for tab in tabs
+        if isinstance(tab, dict) and tab.get("hidden") is not True
+    }
+
+
+def content_payload(
+    client: CanvasClient,
+    *,
+    course_id: str,
+    content_type: str,
+    synced_at: str,
+) -> tuple[dict[str, Any], int]:
+    if content_type == "announcements":
+        items = client.course_announcements(course_id)
+        return list_content_payload(course_id, content_type, synced_at, items), len(items)
+    if content_type == "discussions":
+        items = client.course_discussions(course_id)
+        return list_content_payload(course_id, content_type, synced_at, items), len(items)
+    if content_type == "people":
+        items = client.course_people(course_id)
+        return list_content_payload(course_id, content_type, synced_at, items), len(items)
+    if content_type == "pages":
+        items = client.course_pages(course_id)
+        return list_content_payload(course_id, content_type, synced_at, items), len(items)
+    if content_type == "modules":
+        items = client.course_modules(course_id)
+        return list_content_payload(course_id, content_type, synced_at, items), len(items)
+    if content_type == "syllabus":
+        syllabus = client.course_syllabus(course_id)
+        payload = {
+            "schema_version": 1,
+            "synced_at": synced_at,
+            "course_id": course_id,
+            "content_type": content_type,
+            "body": syllabus.get("syllabus_body"),
+            "body_present": bool(syllabus.get("syllabus_body")),
+            "course": {
+                key: syllabus.get(key)
+                for key in (
+                    "id",
+                    "name",
+                    "course_code",
+                    "workflow_state",
+                    "default_view",
+                    "start_at",
+                    "end_at",
+                    "time_zone",
+                    "public_syllabus",
+                    "public_syllabus_to_auth",
+                )
+                if key in syllabus
+            },
+            "raw": syllabus,
+        }
+        return payload, int(bool(syllabus.get("syllabus_body")))
+    raise ValueError(f"Unsupported course content type: {content_type}")
+
+
+def list_content_payload(
+    course_id: str,
+    content_type: str,
+    synced_at: str,
+    items: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "synced_at": synced_at,
+        "course_id": course_id,
+        "content_type": content_type,
+        "count": len(items),
+        "items": items,
+    }
+
+
+def sync_course_content(
+    *,
+    client: CanvasClient,
+    course_id: str,
+    course_dir: Path,
+    tabs: list[dict[str, Any]],
+    synced_at: str,
+) -> dict[str, Any]:
+    available_tabs = open_tab_ids(tabs)
+    sections: dict[str, dict[str, Any]] = {}
+
+    for content_type, file_name in CONTENT_FILES.items():
+        content_path = course_dir / file_name
+        tab_id = CONTENT_TAB_IDS[content_type]
+        if tab_id not in available_tabs:
+            if content_path.exists():
+                content_path.unlink()
+            sections[content_type] = {
+                "available": False,
+                "fetched": False,
+                "path": None,
+                "count": 0,
+            }
+            continue
+
+        try:
+            payload, count = content_payload(
+                client,
+                course_id=course_id,
+                content_type=content_type,
+                synced_at=synced_at,
+            )
+        except CanvasAPIError as exc:
+            payload = {
+                "schema_version": 1,
+                "synced_at": synced_at,
+                "course_id": course_id,
+                "content_type": content_type,
+                "available": True,
+                "fetched": False,
+                "error": str(exc),
+            }
+            count = 0
+            fetched = False
+        else:
+            fetched = True
+
+        write_json(content_path, payload)
+        summary = {
+            "available": True,
+            "fetched": fetched,
+            "path": content_path.as_posix(),
+            "count": count,
+        }
+        if not fetched:
+            summary["error"] = payload["error"]
+        sections[content_type] = summary
+
+    return {
+        "schema_version": 1,
+        "synced_at": synced_at,
+        "sections": sections,
+    }
 
 
 def sync_canvas(
@@ -86,6 +254,13 @@ def sync_canvas(
             tabs=tabs,
             synced_at=synced_at,
         )
+        metadata["content"] = sync_course_content(
+            client=client,
+            course_id=record.id,
+            course_dir=course_dir,
+            tabs=tabs,
+            synced_at=synced_at,
+        )
         metadata["cover_image"].update(
             client.download_cover_image(metadata["cover_image"]["url"], course_dir)
         )
@@ -114,6 +289,7 @@ def sync_canvas(
                     }
                     for section in metadata["available_sections"]
                 ],
+                "content": metadata["content"]["sections"],
             }
         )
 

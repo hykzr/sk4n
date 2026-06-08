@@ -8,14 +8,19 @@ import pyrootutils
 
 pyroot = pyrootutils.setup_root(__file__, dotenv=True, pythonpath=True, cwd=True)
 
-from auth import DEFAULT_LOGIN_WAIT_SECONDS
-from client import CanvasAPIError
-from sync import DEFAULT_BASE_URL, DEFAULT_DATA_PATH, DEFAULT_SITE_NAME, sync_canvas
+try:
+    from .auth import DEFAULT_LOGIN_WAIT_SECONDS
+    from .client import CanvasAPIError
+    from .sync import DEFAULT_BASE_URL, DEFAULT_DATA_PATH, DEFAULT_SITE_NAME, sync_canvas
+except ImportError:
+    from auth import DEFAULT_LOGIN_WAIT_SECONDS
+    from client import CanvasAPIError
+    from sync import DEFAULT_BASE_URL, DEFAULT_DATA_PATH, DEFAULT_SITE_NAME, sync_canvas
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Fetch Canvas course metadata and create local course folders."
+        description="Fetch Canvas course metadata and opened course content."
     )
     parser.add_argument(
         "--base-url",
