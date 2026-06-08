@@ -5,9 +5,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .auth import DEFAULT_LOGIN_WAIT_SECONDS, ensure_canvas_session
-from .client import CanvasClient
-from .models import (
+import pyrootutils
+
+pyroot = pyrootutils.setup_root(__file__, dotenv=True, pythonpath=True, cwd=True)
+
+from auth import DEFAULT_LOGIN_WAIT_SECONDS, ensure_canvas_session
+from client import CanvasClient
+from models import (
     merge_course_records,
     now_utc_iso,
     path_for_course,
@@ -17,7 +21,7 @@ from .models import (
 
 DEFAULT_BASE_URL = "https://canvas.nus.edu.sg"
 DEFAULT_SITE_NAME = "nus_canvas"
-DEFAULT_DATA_PATH = Path("data/canvas")
+DEFAULT_DATA_PATH = pyroot / "data" / "canvas"
 COURSE_METADATA_FILE = "course.json"
 INDEX_FILE = "index.json"
 

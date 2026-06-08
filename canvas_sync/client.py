@@ -145,6 +145,8 @@ class CanvasClient:
         seen: set[str] = set()
         for link in soup.select('#past_enrollments_table a[href*="/courses/"]'):
             href = link.get("href", "")
+            if not isinstance(href, str):
+                continue
             match = re.search(r"/courses/(\d+)", href)
             if match and match.group(1) not in seen:
                 course_id = match.group(1)

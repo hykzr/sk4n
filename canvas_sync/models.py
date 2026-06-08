@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -92,11 +92,7 @@ class CourseRecord:
     course: dict[str, Any] | None = None
     favorite_course: dict[str, Any] | None = None
     dashboard_card: dict[str, Any] | None = None
-    sources: list[str] | None = None
-
-    def __post_init__(self) -> None:
-        if self.sources is None:
-            self.sources = []
+    sources: list[str] = field(default_factory=list)
 
     def add_source(self, source: str, item: dict[str, Any]) -> None:
         if source not in self.sources:
