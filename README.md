@@ -66,6 +66,7 @@ self-submission fields; volatile values such as late-second counters are ignored
 Useful options:
 
 ```bash
+python -m canvas_sync.cli --login-only
 python -m canvas_sync.cli --course CG2023 --course 85096
 python -m canvas_sync.cli --refresh-course
 python -m canvas_sync.cli --refresh-people
@@ -73,8 +74,14 @@ python -m canvas_sync.cli --refresh-pages --refresh-discussions
 python -m canvas_sync.cli --refresh-assignments
 python -m canvas_sync.cli --refresh-files
 python -m canvas_sync.cli --refresh-content
+python -m canvas_sync.cli --skip-files
+python -m canvas_sync.cli --skip-assignments --skip-files
 ```
 
 `--course` accepts one or more course IDs or exact course codes and can be
-repeated. The CLI prints Rich progress and a summary table showing which tabs
-were created, updated, unchanged, skipped, or failed.
+repeated. `--login-only` validates or refreshes the saved Canvas session and
+exits before fetching courses. Each content sector can be skipped with its own
+flag: `--skip-announcements`, `--skip-discussions`, `--skip-people`,
+`--skip-pages`, `--skip-syllabus`, `--skip-modules`, `--skip-assignments`, or
+`--skip-files`. The CLI prints Rich progress and a summary table showing which
+tabs were created, updated, unchanged, skipped, or failed.

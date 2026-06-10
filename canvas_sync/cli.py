@@ -105,6 +105,26 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Force refresh files metadata and re-download files.",
     )
+    for content_type in (
+        "announcements",
+        "discussions",
+        "people",
+        "pages",
+        "syllabus",
+        "modules",
+        "assignments",
+        "files",
+    ):
+        parser.add_argument(
+            f"--skip-{content_type}",
+            action="store_true",
+            help=f"Skip syncing {content_type}.",
+        )
+    parser.add_argument(
+        "--login-only",
+        action="store_true",
+        help="Validate or refresh the saved Canvas login, then exit without syncing.",
+    )
     parser.add_argument(
         "--login-wait-seconds",
         type=int,
@@ -138,11 +158,28 @@ def main() -> None:
             refresh_modules=args.refresh_modules,
             refresh_assignments=args.refresh_assignments,
             refresh_files=args.refresh_files,
+            skip_announcements=args.skip_announcements,
+            skip_discussions=args.skip_discussions,
+            skip_people=args.skip_people,
+            skip_pages=args.skip_pages,
+            skip_syllabus=args.skip_syllabus,
+            skip_modules=args.skip_modules,
+            skip_assignments=args.skip_assignments,
+            skip_files=args.skip_files,
+            login_only=args.login_only,
             show_progress=True,
             console=console,
         )
     except CanvasAPIError as exc:
         raise SystemExit(str(exc)) from exc
+
+    if args.login_only:
+        console.print("Canvas login check complete.")
+        if result.session_refreshed:
+            console.print("Canvas session was refreshed through browser login.")
+        else:
+            console.print("Canvas session was valid; no browser login needed.")
+        return
 
     console.print(f"Synced {result.course_count} course(s) into {result.data_path}")
     console.print(f"Index: {result.index_path}")
