@@ -462,6 +462,7 @@ def sync_canvas(
                 tabs=tabs,
                 synced_at=synced_at,
                 options=options,
+                course_metadata=metadata,
             )
             content_changed = any(
                 isinstance(section, dict)

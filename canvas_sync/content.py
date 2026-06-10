@@ -95,6 +95,7 @@ def run_content_syncer(
     synced_at: str,
     content_type: str,
     force: bool,
+    course_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     common_kwargs = {
         "client": client,
@@ -111,6 +112,12 @@ def run_content_syncer(
     if content_type in BASIC_SYNCERS:
         return BASIC_SYNCERS[content_type](**common_kwargs)
     if content_type in TABBED_SYNCERS:
+        if content_type == "assignments":
+            return sync_assignments(
+                **common_kwargs,
+                tabs=tabs,
+                course_metadata=course_metadata,
+            )
         return TABBED_SYNCERS[content_type](**common_kwargs, tabs=tabs)
     raise ValueError(f"Unsupported content type: {content_type}")
 
@@ -123,6 +130,7 @@ def sync_course_content(
     tabs: list[dict[str, Any]],
     synced_at: str,
     options: Any,
+    course_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     available_tabs = open_tab_ids(tabs)
     sections: dict[str, dict[str, Any]] = {}
@@ -149,6 +157,7 @@ def sync_course_content(
                 synced_at=synced_at,
                 content_type=content_type,
                 force=force,
+                course_metadata=course_metadata,
             )
         except CanvasAPIError as exc:
             summary = {

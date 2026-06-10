@@ -44,10 +44,19 @@ hash for the downloaded bytes.
 Assignments and quizzes are stored under `assignments/`. `Roll Call Attendance`
 is ignored. Each assignment or standalone quiz gets a normalized-name subfolder
 containing `assignment.json`, optional `content.html`, optional downloaded
-description images under `images/`, optional `quiz.json`, and submitted files
-under `submitted_files/` when Canvas exposes a self-submission with upload
-attachments. TA-only courses record self-submission lookup errors without
-fetching other students' submissions.
+description images under `images/`, optional `quiz.json`, downloaded quiz
+images under `quiz_images/` with `quiz_images.json` URL-to-file metadata, and
+submitted files under `submitted_files/` when Canvas exposes a self-submission
+with upload attachments. For submitted student attempts, `quiz.json` includes
+Classic Quiz review questions from Canvas's read-only result page when
+available, and New Quizzes result data from the submitted preview page for LTI
+quiz assignments. Quiz image links in saved HTML are rewritten to local relative
+paths when the image URL is accessible. When Canvas exposes structured quiz
+result data but no static review page, the sync writes a generated `quiz.html`
+preview from the saved question data. Standalone Classic Quiz attempts are
+detected through Canvas's quiz submission history before reading result pages.
+Unstarted quizzes are not opened, and TA/staff enrollments skip quiz-content
+reads to avoid using elevated access.
 
 Existing courses are incremental by default. `course.json` and `people.json` are
 assumed stable and are not refreshed unless forced. Pages are checked through

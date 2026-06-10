@@ -41,6 +41,37 @@ class CanvasClient:
     def api_url(self, path: str) -> str:
         return urljoin(self.base_url + "/", path.lstrip("/"))
 
+    def request_error(self, url: str, exc: requests.HTTPError) -> CanvasAPIError:
+        response = exc.response
+        status = response.status_code if response is not None else None
+        if status == 401:
+            return CanvasAPIError(
+                "Canvas rejected the saved session. Rerun the sync command "
+                "and complete the browser login when prompted."
+            )
+        if status == 403:
+            return CanvasAPIError(
+                f"Canvas denied access to {url} (HTTP 403). The item may be "
+                "locked, hidden, or unavailable for this enrollment."
+            )
+        if status:
+            return CanvasAPIError(f"Canvas request failed for {url} (HTTP {status}).")
+        return CanvasAPIError(f"Canvas request failed: {url}")
+
+    def get_response(
+        self,
+        path_or_url: str,
+        params: dict[str, Any] | Iterable[tuple[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> requests.Response:
+        url = (
+            path_or_url if path_or_url.startswith("http") else self.api_url(path_or_url)
+        )
+        try:
+            return self._rt.get(url, params=params, **kwargs)
+        except requests.HTTPError as exc:
+            raise self.request_error(url, exc) from exc
+
     def get_json(
         self,
         path_or_url: str,
@@ -49,16 +80,7 @@ class CanvasClient:
         url = (
             path_or_url if path_or_url.startswith("http") else self.api_url(path_or_url)
         )
-        try:
-            response = self._rt.get(url, params=params)
-        except requests.HTTPError as exc:
-            response = exc.response
-            if response is not None and response.status_code in {401, 403}:
-                raise CanvasAPIError(
-                    "Canvas rejected the saved session. Rerun the sync command "
-                    "and complete the browser login when prompted."
-                ) from exc
-            raise CanvasAPIError(f"Canvas request failed: {url}") from exc
+        response = self.get_response(url, params=params)
         content_type = response.headers.get("content-type", "")
         if "json" not in content_type.lower():
             raise CanvasAPIError(
@@ -77,16 +99,7 @@ class CanvasClient:
         items: list[Any] = []
         current_params = params
         for _ in range(max_pages):
-            try:
-                response = self._rt.get(url, params=current_params)
-            except requests.HTTPError as exc:
-                response = exc.response
-                if response is not None and response.status_code in {401, 403}:
-                    raise CanvasAPIError(
-                        "Canvas rejected the saved session. Rerun the sync command "
-                        "and complete the browser login when prompted."
-                    ) from exc
-                raise CanvasAPIError(f"Canvas request failed: {url}") from exc
+            response = self.get_response(url, params=current_params)
             content_type = response.headers.get("content-type", "")
             if "json" not in content_type.lower():
                 raise CanvasAPIError(
@@ -397,6 +410,19 @@ class CanvasClient:
             params=[("per_page", "100")],
         )
         return [item for item in data if isinstance(item, dict)]
+
+    def course_quiz_self_submission(
+        self, course_id: str | int, quiz_id: str | int
+    ) -> dict[str, Any]:
+        data = self.get_json(
+            f"/api/v1/courses/{course_id}/quizzes/{quiz_id}/submissions/self"
+        )
+        if not isinstance(data, dict):
+            raise CanvasAPIError(
+                f"Quiz self-submission response for {course_id}/{quiz_id} "
+                "was not a JSON object."
+            )
+        return data
 
     def course_folders(self, course_id: str | int) -> list[dict[str, Any]]:
         data = self.get_paginated(
