@@ -96,6 +96,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Force refresh modules.json.",
     )
     parser.add_argument(
+        "--refresh-assignments",
+        action="store_true",
+        help="Force refresh assignments, quizzes, images, and submitted files.",
+    )
+    parser.add_argument(
+        "--refresh-files",
+        action="store_true",
+        help="Force refresh files metadata and re-download files.",
+    )
+    parser.add_argument(
         "--login-wait-seconds",
         type=int,
         default=int(
@@ -126,6 +136,8 @@ def main() -> None:
             refresh_pages=args.refresh_pages,
             refresh_syllabus=args.refresh_syllabus,
             refresh_modules=args.refresh_modules,
+            refresh_assignments=args.refresh_assignments,
+            refresh_files=args.refresh_files,
             show_progress=True,
             console=console,
         )

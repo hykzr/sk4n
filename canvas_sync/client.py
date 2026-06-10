@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import mimetypes
 import re
 from collections.abc import Iterable
@@ -319,6 +320,132 @@ class CanvasClient:
             ],
         )
         return [item for item in data if isinstance(item, dict)]
+
+    def course_assignments(self, course_id: str | int) -> list[dict[str, Any]]:
+        data = self.get_paginated(
+            f"/api/v1/courses/{course_id}/assignments",
+            params=[
+                ("include[]", "submission"),
+                ("include[]", "all_dates"),
+                ("include[]", "overrides"),
+                ("include[]", "score_statistics"),
+                ("per_page", "100"),
+            ],
+        )
+        return [item for item in data if isinstance(item, dict)]
+
+    def course_assignment_detail(
+        self, course_id: str | int, assignment_id: str | int
+    ) -> dict[str, Any]:
+        data = self.get_json(
+            f"/api/v1/courses/{course_id}/assignments/{assignment_id}",
+            params=[
+                ("include[]", "submission"),
+                ("include[]", "all_dates"),
+                ("include[]", "overrides"),
+                ("include[]", "score_statistics"),
+                ("include[]", "rubric"),
+            ],
+        )
+        if not isinstance(data, dict):
+            raise CanvasAPIError(
+                f"Assignment detail response for {course_id}/{assignment_id} "
+                "was not a JSON object."
+            )
+        return data
+
+    def assignment_self_submission(
+        self, course_id: str | int, assignment_id: str | int
+    ) -> dict[str, Any]:
+        data = self.get_json(
+            f"/api/v1/courses/{course_id}/assignments/{assignment_id}/submissions/self",
+            params=[
+                ("include[]", "submission_history"),
+                ("include[]", "submission_comments"),
+                ("include[]", "rubric_assessment"),
+                ("include[]", "full_rubric_assessment"),
+                ("include[]", "visibility"),
+            ],
+        )
+        if not isinstance(data, dict):
+            raise CanvasAPIError(
+                f"Self submission response for {course_id}/{assignment_id} "
+                "was not a JSON object."
+            )
+        return data
+
+    def course_quizzes(self, course_id: str | int) -> list[dict[str, Any]]:
+        data = self.get_paginated(
+            f"/api/v1/courses/{course_id}/quizzes",
+            params=[("per_page", "100")],
+        )
+        return [item for item in data if isinstance(item, dict)]
+
+    def course_quiz_detail(self, course_id: str | int, quiz_id: str | int) -> dict[str, Any]:
+        data = self.get_json(f"/api/v1/courses/{course_id}/quizzes/{quiz_id}")
+        if not isinstance(data, dict):
+            raise CanvasAPIError(
+                f"Quiz detail response for {course_id}/{quiz_id} was not a JSON object."
+            )
+        return data
+
+    def course_quiz_questions(
+        self, course_id: str | int, quiz_id: str | int
+    ) -> list[dict[str, Any]]:
+        data = self.get_paginated(
+            f"/api/v1/courses/{course_id}/quizzes/{quiz_id}/questions",
+            params=[("per_page", "100")],
+        )
+        return [item for item in data if isinstance(item, dict)]
+
+    def course_folders(self, course_id: str | int) -> list[dict[str, Any]]:
+        data = self.get_paginated(
+            f"/api/v1/courses/{course_id}/folders",
+            params=[("per_page", "100")],
+        )
+        return [item for item in data if isinstance(item, dict)]
+
+    def course_files(self, course_id: str | int) -> list[dict[str, Any]]:
+        data = self.get_paginated(
+            f"/api/v1/courses/{course_id}/files",
+            params=[("per_page", "100")],
+        )
+        return [item for item in data if isinstance(item, dict)]
+
+    def file_details(self, file_id: str | int) -> dict[str, Any]:
+        data = self.get_json(f"/api/v1/files/{file_id}")
+        if not isinstance(data, dict):
+            raise CanvasAPIError(
+                f"File detail response for {file_id} was not a JSON object."
+            )
+        return data
+
+    def download_file(self, url: str, output_path: Path) -> dict[str, Any]:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = output_path.with_suffix(output_path.suffix + ".tmp")
+        digest = hashlib.sha256()
+        total = 0
+        try:
+            response = self._rt.session.get(url, timeout=self.timeout, stream=True)
+            response.raise_for_status()
+            with tmp_path.open("wb") as file:
+                for chunk in response.iter_content(chunk_size=1024 * 1024):
+                    if not chunk:
+                        continue
+                    total += len(chunk)
+                    digest.update(chunk)
+                    file.write(chunk)
+        except requests.RequestException as exc:
+            if tmp_path.exists():
+                tmp_path.unlink()
+            raise CanvasAPIError(f"Canvas file download failed: {url}") from exc
+        tmp_path.replace(output_path)
+        return {
+            "path": output_path.as_posix(),
+            "bytes": total,
+            "sha256": digest.hexdigest(),
+            "content_type": response.headers.get("content-type"),
+        }
 
     def download_cover_image(self, url: str | None, output_dir: Path) -> dict[str, Any]:
         remove_existing_cover_images(output_dir)
