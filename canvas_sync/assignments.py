@@ -32,7 +32,6 @@ try:
         rel_path,
         resolve_relative_path,
         safe_path_segment,
-        topic_status,
         unique_download_path,
         write_html,
         write_json,
@@ -58,7 +57,6 @@ except ImportError:
         rel_path,
         resolve_relative_path,
         safe_path_segment,
-        topic_status,
         unique_download_path,
         write_html,
         write_json,
@@ -292,8 +290,6 @@ def normalize_existing_assignment_item(
             target_path=item.get("content"),
             course_dir=assignments_json_path.parent,
         )
-    item["_canvas_sync"] = item.get("_canvas_sync", {})
-    item["_canvas_sync"]["status"] = "unchanged"
     return item
 
 
@@ -430,12 +426,6 @@ def download_assignment_images(
             and existing.get("sha256")
         ):
             record = copy.deepcopy(existing)
-            record["_canvas_sync"] = (
-                record.get("_canvas_sync", {})
-                if isinstance(record.get("_canvas_sync"), dict)
-                else {}
-            )
-            record["_canvas_sync"]["status"] = "unchanged"
             image["src"] = record["path"]
             used_paths.add(existing_path.resolve())
             images.append(record)
@@ -467,7 +457,6 @@ def download_assignment_images(
             image["src"] = record["path"]
         record["_canvas_sync"] = {
             "signature": fingerprint(src),
-            "status": topic_status(existing),
         }
         images.append(record)
     return str(soup), images
@@ -585,8 +574,6 @@ def quiz_image_metadata_payload(images_by_url: dict[str, dict[str, Any]]) -> dic
     }
     downloaded_count = sum(1 for record in images.values() if record.get("downloaded"))
     return {
-        "schema_version": 1,
-        "content_type": "quiz_images",
         "image_count": len(images),
         "downloaded_count": downloaded_count,
         "failed_count": len(images) - downloaded_count,
@@ -669,12 +656,6 @@ def rewrite_quiz_artifact_images(
             and existing.get("sha256")
         ):
             record = copy.deepcopy(existing)
-            record["_canvas_sync"] = (
-                record.get("_canvas_sync", {})
-                if isinstance(record.get("_canvas_sync"), dict)
-                else {}
-            )
-            record["_canvas_sync"]["status"] = "unchanged"
             images_by_url[absolute_src] = record
             return str(record.get("file") or record.get("path"))
 
@@ -716,12 +697,6 @@ def rewrite_quiz_artifact_images(
             ):
                 record = copy.deepcopy(existing)
                 record["refresh_error"] = str(exc)
-                record["_canvas_sync"] = (
-                    record.get("_canvas_sync", {})
-                    if isinstance(record.get("_canvas_sync"), dict)
-                    else {}
-                )
-                record["_canvas_sync"]["status"] = "unchanged"
                 images_by_url[absolute_src] = record
                 return str(record.get("file") or record.get("path"))
             images_by_url[absolute_src] = {
@@ -732,7 +707,6 @@ def rewrite_quiz_artifact_images(
                 "error": str(exc),
                 "_canvas_sync": {
                     "signature": fingerprint(absolute_src),
-                    "status": "error",
                 },
             }
             return None
@@ -747,7 +721,6 @@ def rewrite_quiz_artifact_images(
             "download_content_type": result.get("content_type"),
             "_canvas_sync": {
                 "signature": fingerprint(absolute_src),
-                "status": topic_status(existing),
             },
         }
         images_by_url[absolute_src] = record
@@ -1123,7 +1096,6 @@ def download_submitted_files(
             and existing.get("sha256")
         ):
             record = copy.deepcopy(existing)
-            record["_canvas_sync"]["status"] = "unchanged"
             used_paths.add(existing_path.resolve())
             records.append(record)
             records_by_key[attachment_key] = record
@@ -1148,7 +1120,6 @@ def download_submitted_files(
                     "bytes_downloaded": 0,
                 }
             )
-            status = "error"
         else:
             record.update(
                 {
@@ -1158,11 +1129,9 @@ def download_submitted_files(
                     "download_content_type": result.get("content_type"),
                 }
             )
-            status = topic_status(existing)
         record["_canvas_sync"] = {
             "attachment_key": attachment_key,
             "signature": signature,
-            "status": status,
         }
         records.append(record)
         records_by_key[attachment_key] = record
@@ -1275,8 +1244,6 @@ def quiz_payload_for_assignment(
         )
 
     payload = {
-        "schema_version": 4,
-        "content_type": "quiz",
         "quiz_id": quiz_id,
         "quiz": quiz_detail,
         "quiz_error": quiz_error,
@@ -1308,7 +1275,6 @@ def quiz_payload_for_assignment(
     write_json(quiz_path, payload)
     return {
         "path": rel_path(assignment_json_path, quiz_path),
-        "status": "updated" if existing_quiz_path else "created",
         "question_count": len(questions),
         "questions_available": content_result.available,
         "question_source": content_result.source,
@@ -1470,10 +1436,8 @@ def build_assignment_record(
     signature = assignment_summary_signature(summary, quiz_summary)
     file_ids = sorted(extract_file_ids_from_text(body))
     payload = {
-        "schema_version": 2,
         "synced_at": synced_at,
         "course_id": course_id,
-        "content_type": "assignment",
         "kind": "assignment",
         "id": int(assignment_id) if assignment_id.isdigit() else assignment_id,
         "name": detail.get("name") or summary.get("name"),
@@ -1487,10 +1451,6 @@ def build_assignment_record(
         "assignment": detail,
         "assignment_detail_error": detail_error,
         "quiz": quiz_info,
-        "change_detection": {
-            "canvas_fields": "assignment list metadata, included submission summary, and quiz summary when available",
-            "strategy": "skip detail fetch when signature matches and local files exist",
-        },
         "fingerprint": fingerprint(
             {
                 "signature": signature,
@@ -1508,7 +1468,6 @@ def build_assignment_record(
         ),
         "_canvas_sync": {
             "signature": signature,
-            "status": topic_status(existing_item),
         },
     }
     write_json(assignment_json_path, payload)
@@ -1529,7 +1488,6 @@ def build_assignment_record(
         "referenced_file_ids": file_ids,
         "_canvas_sync": {
             "signature": signature,
-            "status": topic_status(existing_item),
         },
     }
     return item, True
@@ -1616,10 +1574,8 @@ def build_standalone_quiz_record(
     signature = quiz_summary_signature(quiz)
     file_ids = sorted(extract_file_ids_from_text(body))
     payload = {
-        "schema_version": 2,
         "synced_at": synced_at,
         "course_id": course_id,
-        "content_type": "assignment",
         "kind": "quiz",
         "id": int(quiz_id) if quiz_id.isdigit() else quiz_id,
         "name": detail.get("title") or quiz.get("title"),
@@ -1633,10 +1589,6 @@ def build_standalone_quiz_record(
         "quiz_detail_error": detail_error,
         "quiz_detail": detail,
         "quiz": quiz_info,
-        "change_detection": {
-            "canvas_fields": "quiz list metadata and quiz self-submission summary",
-            "strategy": "skip detail fetch when signature matches and local files exist",
-        },
         "fingerprint": fingerprint(
             {
                 "signature": signature,
@@ -1651,7 +1603,6 @@ def build_standalone_quiz_record(
         ),
         "_canvas_sync": {
             "signature": signature,
-            "status": topic_status(existing_item),
         },
     }
     write_json(assignment_json_path, payload)
@@ -1669,7 +1620,6 @@ def build_standalone_quiz_record(
         "referenced_file_ids": file_ids,
         "_canvas_sync": {
             "signature": signature,
-            "status": topic_status(existing_item),
         },
     }
     return item, True
@@ -1876,14 +1826,11 @@ def sync_assignments(
     if existing and existing.get("fingerprint") != fingerprint_value:
         changed = True
     payload = {
-        "schema_version": 2,
         "synced_at": synced_at,
         "course_id": course_id,
-        "content_type": "assignments",
         "count": len(items),
         "assignment_count": len(assignments),
         "standalone_quiz_count": sum(1 for item in items if item.get("kind") == "quiz"),
-        "ignored_roll_call": True,
         "submitted_file_count": submitted_file_count,
         "image_count": image_count,
         "assignments_available": has_assignments_tab,
@@ -1892,14 +1839,6 @@ def sync_assignments(
         "quizzes_error": quizzes_error,
         "quiz_assignment_errors": quiz_assignment_errors,
         "fingerprint": fingerprint_value,
-        "change_detection": {
-            "canvas_fields": [
-                "assignment updated_at/dates/points/submission_types/description",
-                "included self-submission summary",
-                "quiz list metadata when available",
-            ],
-            "strategy": "skip detail, quiz question, image, and submitted-file fetches when signatures match local files",
-        },
         "items": items,
     }
     if changed:

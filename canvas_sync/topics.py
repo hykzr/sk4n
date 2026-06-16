@@ -18,7 +18,6 @@ try:
         rel_path,
         replace_message_fields_with_path,
         safe_html_filename,
-        topic_status,
         write_html,
         write_json,
         read_json,
@@ -36,7 +35,6 @@ except ImportError:
         rel_path,
         replace_message_fields_with_path,
         safe_html_filename,
-        topic_status,
         write_html,
         write_json,
         read_json,
@@ -162,8 +160,6 @@ def sync_topics(
             )
         topic_copy["_canvas_sync"] = {
             "signature": signature,
-            "html_path": html_rel,
-            "status": topic_status(existing_item),
         }
         items.append(topic_copy)
         changed = True
@@ -176,7 +172,6 @@ def sync_topics(
         changed = True
     payload = list_payload(
         course_id=course_id,
-        content_type=content_type,
         synced_at=synced_at,
         items=items,
         fingerprint_value=fingerprint_value,

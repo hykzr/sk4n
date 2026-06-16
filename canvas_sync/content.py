@@ -175,7 +175,6 @@ def sync_course_content(
         sections[content_type] = summary
 
     return {
-        "schema_version": 2,
         "synced_at": synced_at,
         "sections": sections,
     }

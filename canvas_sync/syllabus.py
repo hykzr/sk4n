@@ -62,10 +62,8 @@ def sync_syllabus(
     if "syllabus_body" in raw:
         raw["syllabus_body"] = html_rel
     payload = {
-        "schema_version": 2,
         "synced_at": synced_at,
         "course_id": course_id,
-        "content_type": "syllabus",
         "body": html_rel,
         "body_present": bool(body),
         "fingerprint": fingerprint(body),

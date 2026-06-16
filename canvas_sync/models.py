@@ -189,7 +189,6 @@ class CourseRecord:
         cover_image_url = self.cover_image_url
         card = self.dashboard_card or {}
         return {
-            "schema_version": 1,
             "synced_at": synced_at,
             "base_url": base_url,
             "term_folder_name": term_folder_name,

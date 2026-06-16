@@ -16,7 +16,6 @@ try:
         read_json,
         rel_path,
         safe_html_filename,
-        topic_status,
         write_html,
         write_json,
     )
@@ -33,7 +32,6 @@ except ImportError:
         read_json,
         rel_path,
         safe_html_filename,
-        topic_status,
         write_html,
         write_json,
     )
@@ -106,8 +104,6 @@ def sync_pages(
         detail["body"] = html_rel
         detail["_canvas_sync"] = {
             "signature": signature,
-            "html_path": html_rel,
-            "status": topic_status(existing_item),
         }
         items.append(detail)
         changed = True
@@ -120,7 +116,6 @@ def sync_pages(
         changed = True
     payload = list_payload(
         course_id=course_id,
-        content_type="pages",
         synced_at=synced_at,
         items=items,
         fingerprint_value=fingerprint_value,

@@ -23,7 +23,6 @@ try:
         rel_path,
         resolve_relative_path,
         safe_path_segment,
-        topic_status,
         unique_download_path,
         write_json,
     )
@@ -45,7 +44,6 @@ except ImportError:
         rel_path,
         resolve_relative_path,
         safe_path_segment,
-        topic_status,
         unique_download_path,
         write_json,
     )
@@ -117,8 +115,6 @@ def file_record_from_existing(
         target_path=item.get("path"),
         course_dir=json_path.parent,
     )
-    item["_canvas_sync"] = item.get("_canvas_sync", {})
-    item["_canvas_sync"]["status"] = "unchanged"
     return item
 
 
@@ -256,7 +252,6 @@ def sync_files(
             record["path"] = rel_path(json_path, output_path)
             record["sha256"] = existing_item.get("sha256") if existing_item else None
             record["bytes_downloaded"] = 0
-            status = "error"
         else:
             record["downloaded"] = True
             record["path"] = rel_path(json_path, output_path)
@@ -265,10 +260,8 @@ def sync_files(
             record["download_content_type"] = download_result.get("content_type")
             record["download_url"] = download_result.get("download_url")
             downloaded_files += 1
-            status = topic_status(existing_item)
         record["_canvas_sync"] = {
             "signature": signature,
-            "status": status,
         }
         items.append(record)
         changed = True
@@ -289,39 +282,14 @@ def sync_files(
         changed = True
 
     payload = {
-        "schema_version": 2,
         "synced_at": synced_at,
         "course_id": course_id,
-        "content_type": "files",
         "count": len(items),
         "downloaded_count": sum(1 for item in items if item.get("downloaded") is True),
         "course_files_available": has_files_tab,
         "course_files_error": course_files_error,
         "referenced_file_count": len(references),
         "fingerprint": fingerprint_value,
-        "change_detection": {
-            "canvas_fields": [
-                "id",
-                "folder_id",
-                "display_name",
-                "filename",
-                "content-type",
-                "size",
-                "updated_at",
-                "modified_at",
-                "unlock_at",
-                "lock_at",
-                "locked",
-                "hidden",
-                "locked_for_user",
-                "hidden_for_user",
-            ],
-            "local_hash": "sha256",
-            "strategy": (
-                "reuse local file when Canvas metadata signature and local "
-                "SHA-256 are present"
-            ),
-        },
         "folders": folders,
         "files": items,
     }

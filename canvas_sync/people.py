@@ -51,7 +51,6 @@ def sync_people(
     items = client.course_people(course_id)
     payload = list_payload(
         course_id=course_id,
-        content_type="people",
         synced_at=synced_at,
         items=items,
         fingerprint_value=fingerprint(items),

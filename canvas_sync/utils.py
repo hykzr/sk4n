@@ -169,16 +169,13 @@ def safe_html_filename(id_value: Any, title: Any, fallback: str) -> str:
 def list_payload(
     *,
     course_id: str,
-    content_type: str,
     synced_at: str,
     items: list[dict[str, Any]],
     fingerprint_value: str,
 ) -> dict[str, Any]:
     return {
-        "schema_version": 2,
         "synced_at": synced_at,
         "course_id": course_id,
-        "content_type": content_type,
         "count": len(items),
         "fingerprint": fingerprint_value,
         "items": items,
@@ -242,10 +239,6 @@ def replace_message_fields_with_path(
                 with_fragments=with_fragments,
             )
     return result
-
-
-def topic_status(existing_item: dict[str, Any] | None) -> str:
-    return "updated" if existing_item else "created"
 
 
 def path_is_relative_to(path: Path, parent: Path) -> bool:

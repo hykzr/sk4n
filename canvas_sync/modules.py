@@ -50,7 +50,6 @@ def sync_modules(
         }
     payload = list_payload(
         course_id=course_id,
-        content_type="modules",
         synced_at=synced_at,
         items=modules,
         fingerprint_value=fingerprint_value,

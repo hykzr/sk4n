@@ -527,7 +527,6 @@ def sync_canvas(
 
     index_path = root / INDEX_FILE
     index = {
-        "schema_version": 2,
         "synced_at": synced_at,
         "base_url": base_url,
         "site_name": site_name,
