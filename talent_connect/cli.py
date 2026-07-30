@@ -27,7 +27,7 @@ from .auth import (
     login,
     logout,
 )
-from .authenticated_client import AuthenticatedKinobiClient
+from .authenticated_client import AuthenticatedKinobiClient, WORKFLOW_STATUSES
 from .client import (
     DEFAULT_API_BASE_URL,
     DEFAULT_APP_BASE_URL,
@@ -74,6 +74,7 @@ PERSONAL_FILTER_KEYS = {
     "is_my_jobs",
     "is_qualified",
     "is_recommended",
+    "talent_connect_statuses",
 }
 OUTPUT_FORMATS = ("json", "jsonl", "plain")
 
@@ -184,6 +185,17 @@ def add_filter_arguments(parser: argparse.ArgumentParser) -> None:
         help="Show only jobs for which Kinobi marks the authenticated user qualified.",
     )
     parser.add_argument(
+        "--status",
+        action="append",
+        choices=WORKFLOW_STATUSES,
+        dest="talent_connect_statuses",
+        metavar="STATUS",
+        help=(
+            "Profile workflow status. Repeat to form a union. "
+            f"Values: {', '.join(WORKFLOW_STATUSES)}."
+        ),
+    )
+    parser.add_argument(
         "--posted-after",
         type=iso_datetime,
         help=(
@@ -245,6 +257,8 @@ def filters_from_args(args: argparse.Namespace, *, query: str | None = None) -> 
         filters["include_expired_if_applied"] = True
     if getattr(args, "is_qualified", False):
         filters["is_qualified"] = True
+    if getattr(args, "talent_connect_statuses", None):
+        filters["talent_connect_statuses"] = args.talent_connect_statuses
     if getattr(args, "posted_after", None):
         filters["posted_after"] = args.posted_after
     return filters
@@ -449,7 +463,7 @@ def _validate_login_filters(args: argparse.Namespace, filters: Mapping[str, Any]
         authenticated_filters -= {"is_recommended"}
     if getattr(args, "no_login", False) and authenticated_filters:
         raise ValueError(
-            "Applied, saved, recommended, and qualified filters require "
+            "Applied, saved, recommended, qualified, and status filters require "
             "authentication; remove --no-login."
         )
 
@@ -541,6 +555,30 @@ def _list_remote_jobs(
     page_size: int = DEFAULT_PAGE_SIZE,
     progress_callback: Any = None,
 ) -> list[dict[str, Any]]:
+    workflow_statuses = filters.get("talent_connect_statuses")
+    if workflow_statuses:
+        if not isinstance(job_client, AuthenticatedKinobiClient):
+            raise ValueError("Workflow status filters require authentication.")
+        statuses = (
+            list(workflow_statuses)
+            if isinstance(workflow_statuses, Sequence)
+            and not isinstance(workflow_statuses, (str, bytes))
+            else [str(workflow_statuses)]
+        )
+        jobs = job_client.list_workflow_jobs(
+            statuses=statuses,
+            query=str(filters.get("query") or "") or None,
+            page_size=page_size,
+            progress_callback=progress_callback,
+        )
+        local_filters = {
+            key: value
+            for key, value in filters.items()
+            if key != "talent_connect_statuses"
+        }
+        jobs = [job for job in jobs if job_matches_filters(job, local_filters)]
+        return jobs[:max_jobs] if max_jobs is not None else jobs
+
     remote_filters, local_filters, recommended = _split_job_filters(filters)
     remote_max = None if local_filters else max_jobs
     kwargs: dict[str, Any] = {
@@ -611,6 +649,9 @@ def print_jobs(jobs: Sequence[Mapping[str, Any]], *, title: str = "Jobs") -> Non
             states.append("bookmarked")
         if job.get("is_unqualified_student") is True:
             states.append("unqualified")
+        workflow_statuses = job.get("talent_connect_statuses")
+        if isinstance(workflow_statuses, list):
+            states.extend(str(status) for status in workflow_statuses)
         type_and_state = str(job.get("employment_type") or "")
         if states:
             type_and_state = f"{type_and_state}\n[green]{'/'.join(states)}[/green]"
@@ -626,6 +667,7 @@ def print_jobs(jobs: Sequence[Mapping[str, Any]], *, title: str = "Jobs") -> Non
 def print_job_detail(job: Mapping[str, Any]) -> None:
     company = _dict_value(job.get("company"))
     application = _dict_value(job.get("job_application"))
+    offer = _dict_value(job.get("job_offer"))
     console.print(f"[bold]{escape(str(job.get('title') or '(untitled)'))}[/bold]")
     console.print(
         f"{escape(str(company.get('name') or 'Unknown company'))} "
@@ -662,6 +704,13 @@ def print_job_detail(job: Mapping[str, Any]) -> None:
         else ("Qualified", ""),
         ("Application status", application.get("status")),
         ("Application ID", job.get("job_application_id") or application.get("_id")),
+        (
+            "Workflow status",
+            ", ".join(str(value) for value in (job.get("talent_connect_statuses") or [])),
+        ),
+        ("Offer response", offer.get("response")),
+        ("Offer status", offer.get("status")),
+        ("Offer ID", offer.get("_id")),
         ("External link", job.get("job_link")),
         ("TalentConnect", _job_url(job)),
     ]
@@ -753,6 +802,7 @@ def handle_auth(args: argparse.Namespace) -> int:
 
 def handle_fetch(args: argparse.Namespace, store: TalentConnectStore) -> int:
     filters = filters_from_args(args)
+    workflow_fetch = bool(filters.get("talent_connect_statuses"))
     _validate_login_filters(args, filters)
     if args.cached:
         if args.updated_only:
@@ -782,8 +832,11 @@ def handle_fetch(args: argparse.Namespace, store: TalentConnectStore) -> int:
             )
             if progress is not None and search_task is not None:
                 progress.update(search_task, completed=len(jobs), total=len(jobs))
-            stats, changed_jobs = store.upsert_jobs_with_changes(jobs, detail_level=1)
-            if not args.no_details:
+            stats, changed_jobs = store.upsert_jobs_with_changes(
+                jobs,
+                detail_level=2 if workflow_fetch else 1,
+            )
+            if not args.no_details and not workflow_fetch:
                 detail_candidates = []
                 for job in jobs:
                     identifier = str(job.get("slug") or job.get("_id") or "")
@@ -817,6 +870,13 @@ def handle_fetch(args: argparse.Namespace, store: TalentConnectStore) -> int:
                     error_console.print(
                         f"[yellow]Warning:[/yellow] {len(detail_errors)} job detail "
                         "request(s) failed; list records were still stored."
+                    )
+            elif workflow_fetch:
+                detail_errors = getattr(job_client, "detail_errors", {})
+                if detail_errors:
+                    error_console.print(
+                        f"[yellow]Warning:[/yellow] {len(detail_errors)} workflow job "
+                        "detail request(s) failed; available status records were stored."
                     )
         finally:
             if progress:

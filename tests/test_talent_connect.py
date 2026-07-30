@@ -6,6 +6,7 @@ from typing import Any
 
 import requests
 
+from talent_connect.authenticated_client import workflow_record_to_job
 from talent_connect.cli import build_parser, filters_from_args
 from talent_connect.client import KinobiClient
 from talent_connect.storage import TalentConnectStore, job_matches_filters, summarize_job
@@ -291,6 +292,10 @@ def test_cli_parser_builds_fetch_filters() -> None:
             "--applied",
             "--saved",
             "--qualified",
+            "--status",
+            "interviewing",
+            "--status",
+            "declined-offer",
             "--posted-after",
             "2026-07-01",
             "--max-jobs",
@@ -307,10 +312,54 @@ def test_cli_parser_builds_fetch_filters() -> None:
         "is_applied": True,
         "is_my_jobs": True,
         "is_qualified": True,
+        "talent_connect_statuses": ["interviewing", "declined-offer"],
         "posted_after": "2026-07-01T00:00:00Z",
     }
     assert args.max_jobs == 10
     assert args.format == "jsonl"
+
+
+def test_workflow_application_record_becomes_job_without_profile_data() -> None:
+    application = {
+        "_id": "application-1",
+        "status": "rejected",
+        "updated_at": "2026-07-30T03:00:00Z",
+        "job": sample_job(company="company-db-id"),
+        "user": {"email": "student@example.test"},
+    }
+
+    job = workflow_record_to_job(
+        application,
+        workflow_status="declined",
+        source="application",
+    )
+
+    assert job is not None
+    assert job["talent_connect_statuses"] == ["declined"]
+    assert job["job_application"]["status"] == "rejected"
+    assert "user" not in job["job_application"]
+    assert "company" not in job
+    assert job["user_has_applied"] is True
+
+
+def test_cached_workflow_status_filters_distinguish_applications_and_offers() -> None:
+    declined_application = sample_job(job_application={"status": "rejected"})
+    accepted_offer = sample_job(
+        job_offer={"response": "accepted", "is_past": False},
+    )
+
+    assert job_matches_filters(
+        declined_application,
+        {"talent_connect_statuses": ["declined"]},
+    )
+    assert not job_matches_filters(
+        declined_application,
+        {"talent_connect_statuses": ["declined-offer"]},
+    )
+    assert job_matches_filters(
+        accepted_offer,
+        {"talent_connect_statuses": ["accepted-offer"]},
+    )
 
 
 def test_database_contains_plain_json_not_pickles(tmp_path: Path) -> None:

@@ -19,6 +19,93 @@ from .client import (
     encode_job_filters,
 )
 
+WORKFLOW_STATUSES = (
+    "withdrawn",
+    "interviewing",
+    "declined",
+    "offered",
+    "accepted-offer",
+    "job-history",
+    "declined-offer",
+)
+
+APPLICATION_WORKFLOW_STATUSES = {
+    "withdrawn": "withdrawn",
+    "interviewing": "interviewing",
+    "declined": "rejected",
+}
+
+OFFER_WORKFLOW_FILTERS = {
+    "offered": {
+        "statuses": "sent,terminated,expired",
+        "responses": "pending",
+    },
+    "accepted-offer": {
+        "statuses": "sent,expired",
+        "responses": "accepted",
+        "exclude_past": "true",
+    },
+    "job-history": {
+        "statuses": "sent,expired",
+        "responses": "accepted",
+        "is_only_past": "true",
+    },
+    "declined-offer": {
+        "statuses": "sent,expired",
+        "responses": "rejected",
+    },
+}
+
+
+def _without_keys(record: Mapping[str, Any], *keys: str) -> dict[str, Any]:
+    excluded = set(keys)
+    return {key: value for key, value in record.items() if key not in excluded}
+
+
+def workflow_record_to_job(
+    record: Mapping[str, Any],
+    *,
+    workflow_status: str,
+    source: str,
+) -> dict[str, Any] | None:
+    """Convert a profile application/offer record into a persistable job record."""
+    nested_job = record.get("job")
+    if not isinstance(nested_job, Mapping) or not nested_job.get("_id"):
+        return None
+    job = dict(nested_job)
+    if not isinstance(job.get("company"), Mapping):
+        job.pop("company", None)
+    job["talent_connect_statuses"] = [workflow_status]
+    if source == "application":
+        application = _without_keys(record, "job", "user", "applicant")
+        job["job_application"] = application
+        job["job_application_id"] = application.get("_id")
+        job["user_has_applied"] = application.get("status") != "draft"
+        job["is_draft"] = application.get("status") == "draft"
+    elif source == "offer":
+        job["job_offer"] = _without_keys(record, "job", "applicant")
+    else:
+        raise ValueError(f"Unknown workflow source: {source}")
+    return job
+
+
+def _merge_workflow_jobs(
+    existing: dict[str, Any],
+    incoming: Mapping[str, Any],
+) -> dict[str, Any]:
+    merged = dict(existing)
+    for key, value in incoming.items():
+        if key == "talent_connect_statuses":
+            old_statuses = existing.get(key)
+            old = old_statuses if isinstance(old_statuses, list) else []
+            new = value if isinstance(value, list) else []
+            merged[key] = list(dict.fromkeys([*old, *new]))
+        elif isinstance(value, Mapping) and isinstance(merged.get(key), Mapping):
+            merged[key] = {**dict(merged[key]), **dict(value)}
+        else:
+            merged[key] = value
+    return merged
+
 
 class AuthenticatedKinobiClient:
     """Use Kinobi's in-page Axios client without extracting browser tokens."""
@@ -235,6 +322,186 @@ class AuthenticatedKinobiClient:
                 max_jobs=max_jobs,
                 page_size=page_size,
                 recommended=recommended,
+                progress_callback=progress_callback,
+            )
+        )
+
+    async def _list_workflow_jobs_async(
+        self,
+        *,
+        statuses: Sequence[str],
+        query: str | None,
+        page_size: int,
+        progress_callback: ProgressCallback | None,
+    ) -> list[dict[str, Any]]:
+        requested = list(dict.fromkeys(statuses))
+        unsupported = [status for status in requested if status not in WORKFLOW_STATUSES]
+        if unsupported:
+            raise ValueError(f"Unsupported TalentConnect status: {unsupported[0]}")
+
+        playwright, browser, page = await self._open()
+        workflow_jobs: dict[str, dict[str, Any]] = {}
+        self.detail_errors = {}
+        try:
+            async def fetch_all(
+                endpoint: str,
+                base_params: Mapping[str, Any],
+            ) -> list[dict[str, Any]]:
+                records: list[dict[str, Any]] = []
+                page_number = 1
+                while True:
+                    params = dict(base_params)
+                    params.update(
+                        {
+                            "page": page_number,
+                            "entries_per_page": page_size,
+                        }
+                    )
+                    payload = await self._get(page, endpoint + "?" + urlencode(params))
+                    data = payload.get("data")
+                    pagination = payload.get("pagination")
+                    if not isinstance(data, list):
+                        raise KinobiAPIError(
+                            f"Authenticated Kinobi response for {endpoint} has no data list."
+                        )
+                    records.extend(record for record in data if isinstance(record, dict))
+                    if not data or not isinstance(pagination, Mapping):
+                        return records
+                    total_pages = int(pagination.get("total_pages") or page_number)
+                    if page_number >= total_pages:
+                        return records
+                    page_number += 1
+
+            application_statuses = [
+                APPLICATION_WORKFLOW_STATUSES[status]
+                for status in requested
+                if status in APPLICATION_WORKFLOW_STATUSES
+            ]
+            if application_statuses:
+                params: dict[str, Any] = {
+                    "statuses": ",".join(application_statuses),
+                }
+                if query:
+                    params["query"] = query
+                applications = await fetch_all(
+                    "/api/job-application/by-user-and-job-paginated",
+                    params,
+                )
+                reverse_status = {
+                    value: key for key, value in APPLICATION_WORKFLOW_STATUSES.items()
+                }
+                for application in applications:
+                    canonical = reverse_status.get(str(application.get("status") or ""))
+                    if canonical is None:
+                        continue
+                    job = workflow_record_to_job(
+                        application,
+                        workflow_status=canonical,
+                        source="application",
+                    )
+                    if job is None:
+                        continue
+                    job_id = str(job["_id"])
+                    workflow_jobs[job_id] = _merge_workflow_jobs(
+                        workflow_jobs.get(job_id, {}),
+                        job,
+                    )
+
+            offer_statuses = [
+                status for status in requested if status in OFFER_WORKFLOW_FILTERS
+            ]
+            if offer_statuses:
+                user_id = await page.evaluate(
+                    """
+                    () => {
+                      const user = window.$nuxt?.$store?.state?.auth?.user || {};
+                      return user._id || user.user_id || null;
+                    }
+                    """
+                )
+                if not user_id:
+                    auth_payload = await self._get(page, "/api/auth/")
+                    auth_user = auth_payload.get("data")
+                    if isinstance(auth_user, Mapping):
+                        user_id = auth_user.get("_id") or auth_user.get("user_id")
+                if not user_id:
+                    raise KinobiAPIError(
+                        "The authenticated Kinobi profile has no user ID for offer filtering."
+                    )
+                for status in offer_statuses:
+                    params = {
+                        **OFFER_WORKFLOW_FILTERS[status],
+                        "applicant_ids": str(user_id),
+                    }
+                    if query:
+                        params["query"] = query
+                    offers = await fetch_all("/api/job-offer/all-paginated", params)
+                    for offer in offers:
+                        job = workflow_record_to_job(
+                            offer,
+                            workflow_status=status,
+                            source="offer",
+                        )
+                        if job is None:
+                            continue
+                        job_id = str(job["_id"])
+                        workflow_jobs[job_id] = _merge_workflow_jobs(
+                            workflow_jobs.get(job_id, {}),
+                            job,
+                        )
+
+            identifiers = list(workflow_jobs)
+            details_by_id: dict[str, dict[str, Any]] = {}
+            batch_size = 8
+            for offset in range(0, len(identifiers), batch_size):
+                batch = identifiers[offset : offset + batch_size]
+                paths = [f"/api/job/{identifier}" for identifier in batch]
+                try:
+                    payloads = await self._get_many(page, paths)
+                except KinobiAPIError:
+                    payloads = []
+                    for identifier, path in zip(batch, paths, strict=True):
+                        try:
+                            payloads.append(await self._get(page, path))
+                        except KinobiAPIError as exc:
+                            self.detail_errors[identifier] = str(exc)
+                            payloads.append({})
+                for identifier, payload in zip(batch, payloads, strict=True):
+                    data = payload.get("data")
+                    if isinstance(data, dict) and data.get("_id"):
+                        details_by_id[identifier] = data
+                    elif identifier not in self.detail_errors:
+                        self.detail_errors[identifier] = "invalid job detail response"
+                if progress_callback:
+                    progress_callback(
+                        min(offset + len(batch), len(identifiers)),
+                        len(identifiers),
+                    )
+
+            return [
+                _merge_workflow_jobs(
+                    details_by_id.get(identifier, {}),
+                    workflow_jobs[identifier],
+                )
+                for identifier in identifiers
+            ]
+        finally:
+            await browser.close()
+            await playwright.stop()
+
+    def list_workflow_jobs(
+        self,
+        *,
+        statuses: Sequence[str],
+        query: str | None = None,
+        page_size: int = DEFAULT_PAGE_SIZE,
+        progress_callback: ProgressCallback | None = None,
+    ) -> list[dict[str, Any]]:
+        return asyncio.run(
+            self._list_workflow_jobs_async(
+                statuses=statuses,
+                query=query,
+                page_size=page_size,
                 progress_callback=progress_callback,
             )
         )

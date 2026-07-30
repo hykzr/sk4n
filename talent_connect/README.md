@@ -60,6 +60,8 @@ uv run talent-connect fetch --applied --include-expired-if-applied
 uv run talent-connect fetch --qualified --posted-after 2026-07-01
 uv run talent-connect fetch --application-type "easy apply"
 uv run talent-connect fetch --saved --special-needs
+uv run talent-connect fetch --status interviewing
+uv run talent-connect fetch --status declined --status declined-offer
 uv run talent-connect fetch --max-jobs 50
 
 # Public records only; do not validate or open a login
@@ -93,14 +95,39 @@ Repeat a filter flag to send multiple values. Supported filters are:
 - `--recommended` / `--not-recommended`
 - `--special-needs` / `--not-special-needs`
 - `--qualified`
+- `--status STATUS` (repeatable)
 - `--posted-after DATE_OR_DATETIME`
 - `--include-expired-if-applied`
 
-Applied, drafted, saved, recommended, and qualified filters require
+Applied, drafted, saved, recommended, qualified, and status filters require
 authentication and cannot be combined with `--no-login`. `--recommended` uses
 the separate endpoint used by the web UI. `--qualified` checks
 `is_unqualified_student` after the authenticated search because the API ignores
 an attempted qualification query parameter.
+
+`--status` mirrors the authenticated profile's job-workflow tabs. Its values
+are `withdrawn`, `interviewing`, `declined`, `offered`, `accepted-offer`,
+`job-history`, and `declined-offer`. Repeating it returns the union of those
+states. These are deliberately distinct from the main job search's `--applied`
+flag:
+
+| CLI status | Kinobi workflow query |
+| --- | --- |
+| `withdrawn` | application `statuses=withdrawn` |
+| `interviewing` | application `statuses=interviewing` |
+| `declined` | application `statuses=rejected` |
+| `offered` | offer `responses=pending`, statuses `sent,terminated,expired` |
+| `accepted-offer` | offer `responses=accepted`, statuses `sent,expired`, excluding past work |
+| `job-history` | offer `responses=accepted`, statuses `sent,expired`, past work only |
+| `declined-offer` | offer `responses=rejected`, statuses `sent,expired` |
+
+Offer requests always include the authenticated user's applicant ID. Kinobi's
+offer endpoint is institution-wide without that parameter, so omitting it
+would return other students' records. Empty status tabs are returned as an
+accurate empty result. The workflow endpoints return application/offer records
+with nested jobs; the CLI fetches each matching job's authenticated detail,
+attaches `job_application` or `job_offer` metadata, and persists the combined
+record. Other job filters are then applied to those complete job records.
 
 Kinobi also ignores posted-date and sort query parameters, and its default
 ordering is not reliably chronological. Therefore `--posted-after` fetches ALL
@@ -117,6 +144,10 @@ responses, and applicant count. Therefore the detail controls remain useful:
   detail was last fetched.
 - `--no-details` skips all dedicated detail requests and stores list records.
 - `--refresh-details` forces a dedicated detail request for every match.
+
+Workflow `--status` searches always fetch their matching job details because
+the application and offer endpoints expose only partial nested job records;
+`--no-details` therefore applies only to ordinary job-list searches.
 
 Kinobi's `updated_at` is the job record's last-modified timestamp. It is the
 same on the list and detail endpoints in the tested tenant, even though some
@@ -203,6 +234,8 @@ The implementation was verified against the NUS tenant on 30 July 2026:
 | Authenticated job search/list | `GET /api/job` through Kinobi's in-page client | Yes |
 | Authenticated recommended jobs | `GET /api/job/recommendation` through Kinobi's in-page client | Yes |
 | Authenticated job detail | `GET /api/job/{id-or-slug}` through Kinobi's in-page client | Yes |
+| Profile application status | `GET /api/job-application/by-user-and-job-paginated?statuses=...` | Yes |
+| Profile offer status | `GET /api/job-offer/all-paginated?applicant_ids=...&statuses=...&responses=...` | Yes |
 | Public job search/list | `GET /api/job/public` | No |
 | Public job detail | `GET /api/job/{id-or-slug}/public` | No |
 | Company search/list | `GET /api/company` | No |

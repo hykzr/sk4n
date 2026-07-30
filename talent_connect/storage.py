@@ -543,6 +543,28 @@ class TalentConnectStore:
 
 def job_matches_filters(job: Mapping[str, Any], filters: Mapping[str, Any]) -> bool:
     company = _dict_value(job.get("company"))
+    requested_statuses = _normalized_values(filters.get("talent_connect_statuses"))
+    if requested_statuses:
+        actual_statuses = _normalized_values(job.get("talent_connect_statuses"))
+        application = _dict_value(job.get("job_application"))
+        application_status = str(application.get("status") or "").casefold()
+        if application_status == "rejected":
+            actual_statuses.add("declined")
+        elif application_status in {"withdrawn", "interviewing"}:
+            actual_statuses.add(application_status)
+        offer = _dict_value(job.get("job_offer"))
+        offer_response = str(offer.get("response") or "").casefold()
+        if offer_response == "pending":
+            actual_statuses.add("offered")
+        elif offer_response == "accepted":
+            actual_statuses.add(
+                "job-history" if offer.get("is_past") is True else "accepted-offer"
+            )
+        elif offer_response == "rejected":
+            actual_statuses.add("declined-offer")
+        if not (actual_statuses & requested_statuses):
+            return False
+
     query = str(filters.get("query") or "").strip().casefold()
     if query:
         searchable = " ".join(
