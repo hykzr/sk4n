@@ -220,3 +220,7 @@ __marimo__/
 temp/
 sessions/
 data/
+.DS_Store
+._*
+desktop.ini
+Thumbs.db

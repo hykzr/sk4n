@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import math
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 from urllib.parse import urlencode
@@ -55,6 +57,8 @@ OFFER_WORKFLOW_FILTERS = {
         "responses": "rejected",
     },
 }
+
+HTTP_METHOD_PATTERN = re.compile(r"^[A-Z]+$")
 
 
 def _without_keys(record: Mapping[str, Any], *keys: str) -> dict[str, Any]:
@@ -151,36 +155,7 @@ class AuthenticatedKinobiClient:
         return playwright, browser, page
 
     async def _get(self, page: Any, path: str) -> dict[str, Any]:
-        result = await page.evaluate(
-            """
-            async (path) => {
-                try {
-                    const payload = await window.$nuxt.$axios.$get(path);
-                    return {ok: true, payload};
-                } catch (error) {
-                    return {
-                        ok: false,
-                        status: error.response && error.response.status,
-                        message: String(error.message || error)
-                    };
-                }
-            }
-            """,
-            path,
-        )
-        if not isinstance(result, dict) or not result.get("ok"):
-            status = result.get("status") if isinstance(result, dict) else None
-            message = result.get("message") if isinstance(result, dict) else "unknown error"
-            if status == 401:
-                raise KinobiAPIError(
-                    "The saved TalentConnect login expired. "
-                    "Run `talent-connect auth login --refresh`."
-                )
-            raise KinobiAPIError(
-                f"Authenticated Kinobi request failed for {path}"
-                f"{f' (HTTP {status})' if status else ''}: {message}"
-            )
-        payload = result.get("payload")
+        payload = await self._request(page, "GET", path)
         if not isinstance(payload, dict):
             raise KinobiAPIError(f"Authenticated Kinobi response for {path} was not a JSON object.")
         return payload
@@ -228,6 +203,86 @@ class AuthenticatedKinobiClient:
                 )
             payloads.append(payload)
         return payloads
+
+    @staticmethod
+    def _validate_request(method: str, path: str) -> tuple[str, str]:
+        normalized_method = method.strip().upper()
+        if not HTTP_METHOD_PATTERN.fullmatch(normalized_method):
+            raise ValueError(f"Invalid HTTP method: {method!r}")
+        if not path.startswith("/api/") or path.startswith("//"):
+            raise ValueError("Authenticated Kinobi request paths must start with /api/.")
+        return normalized_method, path
+
+    async def _request(
+        self,
+        page: Any,
+        method: str,
+        path: str,
+        data: Any = None,
+    ) -> Any:
+        method, path = self._validate_request(method, path)
+        result = await page.evaluate(
+            """
+            async ({method, path, data}) => {
+                try {
+                    const payload = await window.$nuxt.$axios.$request({
+                        method,
+                        url: path,
+                        data
+                    });
+                    return {ok: true, payload};
+                } catch (error) {
+                    return {
+                        ok: false,
+                        status: error.response && error.response.status,
+                        message: String(error.message || error),
+                        payload: error.response && error.response.data
+                    };
+                }
+            }
+            """,
+            {"method": method, "path": path, "data": data},
+        )
+        if isinstance(result, dict) and result.get("ok"):
+            return result.get("payload")
+
+        status = result.get("status") if isinstance(result, dict) else None
+        message = result.get("message") if isinstance(result, dict) else "unknown error"
+        if status == 401:
+            raise KinobiAPIError(
+                "The saved TalentConnect login expired. Run `talent-connect auth login --refresh`."
+            )
+        response_payload = result.get("payload") if isinstance(result, dict) else None
+        response_detail = ""
+        if response_payload is not None:
+            response_detail = f": {json.dumps(response_payload, ensure_ascii=False)}"
+        raise KinobiAPIError(
+            f"Authenticated Kinobi {method} request failed for {path}"
+            f"{f' (HTTP {status})' if status else ''}: {message}{response_detail}"
+        )
+
+    async def _request_async(
+        self,
+        method: str,
+        path: str,
+        data: Any = None,
+    ) -> Any:
+        method, path = self._validate_request(method, path)
+        playwright, browser, page = await self._open()
+        try:
+            return await self._request(page, method, path, data)
+        finally:
+            await browser.close()
+            await playwright.stop()
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        data: Any = None,
+    ) -> Any:
+        """Send one request through Kinobi's authenticated in-page Axios client."""
+        return asyncio.run(self._request_async(method, path, data))
 
     async def _list_jobs_async(
         self,

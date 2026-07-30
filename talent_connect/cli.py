@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -27,7 +28,7 @@ from .auth import (
     login,
     logout,
 )
-from .authenticated_client import AuthenticatedKinobiClient, WORKFLOW_STATUSES
+from .authenticated_client import WORKFLOW_STATUSES, AuthenticatedKinobiClient
 from .client import (
     DEFAULT_API_BASE_URL,
     DEFAULT_APP_BASE_URL,
@@ -97,6 +98,20 @@ def iso_datetime(value: str) -> str:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
     return parsed.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def http_method(value: str) -> str:
+    method = value.strip().upper()
+    if not method.isalpha():
+        raise argparse.ArgumentTypeError("must contain only letters")
+    return method
+
+
+def json_argument(value: str) -> Any:
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise argparse.ArgumentTypeError(f"must be valid JSON: {exc.msg}") from exc
 
 
 def add_filter_arguments(parser: argparse.ArgumentParser) -> None:
@@ -317,6 +332,30 @@ def build_parser() -> argparse.ArgumentParser:
     auth_commands.add_parser(
         "logout",
         help="Delete the CLI's saved session without signing other browsers out of NUS SSO.",
+    )
+
+    api_parser = commands.add_parser(
+        "api",
+        help="Send a low-level request through the authenticated Kinobi client.",
+    )
+    api_parser.add_argument(
+        "path",
+        help="Kinobi API path beginning with /api/; include query parameters in the path.",
+    )
+    api_parser.add_argument(
+        "-X",
+        "--method",
+        type=http_method,
+        default="GET",
+        help="HTTP method. Default: GET.",
+    )
+    api_parser.add_argument(
+        "-d",
+        "--data",
+        type=json_argument,
+        default=None,
+        metavar="JSON",
+        help="JSON request body.",
     )
 
     fetch_parser = commands.add_parser(
@@ -800,6 +839,18 @@ def handle_auth(args: argparse.Namespace) -> int:
     raise AssertionError(f"Unknown auth command: {args.auth_command}")
 
 
+def handle_api(args: argparse.Namespace) -> int:
+    client = AuthenticatedKinobiClient(
+        app_base_url=args.app_base_url,
+        site_name=args.site_name,
+        timeout=args.timeout,
+    )
+    payload = client.request(args.method, args.path, args.data)
+    json.dump(payload, sys.stdout, indent=2, ensure_ascii=False)
+    sys.stdout.write("\n")
+    return 0
+
+
 def handle_fetch(args: argparse.Namespace, store: TalentConnectStore) -> int:
     filters = filters_from_args(args)
     workflow_fetch = bool(filters.get("talent_connect_statuses"))
@@ -1061,6 +1112,8 @@ def handle_search(args: argparse.Namespace, store: TalentConnectStore) -> int:
 def run(args: argparse.Namespace) -> int:
     if args.command == "auth":
         return handle_auth(args)
+    if args.command == "api":
+        return handle_api(args)
     with TalentConnectStore(args.data_path) as store:
         if args.command == "fetch":
             return handle_fetch(args, store)

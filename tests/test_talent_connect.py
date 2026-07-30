@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 from typing import Any
 
+import pytest
 import requests
 
-from talent_connect.authenticated_client import workflow_record_to_job
-from talent_connect.cli import build_parser, filters_from_args
-from talent_connect.client import KinobiClient
+from talent_connect.authenticated_client import (
+    AuthenticatedKinobiClient,
+    workflow_record_to_job,
+)
+from talent_connect.cli import build_parser, filters_from_args, handle_api
+from talent_connect.client import KinobiAPIError, KinobiClient
 from talent_connect.storage import TalentConnectStore, job_matches_filters, summarize_job
 
 
@@ -317,6 +322,94 @@ def test_cli_parser_builds_fetch_filters() -> None:
     }
     assert args.max_jobs == 10
     assert args.format == "jsonl"
+
+
+def test_cli_parser_builds_authenticated_api_request() -> None:
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "api",
+            "/api/job?entries_per_page=1",
+            "--method",
+            "post",
+            "--data",
+            '{"query": "engineer"}',
+        ]
+    )
+
+    assert args.command == "api"
+    assert args.path == "/api/job?entries_per_page=1"
+    assert args.method == "POST"
+    assert args.data == {"query": "engineer"}
+
+
+def test_authenticated_request_rejects_external_urls() -> None:
+    with pytest.raises(ValueError, match="must start with /api/"):
+        AuthenticatedKinobiClient._validate_request(
+            "GET",
+            "https://example.test/api/auth/",
+        )
+
+
+def test_handle_api_prints_only_json_to_stdout(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    parser = build_parser()
+    args = parser.parse_args(["api", "/api/auth/"])
+
+    def fake_request(
+        _self: AuthenticatedKinobiClient,
+        method: str,
+        path: str,
+        data: Any,
+    ) -> dict[str, Any]:
+        assert (method, path, data) == ("GET", "/api/auth/", None)
+        return {"data": {"authenticated": True}}
+
+    monkeypatch.setattr(AuthenticatedKinobiClient, "request", fake_request)
+
+    assert handle_api(args) == 0
+    captured = capsys.readouterr()
+    assert json.loads(captured.out) == {"data": {"authenticated": True}}
+    assert captured.err == ""
+
+
+def test_authenticated_request_reports_http_errors() -> None:
+    class FakePage:
+        async def evaluate(self, _script: str, request: dict[str, Any]) -> dict[str, Any]:
+            assert request == {
+                "method": "DELETE",
+                "path": "/api/example",
+                "data": None,
+            }
+            return {
+                "ok": False,
+                "status": 403,
+                "message": "Request failed with status code 403",
+                "payload": {"message": "forbidden"},
+            }
+
+    client = AuthenticatedKinobiClient()
+    with pytest.raises(KinobiAPIError, match=r"DELETE.*HTTP 403.*forbidden"):
+        asyncio.run(client._request(FakePage(), "delete", "/api/example"))
+
+
+def test_authenticated_get_uses_generic_request_transport() -> None:
+    class FakePage:
+        async def evaluate(self, _script: str, request: dict[str, Any]) -> dict[str, Any]:
+            assert request == {
+                "method": "GET",
+                "path": "/api/example",
+                "data": None,
+            }
+            return {"ok": True, "payload": {"data": ["result"]}}
+
+    client = AuthenticatedKinobiClient()
+
+    assert asyncio.run(client._get(FakePage(), "/api/example")) == {
+        "data": ["result"]
+    }
 
 
 def test_workflow_application_record_becomes_job_without_profile_data() -> None:

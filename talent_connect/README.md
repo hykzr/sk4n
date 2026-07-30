@@ -46,6 +46,27 @@ fields with or without login; `company` authenticates only because it also
 fetches that company's jobs. The CLI never extracts or prints Kinobi's browser
 token.
 
+## Low-level authenticated API requests
+
+Use `api` to call a Kinobi endpoint directly through the same authenticated
+in-page Axios client:
+
+```bash
+# GET is the default
+uv run talent-connect api '/api/auth/'
+uv run talent-connect api '/api/job?entries_per_page=1'
+
+# Send a JSON body with any HTTP method
+uv run talent-connect api '/api/example' -X POST -d '{"key":"value"}'
+```
+
+The path must begin with `/api/`; full URLs are rejected so Kinobi
+authentication cannot be forwarded to another host. Successful response data
+is written as JSON to stdout. Request and validation errors are written to
+stderr and return exit code 2, making the command suitable for shell pipelines
+and endpoint exploration. This command does not read or update the local job
+database.
+
 ## Fetch and persist jobs
 
 ```bash
