@@ -5,9 +5,10 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import requests
+from playwright.async_api import async_playwright
 
 from tools import RequestTools
-from tools._shared import load_session, save_session
+from tools.shared import load_session, save_session
 
 DEFAULT_LOGIN_WAIT_SECONDS = 300
 
@@ -66,7 +67,6 @@ async def login_with_browser(
     site_name: str,
     login_wait_seconds: int = DEFAULT_LOGIN_WAIT_SECONDS,
 ) -> None:
-    from playwright.async_api import async_playwright
 
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(headless=False)

@@ -30,7 +30,7 @@ uv run talent-connect auth logout
 ```
 
 `auth login` opens a visible browser and detects a completed NUS SSO login
-automatically; there is no second Enter prompt. The Playwright storage state is
+automatically; The Playwright storage state is
 saved as `nus_talent_connect` and reused for status checks.
 
 `auth logout` removes only **talent connect's** saved session. 
@@ -38,17 +38,13 @@ saved as `nus_talent_connect` and reused for status checks.
 Job commands authenticate by default. If the saved session is missing or
 expired, the CLI opens a browser and continues automatically after NUS SSO
 finishes. Authenticated job-list records include `user_has_applied`,
-`is_bookmarked`, `is_unqualified_student`, and other per-user fields.
+`is_bookmarked`, `is_unqualified_student`, and other job details
 
 Use `--no-login` on `fetch`, `job`, `company`, or `search job` to use the public
 job endpoint instead. Company records themselves are public and have the same
 fields with or without login; `company` authenticates only because it also
 fetches that company's jobs. The CLI never extracts or prints Kinobi's browser
 token.
-
-Authenticated job detail may contain the user's application, applicant, and
-resume metadata. The default `data/` directory is gitignored; treat any copied
-database or structured output as private.
 
 ## Fetch and persist jobs
 
@@ -107,13 +103,11 @@ the separate endpoint used by the web UI. `--qualified` checks
 an attempted qualification query parameter.
 
 Kinobi also ignores posted-date and sort query parameters, and its default
-ordering is not reliably chronological. Therefore `--posted-after` fetches all
+ordering is not reliably chronological. Therefore `--posted-after` fetches ALL
 remote matches, compares `published_at` locally, and only then applies
-`--max-jobs`. It cannot safely stop at an earlier page.
+`--max-jobs`. It cannot safely stop at an earlier page so is very slow
 
-Kinobi's authenticated job-list endpoint returns descriptions,
-responsibilities, requirements, salary, restrictions, nested company data, and
-the per-user flags needed for list output. It does not, however, return every
+Kinobi's authenticated job-list endpoint  does not, return every
 job-detail field. The dedicated detail endpoint adds 17 fields, including
 start/end dates, role, work term, application ID/status, additional-information
 responses, and applicant count. Therefore the detail controls remain useful:
@@ -181,8 +175,6 @@ With no `--format`, commands use human-friendly Rich tables and detail views.
 - `--format plain` writes each top-level field as `field: value`, with records
   separated by a dashed line. Nested values stay as compact JSON on that same
   line, which is convenient for agents and shell pipelines.
-
-The old `--json` flag has been removed.
 
 ## Eligibility IDs
 

@@ -8,6 +8,9 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup, Tag
+from playwright.async_api import async_playwright
+
+from tools.shared import load_session
 
 try:
     from .client import CanvasAPIError, CanvasClient
@@ -442,9 +445,6 @@ async def _fetch_new_quiz_result_browser(
     site_name: str,
     timeout_ms: int,
 ) -> dict[str, Any]:
-    from playwright.async_api import async_playwright
-
-    from tools._shared import load_session
 
     if "/submissions/" not in urlparse(preview_url).path:
         raise CanvasAPIError("New Quiz preview URL was not a Canvas submission review URL.")

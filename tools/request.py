@@ -7,8 +7,9 @@ from typing import Any
 import bs4
 import requests
 from bs4 import BeautifulSoup, Tag
+from bs4.element import NavigableString
 
-from ._shared import clean_whitespace, load_session, save_session, truncate_text
+from .shared import clean_whitespace, load_session, save_session, truncate_text
 
 
 class RequestTools:
@@ -137,7 +138,6 @@ class RequestTools:
         include_text: bool = True,
     ) -> str:
         """Return a simplified, indented DOM tree using BeautifulSoup."""
-        from bs4.element import NavigableString
 
         root = soup.select_one(selector)
         if not root:

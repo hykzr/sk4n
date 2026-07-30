@@ -4,7 +4,9 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any
 
-from tools._shared import delete_session, load_session, save_session
+from playwright.async_api import async_playwright
+
+from tools.shared import delete_session, load_session, save_session
 
 from .client import DEFAULT_APP_BASE_URL
 
@@ -72,8 +74,6 @@ async def check_auth_status_async(
     if not session or "storage_state" not in session:
         return AuthStatus(authenticated=False)
     try:
-        from playwright.async_api import async_playwright
-
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch(headless=True)
             context = await browser.new_context(
@@ -115,8 +115,6 @@ async def login_async(
         )
         if current.authenticated:
             return current
-
-    from playwright.async_api import async_playwright
 
     session = None if refresh else load_session(site_name)
     async with async_playwright() as playwright:

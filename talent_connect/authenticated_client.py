@@ -6,7 +6,9 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 from urllib.parse import urlencode
 
-from tools._shared import load_session
+from playwright.async_api import async_playwright
+
+from tools.shared import load_session
 
 from .auth import DEFAULT_SITE_NAME
 from .client import (
@@ -41,7 +43,6 @@ class AuthenticatedKinobiClient:
         return storage_state
 
     async def _open(self):
-        from playwright.async_api import async_playwright
 
         playwright = await async_playwright().start()
         browser = await playwright.chromium.launch(headless=True)
