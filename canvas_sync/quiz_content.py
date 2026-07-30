@@ -75,9 +75,9 @@ def input_records(node: Tag) -> list[dict[str, Any]]:
             if element.get(key) is not None
         }
         if element.has_attr("checked"):
-            record["checked"] = True
+            record["checked"] = True  # type: ignore
         if element.has_attr("selected"):
-            record["selected"] = True
+            record["selected"] = True  # type: ignore
         records.append(record)
     return records
 
@@ -95,7 +95,9 @@ def answer_record(node: Tag, base_url: str) -> dict[str, Any]:
         "correct": "correct_answer" in classes,
         "incorrect": "wrong_answer" in classes,
         "title": node.get("title"),
-        "text": clean_text(answer_text.get_text(" ", strip=True) if answer_text else node.get_text(" ", strip=True)),
+        "text": clean_text(
+            answer_text.get_text(" ", strip=True) if answer_text else node.get_text(" ", strip=True)
+        ),
         "html": absolutize_html_fragment(html, base_url),
         "inputs": input_records(node),
     }
@@ -126,9 +128,7 @@ def question_record(node: Tag, base_url: str, position: int) -> dict[str, Any]:
     return {
         "id": question_id.group(1) if question_id else raw_id or None,
         "position": position,
-        "name": clean_text(
-            node.select_one(".question_name").get_text(" ", strip=True)
-        )
+        "name": clean_text(node.select_one(".question_name").get_text(" ", strip=True))  # type: ignore
         if node.select_one(".question_name")
         else None,
         "type": next((item for item in classes if item.endswith("_question")), None),
@@ -144,8 +144,7 @@ def question_record(node: Tag, base_url: str, position: int) -> dict[str, Any]:
         else "",
         "question_html": absolutize_html_fragment(inner_html(question_text), base_url),
         "answers": [
-            answer_record(answer, base_url)
-            for answer in node.select(".answers .answer, .answer")
+            answer_record(answer, base_url) for answer in node.select(".answers .answer, .answer")
         ],
         "inputs": input_records(node),
         "comments": comments,
@@ -190,9 +189,7 @@ def safe_get_quiz_html(
         if 300 <= response.status_code < 400:
             location = response.headers.get("location")
             if not location:
-                raise CanvasAPIError(
-                    f"Canvas redirected {current_url} without a Location header."
-                )
+                raise CanvasAPIError(f"Canvas redirected {current_url} without a Location header.")
             next_url = urljoin(current_url, location)
             path = urlparse(next_url).path
             if QUIZ_TAKE_PATH.search(path):
@@ -203,9 +200,7 @@ def safe_get_quiz_html(
             continue
         content_type = response.headers.get("content-type", "")
         if "html" not in content_type.lower():
-            raise CanvasAPIError(
-                f"Canvas returned non-HTML quiz review content for {current_url}."
-            )
+            raise CanvasAPIError(f"Canvas returned non-HTML quiz review content for {current_url}.")
         return response.text, response.url
     raise CanvasAPIError(f"Canvas redirected too many times while fetching {url}.")
 
@@ -224,16 +219,13 @@ def has_submitted_attempt(submission: Any) -> bool:
 def submitted_quiz_attempt(response: Any) -> dict[str, Any] | None:
     submissions = (
         response.get("quiz_submissions")
-        if isinstance(response, dict)
-        and isinstance(response.get("quiz_submissions"), list)
+        if isinstance(response, dict) and isinstance(response.get("quiz_submissions"), list)
         else None
     )
     if submissions is None:
         submissions = [response] if isinstance(response, dict) else []
     attempts = [
-        item
-        for item in submissions
-        if isinstance(item, dict) and has_submitted_attempt(item)
+        item for item in submissions if isinstance(item, dict) and has_submitted_attempt(item)
     ]
     if not attempts:
         return None
@@ -305,6 +297,7 @@ def fetch_classic_quiz_content(
         if isinstance(quiz_detail, dict) and isinstance(quiz_detail.get("html_url"), str)
         else client.api_url(f"/courses/{course_id}/quizzes/{quiz_id}")
     )
+    assert isinstance(html_url, str) and html_url, "No quiz review URL was available."
     review: dict[str, Any] = {"url": html_url}
     try:
         html, final_url = safe_get_quiz_html(client, html_url)
@@ -423,11 +416,7 @@ def merge_new_quiz_questions(
         if isinstance(interaction, dict):
             interaction_name = interaction.get("name") or interaction.get("slug")
         interaction_data = item.get("interaction_data")
-        choices = (
-            interaction_data.get("choices")
-            if isinstance(interaction_data, dict)
-            else None
-        )
+        choices = interaction_data.get("choices") if isinstance(interaction_data, dict) else None
         result = copy.deepcopy(results_by_item_id.get(item_id))
         questions.append(
             {
@@ -454,6 +443,7 @@ async def _fetch_new_quiz_result_browser(
     timeout_ms: int,
 ) -> dict[str, Any]:
     from playwright.async_api import async_playwright
+
     from tools._shared import load_session
 
     if "/submissions/" not in urlparse(preview_url).path:
@@ -526,7 +516,7 @@ async def _fetch_new_quiz_result_browser(
             await page.goto(preview_url, wait_until="domcontentloaded")
             try:
                 await asyncio.wait_for(event.wait(), timeout=timeout_ms / 1000)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 await page.wait_for_timeout(1500)
             captured["final_url"] = page.url
             captured["title"] = await page.title()

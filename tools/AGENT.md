@@ -1,4 +1,4 @@
-# Prompt: Generate Deterministic Web Automation Scripts
+# Skill: Generate Deterministic Web Automation Scripts
 
 You are a coding agent. Your job is to **explore a target website** using the
 provided tools, understand its structure, and then **write a deterministic
@@ -28,6 +28,7 @@ requires login, pass `site_name` to reuse cookies saved by BrowserTools.
 
 ```python
 from aitools import RequestTools
+
 rt = RequestTools()
 soup = rt.get_soup("https://example.com")
 tree = rt.dom_tree(soup, max_depth=4)
@@ -70,7 +71,7 @@ or observe dynamic changes.
 from aitools import BrowserTools
 
 # Use headless=False when login is required or the site may detect headless.
-bt = BrowserTools(headless=False)   # headless=True for CI
+bt = BrowserTools(headless=False)  # headless=True for CI
 await bt.start()
 ```
 
@@ -169,9 +170,9 @@ For the **small subset of tasks** that genuinely cannot be done deterministicall
 from aitools import get_models, get_local_models, LLMModel
 
 # Discover available models (returns list[LLMModel]):
-models = get_models()                              # all models
+models = get_models()  # all models
 models = get_models(preferred_models=["llama3.1"])  # preferred models sorted first
-local = get_local_models()                          # only local (Ollama) models
+local = get_local_models()  # only local (Ollama) models
 
 # Pick a model and call it directly:
 model = models[0]
@@ -179,8 +180,8 @@ summary = model.call("Summarize this article in 2 sentences:\n\n" + article_text
 
 # Structured JSON response:
 data = model.call_json(
-   "Extract the following fields from this text as JSON "
-   '{"title": "...", "date": "...", "tags": [...]}:\n\n' + raw_text
+    "Extract the following fields from this text as JSON "
+    '{"title": "...", "date": "...", "tags": [...]}:\n\n' + raw_text
 )
 ```
 
@@ -212,7 +213,9 @@ For advanced use (e.g. adding custom endpoints), instantiate `LLMTools` directly
 from aitools import LLMTools
 
 llm = LLMTools()
-llm.add_model("my-model", provider="openai-compatible", endpoint="http://localhost:8080/v1", api="sk-...")
+llm.add_model(
+    "my-model", provider="openai-compatible", endpoint="http://localhost:8080/v1", api="sk-..."
+)
 models = llm.get_models(preferred_models=["my-model"])
 ```
 
@@ -311,23 +314,18 @@ Follow these steps **in order**:
 
 ### Step 1 — Explore
 
+Before creating the production script, you must first explore the website by actually creating smoke / exprimental python script to see how it works and try the methods, and really try what to capture
+
 1. Fetch the page and call `dom_tree()` to get an overview of the page structure.
 2. With BrowserTools: call `find_interactive_elements()` to see what's clickable.
 3. Call `get_links()` or `get_texts()` on specific regions to understand content.
 4. If the page loads data via XHR/fetch, use `network_log_start()` + trigger
    the action + `network_log_get("xhr")` to discover API endpoints.
-5. Use `intercept_response(url_pattern)` to capture and inspect API responses.
+5. Use `intercept_response(url_pattern)` to capture and inspect API endpoints ad responses.
+6. if authenticatio  is already needed during exploration stage, notify the user and let user do it.
 
-### Step 2 — Identify Selectors
-
-- Prefer **stable selectors** in this priority order:
-  1. `#id`
-  2. `[data-*]` attributes
-  3. `[name=...]`, `[role=...]`, `[aria-label=...]`
-  4. Tag + class combination (`.class1.class2`)
-  5. Structural selectors (`ul > li:nth-child(2)`) — last resort
-- **Test every selector** with `count()` / `query_selector_all()` or
-  `get_text()` before using it in the final script.
+- **Test every selector** you need with before using it in the final script.
+- **Test every backend api you prepare to use** with both requesttools and, if it raw requests hits permission denied even after loading session data, use browsertool.
 
 ### Step 3 — Prototype Actions
 
@@ -352,16 +350,13 @@ Follow these steps **in order**:
     (for requests).
   - Accept configuration (URLs, credentials, output path) as arguments or
     constants at the top.
-  - Accept a `--preferred-models` CLI argument (list of model name substrings)
+  - Accept a `--preferred-models` CLI argument if llm is used (list of model name substrings)
     so the user can control which LLM models are preferred at runtime.
     Use `get_models(preferred_models=...)` and iterate or pick the first model.
   - Handle pagination if applicable.
   - Have basic error handling / retries for network issues.
   - Save results to a structured format (JSON, CSV, …), or print it out in
     human-readable format depending on requirements.
-  - **Maximize deterministic parsing.** Use regex, string splitting, CSS
-    selectors, XPath — exhaust all deterministic options first.
-  - Only call `model.call()` / `model.call_json()` when truly necessary (see §3).
   - Use `request_user_interaction()` for manual login steps if needed.
 
 ### Step 5 — Test
@@ -419,8 +414,8 @@ that _fundamentally_ cannot be solved with deterministic parsing.
 
 ## 4 Rules & Best Practices
 
-1. **Explore first, code second.** Never guess selectors — always verify them
-   with the observation tools.
+1. **Explore first, code second.** Never guess selectors / endpoints — always verify them
+   with the observation tools. Official documentations may help, but you still need to varify them
 2. **Try RequestTools before BrowserTools.** Many sites serve content in static
    HTML. Requests + BS4 is faster and simpler.
 3. **Discover APIs.** Many modern sites load data via JSON APIs. Sniff network
@@ -442,10 +437,6 @@ that _fundamentally_ cannot be solved with deterministic parsing.
 9. **Document selectors.** In the final script, add comments explaining
    what each selector targets and why it was chosen, so maintenance is easy if
    the site layout changes.
-10. **Check models before LLM usage.** Call `get_models(preferred_models=[...])` to
-    get a prioritized model list. Always explicitly pick a model before calling it.
-    Prefer local or cheap models during exploration; let the user choose via
-    `--preferred-models` in the final script.
-11. **Isolate site-specific code.** Put site-specific selectors and logic in
+10. **Isolate site-specific code.** Put site-specific selectors and logic in
     clearly named functions or classes. Common patterns (retry, save-to-json,
     pagination) should be reusable.

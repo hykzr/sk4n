@@ -18,3 +18,30 @@ dependencies = [
     "requests>=2.34.2",
     "rich>=15.0.0",
 ]
+
+[dependency-groups]
+dev = ["pytest>=9.1.1"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I", "B", "UP", "C4", "SIM", "A", "RUF"]
+ignore = ["E501", "E402"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "basic"
+reportMissingImports = "error"
+reportInvalidTypeForm = "error"
+reportOverlappingOverload = "error"
+reportUntypedFunctionDecorator = "warning"
+reportPrivateUsage = "warning"
+reportUnusedImport = "information"

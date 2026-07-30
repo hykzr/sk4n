@@ -139,9 +139,7 @@ def sync_files(
     except CanvasAPIError:
         folders = []
     folders_by_id = {
-        str(folder.get("id")): folder
-        for folder in folders
-        if folder.get("id") is not None
+        str(folder.get("id")): folder for folder in folders if folder.get("id") is not None
     }
 
     references = collect_referenced_file_ids(course_dir)
@@ -237,10 +235,7 @@ def sync_files(
         record["sources"] = sorted(sources or {"file_reference"})
         record["canvas_folder"] = folder.get("full_name") if folder else None
         record["canvas_path"] = (
-            (
-                f"{record['canvas_folder']}/"
-                f"{record.get('display_name') or record.get('filename')}"
-            )
+            (f"{record['canvas_folder']}/{record.get('display_name') or record.get('filename')}")
             if record.get("canvas_folder")
             else None
         )
@@ -299,9 +294,7 @@ def sync_files(
         "available": True,
         "checked": True,
         "fetched": changed,
-        "status": (
-            "created" if existing is None else ("updated" if changed else "unchanged")
-        ),
+        "status": ("created" if existing is None else ("updated" if changed else "unchanged")),
         "path": rel_path(course_dir / COURSE_METADATA_FILE, json_path),
         "count": len(items),
         "changed_items": changed_files,

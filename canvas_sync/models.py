@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +15,7 @@ ACADEMIC_TERM = re.compile(
 
 
 def now_utc_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def card_course_id(card: dict[str, Any]) -> str | None:
@@ -206,9 +206,7 @@ class CourseRecord:
                 "time_zone": course.get("time_zone"),
                 "term": compact_term(course.get("term")),
                 "enrolled_sections": [
-                    compact_section(section)
-                    for section in sections
-                    if isinstance(section, dict)
+                    compact_section(section) for section in sections if isinstance(section, dict)
                 ],
             },
             "cover_image": {

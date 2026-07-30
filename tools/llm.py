@@ -5,8 +5,9 @@ import json
 import os
 import re
 import subprocess
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Iterator, Sequence
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from langchain_core.messages import BaseMessage
@@ -14,12 +15,12 @@ if TYPE_CHECKING:
 
 def _build_langchain_messages(
     prompt: str,
-    history: Sequence["BaseMessage"] | None = None,
+    history: Sequence[BaseMessage] | None = None,
     max_messages: int = 24,
-) -> list["BaseMessage"]:
+) -> list[BaseMessage]:
     from langchain_core.messages import HumanMessage
 
-    messages: list["BaseMessage"] = []
+    messages: list[BaseMessage] = []
     if history:
         messages.extend(list(history)[-max_messages:])
     messages.append(HumanMessage(content=prompt))
@@ -43,7 +44,7 @@ def _message_content_to_text(content: Any) -> str:
     return str(content)
 
 
-def _stream_from_llm(llm: Any, messages: Sequence["BaseMessage"]) -> Iterator[str]:
+def _stream_from_llm(llm: Any, messages: Sequence[BaseMessage]) -> Iterator[str]:
     has_chunk = False
     try:
         for chunk in llm.stream(messages):
@@ -84,19 +85,15 @@ class LLMModel:
         prompt: str,
         temperature: float = 0.0,
         max_tokens: int = 4096,
-        history: Sequence["BaseMessage"] | None = None,
+        history: Sequence[BaseMessage] | None = None,
     ) -> str:
         provider = self.provider.lower()
         if provider == "ollama":
             return self._call_ollama(prompt, temperature, max_tokens, history=history)
         if provider in {"openai", "openai-compatible", "custom", "groq"}:
-            return self._call_openai_compatible(
-                prompt, temperature, max_tokens, history=history
-            )
+            return self._call_openai_compatible(prompt, temperature, max_tokens, history=history)
         if provider == "anthropic":
-            return self._call_anthropic(
-                prompt, temperature, max_tokens, history=history
-            )
+            return self._call_anthropic(prompt, temperature, max_tokens, history=history)
         if provider == "gemini":
             return self._call_gemini(prompt, temperature, max_tokens, history=history)
         raise ValueError(f"Unsupported provider: {self.provider!r}")
@@ -106,25 +103,19 @@ class LLMModel:
         prompt: str,
         temperature: float = 0.0,
         max_tokens: int = 4096,
-        history: Sequence["BaseMessage"] | None = None,
+        history: Sequence[BaseMessage] | None = None,
     ) -> Iterator[str]:
         provider = self.provider.lower()
         if provider == "ollama":
-            return self._call_stream_ollama(
-                prompt, temperature, max_tokens, history=history
-            )
+            return self._call_stream_ollama(prompt, temperature, max_tokens, history=history)
         if provider in {"openai", "openai-compatible", "custom", "groq"}:
             return self._call_stream_openai_compatible(
                 prompt, temperature, max_tokens, history=history
             )
         if provider == "anthropic":
-            return self._call_stream_anthropic(
-                prompt, temperature, max_tokens, history=history
-            )
+            return self._call_stream_anthropic(prompt, temperature, max_tokens, history=history)
         if provider == "gemini":
-            return self._call_stream_gemini(
-                prompt, temperature, max_tokens, history=history
-            )
+            return self._call_stream_gemini(prompt, temperature, max_tokens, history=history)
         raise ValueError(f"Unsupported provider: {self.provider!r}")
 
     def callStream(
@@ -132,7 +123,7 @@ class LLMModel:
         prompt: str,
         temperature: float = 0.0,
         max_tokens: int = 4096,
-        history: Sequence["BaseMessage"] | None = None,
+        history: Sequence[BaseMessage] | None = None,
     ) -> Iterator[str]:
         return self.call_stream(
             prompt,
@@ -146,7 +137,7 @@ class LLMModel:
         prompt: str,
         temperature: float,
         max_tokens: int,
-        history: Sequence["BaseMessage"] | None = None,
+        history: Sequence[BaseMessage] | None = None,
     ) -> str:
         from langchain_ollama import ChatOllama
 
@@ -167,7 +158,7 @@ class LLMModel:
         prompt: str,
         temperature: float,
         max_tokens: int,
-        history: Sequence["BaseMessage"] | None = None,
+        history: Sequence[BaseMessage] | None = None,
     ) -> str:
         from langchain_openai import ChatOpenAI
 
@@ -190,7 +181,7 @@ class LLMModel:
         prompt: str,
         temperature: float,
         max_tokens: int,
-        history: Sequence["BaseMessage"] | None = None,
+        history: Sequence[BaseMessage] | None = None,
     ) -> str:
         from langchain_anthropic import ChatAnthropic
 
@@ -213,7 +204,7 @@ class LLMModel:
         prompt: str,
         temperature: float,
         max_tokens: int,
-        history: Sequence["BaseMessage"] | None = None,
+        history: Sequence[BaseMessage] | None = None,
     ) -> str:
         from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -239,7 +230,7 @@ class LLMModel:
         prompt: str,
         temperature: float,
         max_tokens: int,
-        history: Sequence["BaseMessage"] | None = None,
+        history: Sequence[BaseMessage] | None = None,
     ) -> Iterator[str]:
         from langchain_ollama import ChatOllama
 
@@ -252,16 +243,14 @@ class LLMModel:
             num_predict=max_tokens,
             **kwargs,
         )
-        yield from _stream_from_llm(
-            llm, _build_langchain_messages(prompt, history=history)
-        )
+        yield from _stream_from_llm(llm, _build_langchain_messages(prompt, history=history))
 
     def _call_stream_openai_compatible(
         self,
         prompt: str,
         temperature: float,
         max_tokens: int,
-        history: Sequence["BaseMessage"] | None = None,
+        history: Sequence[BaseMessage] | None = None,
     ) -> Iterator[str]:
         from langchain_openai import ChatOpenAI
 
@@ -276,16 +265,14 @@ class LLMModel:
             kwargs["base_url"] = self.endpoint
 
         llm = ChatOpenAI(**kwargs)
-        yield from _stream_from_llm(
-            llm, _build_langchain_messages(prompt, history=history)
-        )
+        yield from _stream_from_llm(llm, _build_langchain_messages(prompt, history=history))
 
     def _call_stream_anthropic(
         self,
         prompt: str,
         temperature: float,
         max_tokens: int,
-        history: Sequence["BaseMessage"] | None = None,
+        history: Sequence[BaseMessage] | None = None,
     ) -> Iterator[str]:
         from langchain_anthropic import ChatAnthropic
 
@@ -300,16 +287,14 @@ class LLMModel:
             kwargs["base_url"] = self.endpoint
 
         llm = ChatAnthropic(**kwargs)
-        yield from _stream_from_llm(
-            llm, _build_langchain_messages(prompt, history=history)
-        )
+        yield from _stream_from_llm(llm, _build_langchain_messages(prompt, history=history))
 
     def _call_stream_gemini(
         self,
         prompt: str,
         temperature: float,
         max_tokens: int,
-        history: Sequence["BaseMessage"] | None = None,
+        history: Sequence[BaseMessage] | None = None,
     ) -> Iterator[str]:
         from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -327,9 +312,7 @@ class LLMModel:
         except TypeError:
             llm = ChatGoogleGenerativeAI(**kwargs)
 
-        yield from _stream_from_llm(
-            llm, _build_langchain_messages(prompt, history=history)
-        )
+        yield from _stream_from_llm(llm, _build_langchain_messages(prompt, history=history))
 
     def call_json(
         self,
@@ -388,8 +371,7 @@ class LLMTools:
 
             def _match_score(model: LLMModel) -> tuple:
                 is_preferred = any(
-                    preferred.lower() in model.name.lower()
-                    for preferred in preferred_models
+                    preferred.lower() in model.name.lower() for preferred in preferred_models
                 )
                 is_local = model.name in local_names
                 if is_preferred and is_local:
@@ -405,16 +387,13 @@ class LLMTools:
             models.sort(key=lambda model: model.name)
         return models
 
-    def get_local_models(
-        self, preferred_models: list[str] | None = None
-    ) -> list[LLMModel]:
+    def get_local_models(self, preferred_models: list[str] | None = None) -> list[LLMModel]:
         models = [model for model in self._models.values() if model.is_local]
         if preferred_models:
 
             def _match_score(model: LLMModel) -> tuple:
                 is_preferred = any(
-                    preferred.lower() in model.name.lower()
-                    for preferred in preferred_models
+                    preferred.lower() in model.name.lower() for preferred in preferred_models
                 )
                 return (0 if is_preferred else 1, model.name)
 
@@ -477,9 +456,7 @@ class LLMTools:
         gemini_key = self._get_api_key("gemini")
         if gemini_key:
             endpoint = os.getenv("GEMINI_BASE_URL") or os.getenv("GOOGLE_API_BASE")
-            api_env = (
-                "GEMINI_API_KEY" if os.getenv("GEMINI_API_KEY") else "GOOGLE_API_KEY"
-            )
+            api_env = "GEMINI_API_KEY" if os.getenv("GEMINI_API_KEY") else "GOOGLE_API_KEY"
             base_url = endpoint or "https://generativelanguage.googleapis.com"
             tasks.append(
                 (

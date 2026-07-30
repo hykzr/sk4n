@@ -151,9 +151,7 @@ def build_course_metadata(
         tabs=tabs,
         synced_at=synced_at,
     )
-    cover_result = client.download_cover_image(
-        metadata["cover_image"]["url"], course_dir
-    )
+    cover_result = client.download_cover_image(metadata["cover_image"]["url"], course_dir)
     course_json_path = course_dir / COURSE_METADATA_FILE
     if cover_result.get("path"):
         cover_path = Path(str(cover_result["path"]))
@@ -178,27 +176,19 @@ def load_or_build_course_metadata(
     if existing and not refresh_course:
         metadata = copy.deepcopy(existing)
         metadata["cover_image"] = (
-            metadata.get("cover_image")
-            if isinstance(metadata.get("cover_image"), dict)
-            else {}
+            metadata.get("cover_image") if isinstance(metadata.get("cover_image"), dict) else {}
         ) or {}
         metadata["cover_image"]["path"] = normalize_existing_path(
             json_path=course_json_path,
             target_path=metadata["cover_image"].get("path"),
             course_dir=course_dir,
         )
-        tabs = (
-            metadata.get("all_tabs")
-            if isinstance(metadata.get("all_tabs"), list)
-            else []
-        )
+        tabs = metadata.get("all_tabs") if isinstance(metadata.get("all_tabs"), list) else []
         if not tabs:
             tabs = client.course_tabs(record.id)
             metadata["all_tabs"] = tabs
             metadata["available_sections"] = [
-                tab
-                for tab in tabs
-                if isinstance(tab, dict) and tab.get("hidden") is not True
+                tab for tab in tabs if isinstance(tab, dict) and tab.get("hidden") is not True
             ]
         return metadata, [tab for tab in tabs if isinstance(tab, dict)], "unchanged"
 
@@ -247,9 +237,7 @@ def course_dir_for_record(
     )
 
 
-def filter_records(
-    records: list[CourseRecord], selectors: list[str]
-) -> list[CourseRecord]:
+def filter_records(records: list[CourseRecord], selectors: list[str]) -> list[CourseRecord]:
     if not selectors:
         return records
     normalized = {selector.casefold() for selector in selectors}
@@ -264,9 +252,7 @@ def filter_records(
     found_ids = {record.id.casefold() for record in matched}
     found_codes = {(record.course_code or "").casefold() for record in matched}
     missing = [
-        selector
-        for selector in selectors
-        if selector.casefold() not in found_ids | found_codes
+        selector for selector in selectors if selector.casefold() not in found_ids | found_codes
     ]
     if missing:
         raise CanvasAPIError(f"No accessible course matched: {', '.join(missing)}")
@@ -280,9 +266,7 @@ def relative_index_course(course: dict[str, Any], index_path: Path) -> dict[str,
         if isinstance(value, str) and value:
             path = Path(value)
             result[key] = (
-                rel_path(index_path, path)
-                if path.is_absolute()
-                else value.replace("\\", "/")
+                rel_path(index_path, path) if path.is_absolute() else value.replace("\\", "/")
             )
     return result
 
@@ -441,9 +425,7 @@ def sync_canvas(
             metadata_path = course_dir / COURSE_METADATA_FILE
 
             if progress is not None and task_id is not None:
-                progress.update(
-                    task_id, description=f"Syncing {record.course_code or record.id}"
-                )
+                progress.update(task_id, description=f"Syncing {record.course_code or record.id}")
 
             metadata, tabs, course_status = load_or_build_course_metadata(
                 client=client,
@@ -492,13 +474,9 @@ def sync_canvas(
                 "folder_name": folder_name,
                 "metadata_path": metadata_path.resolve().as_posix(),
                 "cover_image_present": metadata.get("cover_image", {}).get("present"),
-                "cover_image_downloaded": metadata.get("cover_image", {}).get(
-                    "downloaded"
-                ),
+                "cover_image_downloaded": metadata.get("cover_image", {}).get("downloaded"),
                 "cover_image_path": cover_image_path,
-                "available_section_count": len(
-                    metadata.get("available_sections") or []
-                ),
+                "available_section_count": len(metadata.get("available_sections") or []),
                 "available_sections": [
                     {
                         "id": section.get("id"),
@@ -537,9 +515,7 @@ def sync_canvas(
             "short_name": profile.get("short_name"),
         },
         "course_count": len(index_courses),
-        "courses": [
-            relative_index_course(course, index_path) for course in index_courses
-        ],
+        "courses": [relative_index_course(course, index_path) for course in index_courses],
     }
     write_json(index_path, index)
     if show_progress:

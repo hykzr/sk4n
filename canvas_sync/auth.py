@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 from urllib.parse import urljoin, urlparse
+
 import requests
 
 from tools import RequestTools
@@ -79,9 +80,7 @@ async def login_with_browser(
         await page.goto(base_url, wait_until="domcontentloaded")
 
         print("Canvas session is missing or expired.")
-        print(
-            "A browser window is open. Log in to Canvas there; sync will continue automatically."
-        )
+        print("A browser window is open. Log in to Canvas there; sync will continue automatically.")
 
         canvas_host = urlparse(base_url).netloc
         deadline = asyncio.get_running_loop().time() + login_wait_seconds
@@ -99,9 +98,7 @@ async def login_with_browser(
             await page.wait_for_timeout(5000)
 
         await browser.close()
-        raise TimeoutError(
-            f"Canvas login was not detected within {login_wait_seconds} seconds."
-        )
+        raise TimeoutError(f"Canvas login was not detected within {login_wait_seconds} seconds.")
 
 
 def ensure_canvas_session(
@@ -120,7 +117,5 @@ def ensure_canvas_session(
         )
     )
     if not validate_canvas_session(base_url, site_name):
-        raise RuntimeError(
-            "Canvas login completed, but the saved session still is not valid."
-        )
+        raise RuntimeError("Canvas login completed, but the saved session still is not valid.")
     return True

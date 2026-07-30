@@ -108,9 +108,7 @@ def write_html(path: Path, title: str | None, body: str | None) -> bool:
 
 
 def rel_path(from_json_path: Path, target_path: Path) -> str:
-    return os.path.relpath(target_path, start=from_json_path.parent).replace(
-        os.sep, "/"
-    )
+    return os.path.relpath(target_path, start=from_json_path.parent).replace(os.sep, "/")
 
 
 def resolve_relative_path(from_json_path: Path, path_value: str | None) -> Path | None:
@@ -205,18 +203,14 @@ def item_signature(item: dict[str, Any], keys: tuple[str, ...]) -> str:
     return fingerprint(selected)
 
 
-def item_has_html(
-    existing_item: dict[str, Any] | None, json_path: Path, field: str
-) -> bool:
+def item_has_html(existing_item: dict[str, Any] | None, json_path: Path, field: str) -> bool:
     if not existing_item:
         return False
     path = resolve_relative_path(json_path, str(existing_item.get(field) or ""))
     return bool(path and path.exists())
 
 
-def replace_message_fields_with_path(
-    value: Any, path: str, *, with_fragments: bool = False
-) -> Any:
+def replace_message_fields_with_path(value: Any, path: str, *, with_fragments: bool = False) -> Any:
     if isinstance(value, list):
         return [
             replace_message_fields_with_path(item, path, with_fragments=with_fragments)
@@ -349,6 +343,4 @@ def download_with_fallbacks(
             continue
         result["download_url"] = url
         return result
-    raise CanvasAPIError(
-        last_error or f"No download URL for file {file_item.get('id')}"
-    )
+    raise CanvasAPIError(last_error or f"No download URL for file {file_item.get('id')}")

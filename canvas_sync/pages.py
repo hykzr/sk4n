@@ -69,9 +69,7 @@ def sync_pages(
                 "locked_for_user",
             ),
         )
-        html_path = json_path.parent / safe_html_filename(
-            page_url, summary.get("title"), "page"
-        )
+        html_path = json_path.parent / safe_html_filename(page_url, summary.get("title"), "page")
         html_rel = rel_path(json_path, html_path)
         existing_signature = (
             existing_item.get("_canvas_sync", {}).get("signature")
@@ -126,9 +124,7 @@ def sync_pages(
         "available": True,
         "checked": True,
         "fetched": changed,
-        "status": (
-            "created" if existing is None else ("updated" if changed else "unchanged")
-        ),
+        "status": ("created" if existing is None else ("updated" if changed else "unchanged")),
         "path": rel_path(course_dir / COURSE_METADATA_FILE, json_path),
         "count": len(items),
         "changed_items": changed_items,

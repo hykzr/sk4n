@@ -51,11 +51,7 @@ def sync_syllabus(
         }
 
     syllabus = client.course_syllabus(course_id)
-    body = (
-        syllabus.get("syllabus_body")
-        if isinstance(syllabus.get("syllabus_body"), str)
-        else ""
-    )
+    body = syllabus.get("syllabus_body") if isinstance(syllabus.get("syllabus_body"), str) else ""
     write_html(html_path, f"{syllabus.get('course_code') or course_id} syllabus", body)
     html_rel = rel_path(json_path, html_path)
     raw = copy.deepcopy(syllabus)

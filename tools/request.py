@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import TYPE_CHECKING, Any
-
-from ._shared import clean_whitespace, load_session, save_session, truncate_text
+from typing import Any
 
 import bs4
 import requests
 from bs4 import BeautifulSoup, Tag
+
+from ._shared import clean_whitespace, load_session, save_session, truncate_text
 
 
 class RequestTools:
@@ -91,9 +91,7 @@ class RequestTools:
         """Return text for all elements matching *selector*."""
         return [clean_whitespace(el.get_text()) for el in soup.select(selector)]
 
-    def get_links(
-        self, soup: BeautifulSoup | Tag, selector: str = "a[href]"
-    ) -> list[dict]:
+    def get_links(self, soup: BeautifulSoup | Tag, selector: str = "a[href]") -> list[dict]:
         """Return [{text, href}] for all links matching *selector*."""
         results = []
         for a in soup.select(selector):
@@ -105,9 +103,7 @@ class RequestTools:
             )
         return results
 
-    def get_attribute(
-        self, soup: BeautifulSoup | Tag, selector: str, attr: str
-    ) -> str | None:
+    def get_attribute(self, soup: BeautifulSoup | Tag, selector: str, attr: str) -> str | None:
         """Return a single attribute value of the first matching element."""
         el = soup.select_one(selector)
         if not el:

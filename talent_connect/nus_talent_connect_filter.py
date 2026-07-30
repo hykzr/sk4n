@@ -23,18 +23,17 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import csv
 import json
 import re
 from datetime import date, datetime
 from html import unescape
 from pathlib import Path
-from bs4 import BeautifulSoup
-from rich.console import Console
-from rich.table import Table
-from openpyxl import Workbook
 
 import pyrootutils
+from bs4 import BeautifulSoup
+from openpyxl import Workbook
+from rich.console import Console
+from rich.table import Table
 
 root = pyrootutils.setup_root(__file__, dotenv=True, pythonpath=True, cwd=True)
 
@@ -43,7 +42,6 @@ from tools import (
     LLMModel,
     async_request_user_interaction,
     get_local_models,
-    get_models,
 )
 
 # ---------------------------------------------------------------------------
@@ -129,10 +127,7 @@ def _has_graduation_signal(desc_text: str) -> bool:
     to avoid false positives (e.g. the LLM hallucinating a requirement from
     generic phrases like 'SOC ATAP 2026' or 'currently pursuing a degree').
     """
-    for pattern in _GRADUATION_SIGNAL_PATTERNS:
-        if pattern.search(desc_text):
-            return True
-    return False
+    return any(pattern.search(desc_text) for pattern in _GRADUATION_SIGNAL_PATTERNS)
 
 
 def _select_llm_models(
@@ -160,18 +155,18 @@ ug_eligible: boolean
 notes: string (short)
 
 Filtering criteria:
-1. Role relevant to CEG (or more broadly, from CS to EEE, but not pure finance, consulting, marketing, etc.). 
+1. Role relevant to CEG (or more broadly, from CS to EEE, but not pure finance, consulting, marketing, etc.).
 (SWE, DevOps, frontend, backend, computer engineering, AI, cybersecurity, FPGA, IC / Chip Design, embedded system, etc.).
 1. ug_eligible reflects if undergraduates can apply (not just postgraduates). if the role doesn't specify or states all students, assume true.
 
 Graduation requirement rules:
-- only consider explicit statements about graduation year, working period is not relevant, 
+- only consider explicit statements about graduation year, working period is not relevant,
     academic year is 2026/2027 refers to working period, not graduation year.
 - If the role requires a final-year student, set graduation_requirement="2026".
 - If the role states "Requires 3rd or 4th year student", set graduation_requirement="2026/2027/2028".
 - If the role states "Graduating in 2026 or 2027", "Graduating in Dec 2026 or May 2027", or similar, set graduation_requirement="2026/2027".
 - If the role states "Graduating in 2026, 2027, or 2028", "Graduating in 2026, 2027, or 2028", or similar, set graduation_requirement="2026/2027/2028".
-- All other cases, including no mention of graduation timing, vague statements like "recent graduates", 
+- All other cases, including no mention of graduation timing, vague statements like "recent graduates",
 or references to academic year without clear graduation timing, set graduation_requirement="none".
 - ATAP / IA is the name of the program and has nothing to do with graduation requirement.
 - A single mention of "2026" may be working period or graduation year, but if there is no explicit mention of graduation timing, assume "none".
@@ -193,9 +188,7 @@ description: {desc_text}
             continue
 
     if last_error is not None:
-        raise RuntimeError(
-            f"LLM call failed for all models: {last_error}"
-        ) from last_error
+        raise RuntimeError(f"LLM call failed for all models: {last_error}") from last_error
 
     if not isinstance(data, dict):  # type: ignore
         raise ValueError("LLM output is not a JSON object.")
@@ -398,7 +391,7 @@ async def collect_all_jobs(bt: BrowserTools) -> list[dict]:
         if "/api/v2/jobs?" in url and "filters" not in url:
             if "perPage" not in url:
                 url += "&perPage=500"
-            print(f"  [route] Modified API request: perPage=500")
+            print("  [route] Modified API request: perPage=500")
         await route.continue_(url=url)
 
     bt.page.on("response", on_response)
@@ -412,7 +405,7 @@ async def collect_all_jobs(bt: BrowserTools) -> list[dict]:
     # Wait for the API response
     try:
         await asyncio.wait_for(response_event.wait(), timeout=30)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         print("[ERROR] Timed out waiting for API response.")
         return []
 
@@ -429,14 +422,12 @@ async def collect_all_jobs(bt: BrowserTools) -> list[dict]:
         for page_num in range(2, total_pages + 1):
             response_event.clear()
             api_data = {}
-            page_url = (
-                f"{SEARCH_URL}?perPage={per_page}&page={page_num}&{SEARCH_PARAMS}"
-            )
+            page_url = f"{SEARCH_URL}?perPage={per_page}&page={page_num}&{SEARCH_PARAMS}"
             print(f"  Fetching page {page_num}/{total_pages}...")
             await bt.navigate(page_url)
             try:
                 await asyncio.wait_for(response_event.wait(), timeout=30)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 print(f"  [warn] Timed out on page {page_num}, skipping.")
                 continue
             print(f"  Collected {len(all_jobs)}/{total} jobs so far")
@@ -469,6 +460,12 @@ INTERN_LATEST_START = date(2026, 8, 31)  # latest acceptable start
 INTERN_EARLIEST_END = date(2026, 10, 31)  # earliest acceptable end (≥5 months from May)
 INTERN_MIN_DAYS = 140  # ~5 months minimum duration
 
+OID_MAPPINGS = {
+    "1": "all",  # open to all students
+    "2": "sc_only",  # Singapore Citizens only
+    "3": "sc_pr_only",  # Singapore Citizens and PRs only
+}
+
 
 def _extract_citizenship_from_v3(v3_data: dict) -> str:
     """Extract citizenship status from v3 API response data.
@@ -486,13 +483,7 @@ def _extract_citizenship_from_v3(v3_data: dict) -> str:
         oid = open_to
     else:
         oid = ""
-
-    if oid == "1":
-        return "all"
-    elif oid == "2":
-        return "sc_only"
-    elif oid == "3":
-        return "sc_pr_only"
+    return OID_MAPPINGS.get(oid, "unknown") if oid else "unknown"
     return "unknown"
 
 
@@ -503,9 +494,9 @@ def _extract_timing_from_v3(v3_data: dict) -> dict:
       'work_term'    — label string (e.g. "Academic Year 2026/2027 Semester 1 (Jul '26 - Nov/Dec '26)")
       'start_date'   — date or None
       'end_date'     — date or None
-      'period'       — human-readable period string (e.g. "Jul 2026 – Dec 2026")
+      'period'       — human-readable period string (e.g. "Jul 2026 - Dec 2026")
       'duration_days' — int or None
-      'timing_ok'    — bool: meets late-May–Dec 2026 with ≥5 months
+      'timing_ok'    — bool: meets late-May-Dec 2026 with ≥5 months
       'timing_reason' — explanation if timing_ok is False
     """
     # Extract work term label
@@ -518,21 +509,15 @@ def _extract_timing_from_v3(v3_data: dict) -> dict:
 
     # Extract dates
     start_str = (
-        v3_data.get("estimated_start")
-        or v3_data.get("estimated_start_date_of_intern")
-        or ""
+        v3_data.get("estimated_start") or v3_data.get("estimated_start_date_of_intern") or ""
     )
-    end_str = (
-        v3_data.get("estimated_end")
-        or v3_data.get("estimated_end_date_of_internsh")
-        or ""
-    )
+    end_str = v3_data.get("estimated_end") or v3_data.get("estimated_end_date_of_internsh") or ""
     start_date = _parse_iso_date(start_str) if start_str else None
     end_date = _parse_iso_date(end_str) if end_str else None
 
     # Build human-readable period
     if start_date and end_date:
-        period = f"{start_date.strftime('%b %Y')} – {end_date.strftime('%b %Y')}"
+        period = f"{start_date.strftime('%b %Y')} - {end_date.strftime('%b %Y')}"
         duration_days = (end_date - start_date).days
     elif work_term:
         period = work_term
@@ -550,9 +535,7 @@ def _extract_timing_from_v3(v3_data: dict) -> dict:
     is_accepted_term = False
     if work_term:
         term_lower = work_term.lower()
-        if "2026/2027" in term_lower and (
-            "semester 1" in term_lower or "sem 1" in term_lower
-        ):
+        if "2026/2027" in term_lower and ("semester 1" in term_lower or "sem 1" in term_lower):
             is_accepted_term = True
 
     if is_accepted_term:
@@ -560,7 +543,9 @@ def _extract_timing_from_v3(v3_data: dict) -> dict:
         if start_date and end_date:
             if end_date <= start_date:
                 timing_ok = False
-                timing_reason = f"invalid dates ({start_date.isoformat()} to {end_date.isoformat()})"
+                timing_reason = (
+                    f"invalid dates ({start_date.isoformat()} to {end_date.isoformat()})"
+                )
             elif start_date > INTERN_LATEST_START:
                 timing_ok = False
                 timing_reason = f"starts too late ({start_date.isoformat()})"
@@ -621,9 +606,7 @@ def _extract_location_from_v3(v3_data: dict) -> dict:
 
     # Determine if in Singapore
     loc_lower = location.lower()
-    in_singapore = (
-        "singapore" in loc_lower or loc_lower == "" or geography.lower() == "local"
-    )
+    in_singapore = "singapore" in loc_lower or loc_lower == "" or geography.lower() == "local"
 
     return {
         "location": location or "Unknown",
@@ -782,9 +765,7 @@ def filter_jobs(
 
     models = _select_llm_models(preferred_models)
     if not models:
-        raise RuntimeError(
-            "No LLM models found. Install an Ollama model or set API keys."
-        )
+        raise RuntimeError("No LLM models found. Install an Ollama model or set API keys.")
 
     total_jobs = len(jobs)
     job_ids = {job.get("job_id", "") for job in jobs}
@@ -805,8 +786,8 @@ def filter_jobs(
         company = job.get("name", "")
         desc_html = job.get("job_desc", "")
         desc_text = html_to_text(desc_html)
-        deadline = job.get("deadline", "")
-        location = job.get("job_location", "")
+        job.get("deadline", "")
+        job.get("job_location", "")
 
         llm_result = processed_cache.get(job_id)
         was_cached = bool(llm_result and _is_llm_cache_valid(llm_result))
@@ -856,9 +837,7 @@ def filter_jobs(
 
         # Graduation: LLM (with regex pre-filter override)
         graduation_req = llm_result.get("graduation_requirement", "unknown")
-        if graduation_req not in {"none", "unknown"} and not _has_graduation_signal(
-            desc_text
-        ):
+        if graduation_req not in {"none", "unknown"} and not _has_graduation_signal(desc_text):
             print(
                 f"  [info] Overriding graduation requirement for {job_id} "
                 f"from '{graduation_req}' to 'none' due to lack of textual signal."
@@ -890,9 +869,7 @@ def filter_jobs(
                 "salary_type": salary_info.get("type"),
             }
         )
-        reason_text = (
-            ", ".join(failed_reasons) if failed_reasons else "meets all criteria"
-        )
+        reason_text = ", ".join(failed_reasons) if failed_reasons else "meets all criteria"
         processed_count += 1
         if not was_cached:
             _pretty_print_job(
@@ -972,9 +949,7 @@ async def main():
     print("NUS Talent Connect — CEG Internship Filter")
     print("=" * 60)
 
-    parser = argparse.ArgumentParser(
-        description="NUS Talent Connect — CEG Internship Filter"
-    )
+    parser = argparse.ArgumentParser(description="NUS Talent Connect — CEG Internship Filter")
     parser.add_argument(
         "--refresh",
         action="store_true",
@@ -995,13 +970,13 @@ async def main():
         type=int,
         choices=[2026, 2027, 2028],
         default=2028,
-        help=("Your graduation year (affects eligibility). " "Default: 2028"),
+        help=("Your graduation year (affects eligibility). Default: 2028"),
     )
     parser.add_argument(
         "--citizenship",
         choices=["neither", "sc", "pr"],
         default="neither",
-        help=("Your citizenship status. " "neither = not SC/PR. Default: neither"),
+        help=("Your citizenship status. neither = not SC/PR. Default: neither"),
     )
     args = parser.parse_args()
 
@@ -1068,9 +1043,7 @@ async def main():
                 v3_cache[jid] = cit_data  # will be re-fetched for timing
     job_ids = [j.get("job_id", "") for j in all_jobs if j.get("job_id")]
     uncached_v3 = [
-        jid
-        for jid in job_ids
-        if jid not in v3_cache or "timing" not in v3_cache.get(jid, {})
+        jid for jid in job_ids if jid not in v3_cache or "timing" not in v3_cache.get(jid, {})
     ]
     if uncached_v3:
         if bt is None:

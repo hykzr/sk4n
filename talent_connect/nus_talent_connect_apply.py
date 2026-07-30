@@ -30,9 +30,9 @@ import pyrootutils
 
 root = pyrootutils.setup_root(__file__, dotenv=True, pythonpath=True, cwd=True)
 
-from tools import BrowserTools, async_request_user_interaction
-
 from openpyxl import load_workbook
+
+from tools import BrowserTools, async_request_user_interaction
 
 SAVE_DIR = Path(__file__).parent / "temp"
 DEFAULT_INPUT = SAVE_DIR / "nus_internships_filtered.xlsx"
@@ -115,9 +115,9 @@ def _get_links(rows: list[dict]) -> list[str]:
 def _load_visited() -> set[str]:
     data = _load_json(VISITED_FILE)
     if isinstance(data, list):
-        return set(str(x) for x in data)
+        return {str(x) for x in data}
     if isinstance(data, dict) and "visited" in data:
-        return set(str(x) for x in data.get("visited", []))
+        return {str(x) for x in data.get("visited", [])}
     return set()
 
 

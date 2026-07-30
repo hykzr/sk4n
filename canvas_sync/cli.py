@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+
 import pyrootutils
 from rich.console import Console
 
@@ -128,9 +129,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--login-wait-seconds",
         type=int,
-        default=int(
-            os.getenv("CANVAS_LOGIN_WAIT_SECONDS", str(DEFAULT_LOGIN_WAIT_SECONDS))
-        ),
+        default=int(os.getenv("CANVAS_LOGIN_WAIT_SECONDS", str(DEFAULT_LOGIN_WAIT_SECONDS))),
         help="How long to wait for browser login when the saved session is invalid.",
     )
     return parser

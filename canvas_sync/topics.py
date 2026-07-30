@@ -15,12 +15,12 @@ try:
         item_has_html,
         item_signature,
         list_payload,
+        read_json,
         rel_path,
         replace_message_fields_with_path,
         safe_html_filename,
         write_html,
         write_json,
-        read_json,
     )
 except ImportError:
     from client import CanvasAPIError, CanvasClient
@@ -32,12 +32,12 @@ except ImportError:
         item_has_html,
         item_signature,
         list_payload,
+        read_json,
         rel_path,
         replace_message_fields_with_path,
         safe_html_filename,
         write_html,
         write_json,
-        read_json,
     )
 
 
@@ -90,9 +90,7 @@ def sync_topics(
     html_dir = json_path.parent
 
     only_announcements = content_type == "announcements"
-    topics = client.course_discussion_topics(
-        course_id, only_announcements=only_announcements
-    )
+    topics = client.course_discussion_topics(course_id, only_announcements=only_announcements)
     if content_type == "discussions":
         topics = [topic for topic in topics if topic.get("is_announcement") is not True]
 
@@ -115,9 +113,7 @@ def sync_topics(
         topic_id = str(topic.get("id") or "")
         existing_item = existing_by_id.get(topic_id)
         signature = item_signature(topic, topic_keys)
-        html_path = html_dir / safe_html_filename(
-            topic_id, topic.get("title"), content_type
-        )
+        html_path = html_dir / safe_html_filename(topic_id, topic.get("title"), content_type)
         html_rel = rel_path(json_path, html_path)
         existing_signature = (
             existing_item.get("_canvas_sync", {}).get("signature")
@@ -182,9 +178,7 @@ def sync_topics(
         "available": True,
         "checked": True,
         "fetched": changed,
-        "status": (
-            "created" if existing is None else ("updated" if changed else "unchanged")
-        ),
+        "status": ("created" if existing is None else ("updated" if changed else "unchanged")),
         "path": rel_path(course_dir / COURSE_METADATA_FILE, json_path),
         "count": len(items),
         "changed_items": changed_items,

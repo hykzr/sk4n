@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Any, Literal, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Literal
 
-from ._shared import load_session, save_session, truncate_text, clean_whitespace
+from ._shared import clean_whitespace, load_session, save_session, truncate_text
 from .request import async_request_user_interaction
 
 if TYPE_CHECKING:
@@ -83,9 +84,7 @@ class BrowserTools:
             await self.wait_for_timeout(2000)
         if check_selector:
             try:
-                await self.page.wait_for_selector(
-                    check_selector, state="attached", timeout=5000
-                )
+                await self.page.wait_for_selector(check_selector, state="attached", timeout=5000)
                 return True
             except Exception:
                 return False
@@ -108,9 +107,7 @@ class BrowserTools:
         await async_request_user_interaction(login_msg)
         await self.wait_for_timeout(2000)
 
-        if not await self.is_logged_in(
-            check_selector=check_selector, check_url=check_url
-        ):
+        if not await self.is_logged_in(check_selector=check_selector, check_url=check_url):
             return "Warning: login check still fails after user interaction."
 
         await self.save_session_data(site_name)
@@ -265,9 +262,7 @@ class BrowserTools:
             )""",
         )
 
-    async def screenshot(
-        self, path: str = "screenshot.png", full_page: bool = False
-    ) -> str:
+    async def screenshot(self, path: str = "screenshot.png", full_page: bool = False) -> str:
         await self.page.screenshot(path=path, full_page=full_page)
         return f"Screenshot saved to {path}"
 
@@ -308,15 +303,11 @@ class BrowserTools:
         state: Literal["attached", "detached", "hidden", "visible"] | None = "visible",
         timeout: int | None = None,
     ) -> str:
-        await self.page.wait_for_selector(
-            selector, state=state, timeout=timeout or self._timeout
-        )
+        await self.page.wait_for_selector(selector, state=state, timeout=timeout or self._timeout)
         return f"Element {selector!r} is {state}"
 
     async def wait_for_navigation(self, timeout: int | None = None) -> str:
-        await self.page.wait_for_load_state(
-            "domcontentloaded", timeout=timeout or self._timeout
-        )
+        await self.page.wait_for_load_state("domcontentloaded", timeout=timeout or self._timeout)
         return f"Navigation complete: {self.page.url}"
 
     async def wait_for_timeout(self, ms: int) -> str:
@@ -329,7 +320,7 @@ class BrowserTools:
             return truncate_text(result)
         return result
 
-    async def get_cookies(self) -> list["Cookie"]:
+    async def get_cookies(self) -> list[Cookie]:
         if not self._context:
             return []
         return await self._context.cookies()
@@ -341,9 +332,7 @@ class BrowserTools:
         return f"Set {len(cookies)} cookie(s)"
 
     async def get_local_storage(self) -> dict:
-        return await self.page.evaluate(
-            "() => Object.fromEntries(Object.entries(localStorage))"
-        )
+        return await self.page.evaluate("() => Object.fromEntries(Object.entries(localStorage))")
 
     async def find_interactive_elements(self) -> str:
         js = """
@@ -432,10 +421,8 @@ class BrowserTools:
         self.page.on("response", handler)
         try:
             result = await asyncio.wait_for(future, timeout=timeout / 1000)
-        except asyncio.TimeoutError:
-            result = {
-                "error": f"No response matching {url_pattern!r} within {timeout}ms"
-            }
+        except TimeoutError:
+            result = {"error": f"No response matching {url_pattern!r} within {timeout}ms"}
         self.page.remove_listener("response", handler)
         return result
 

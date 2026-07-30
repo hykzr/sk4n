@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import copy
 import html as html_lib
 from pathlib import Path
@@ -236,9 +237,7 @@ def existing_assignment_payload_ok(
 ) -> bool:
     if not existing_item:
         return False
-    assignment_json_path = resolve_relative_path(
-        assignments_json_path, existing_item.get("path")
-    )
+    assignment_json_path = resolve_relative_path(assignments_json_path, existing_item.get("path"))
     if not assignment_json_path or not assignment_json_path.exists():
         return False
     payload = read_json(assignment_json_path)
@@ -256,9 +255,7 @@ def existing_assignment_payload_ok(
     for submitted_file in payload.get("submitted_files") or []:
         if not isinstance(submitted_file, dict) or not submitted_file.get("downloaded"):
             continue
-        file_path = resolve_relative_path(
-            assignment_json_path, submitted_file.get("path")
-        )
+        file_path = resolve_relative_path(assignment_json_path, submitted_file.get("path"))
         if not (file_path and file_path.exists() and submitted_file.get("sha256")):
             return False
     quiz = payload.get("quiz")
@@ -299,9 +296,7 @@ def existing_assignment_dir(
 ) -> Path | None:
     if not existing_item:
         return None
-    assignment_json_path = resolve_relative_path(
-        assignments_json_path, existing_item.get("path")
-    )
+    assignment_json_path = resolve_relative_path(assignments_json_path, existing_item.get("path"))
     if not assignment_json_path:
         return None
     return assignment_json_path.parent
@@ -331,9 +326,7 @@ def attach_quiz_assignment_summaries(
     assignments: list[dict[str, Any]],
     quizzes: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    assignment_ids = {
-        str(item.get("id")) for item in assignments if item.get("id") is not None
-    }
+    assignment_ids = {str(item.get("id")) for item in assignments if item.get("id") is not None}
     errors: list[dict[str, Any]] = []
     for quiz in quizzes:
         assignment_id = quiz.get("assignment_id")
@@ -605,9 +598,8 @@ def rewrite_quiz_artifact_images(
     metadata_path = quiz_path.parent / QUIZ_IMAGE_METADATA_FILE
     existing_metadata = read_json(metadata_path)
     existing_images = (
-        existing_metadata.get("images")
-        if isinstance(existing_metadata, dict)
-        and isinstance(existing_metadata.get("images"), dict)
+        existing_metadata.get("images", {})
+        if isinstance(existing_metadata, dict) and isinstance(existing_metadata.get("images"), dict)
         else {}
     )
     existing_by_url: dict[str, dict[str, Any]] = {
@@ -619,9 +611,7 @@ def rewrite_quiz_artifact_images(
     image_dir = quiz_path.parent / QUIZ_IMAGE_DIR
     used_paths: set[Path] = set()
     if image_dir.exists():
-        used_paths.update(
-            path.resolve() for path in image_dir.iterdir() if path.is_file()
-        )
+        used_paths.update(path.resolve() for path in image_dir.iterdir() if path.is_file())
     for record in existing_by_url.values():
         path = existing_quiz_image_path(quiz_path, record)
         if path:
@@ -675,13 +665,9 @@ def rewrite_quiz_artifact_images(
             result = client.download_file(absolute_src, output_path)
             content_type = result.get("content_type")
             if not quiz_image_content_type_is_image(content_type):
-                try:
+                with contextlib.suppress(OSError):
                     output_path.unlink()
-                except OSError:
-                    pass
-                raise CanvasAPIError(
-                    f"Quiz image URL returned non-image content: {content_type}"
-                )
+                raise CanvasAPIError(f"Quiz image URL returned non-image content: {content_type}")
             output_path = rename_quiz_image_for_content_type(
                 output_path=output_path,
                 content_type=content_type,
@@ -689,12 +675,7 @@ def rewrite_quiz_artifact_images(
                 used_paths=used_paths,
             )
         except CanvasAPIError as exc:
-            if (
-                existing
-                and existing_path
-                and existing_path.exists()
-                and existing.get("sha256")
-            ):
+            if existing and existing_path and existing_path.exists() and existing.get("sha256"):
                 record = copy.deepcopy(existing)
                 record["refresh_error"] = str(exc)
                 images_by_url[absolute_src] = record
@@ -755,11 +736,7 @@ def rewrite_quiz_artifact_images(
             seen[marker] = result_list
             result_list.extend(rewrite_value(item, seen) for item in value)
             return result_list
-        if (
-            isinstance(value, str)
-            and "<img" in value.lower()
-            and "src" in value.lower()
-        ):
+        if isinstance(value, str) and "<img" in value.lower() and "src" in value.lower():
             return rewrite_html(value)
         return value
 
@@ -872,9 +849,7 @@ def render_quiz_answers(question: dict[str, Any]) -> str:
                 if labels
                 else ""
             )
-            items.append(
-                f'<li class="{" ".join(classes)}">{body}{label_html}</li>'
-            )
+            items.append(f'<li class="{" ".join(classes)}">{body}{label_html}</li>')
         return f'<ol class="quiz-answers">{"".join(items)}</ol>' if items else ""
 
     choices = question.get("choices")
@@ -942,11 +917,7 @@ def render_quiz_preview_html(
             for item in (type_value, score)
             if item is not None and str(item)
         ]
-        meta_html = (
-            f'<div class="quiz-meta">{" | ".join(meta_parts)}</div>'
-            if meta_parts
-            else ""
-        )
+        meta_html = f'<div class="quiz-meta">{" | ".join(meta_parts)}</div>' if meta_parts else ""
         body = quiz_html_fragment(
             question.get("question_html"),
             str(question.get("question_text") or ""),
@@ -1007,9 +978,7 @@ def collect_submission_attachments(value: Any) -> list[dict[str, Any]]:
     if isinstance(value, dict):
         raw_attachments = value.get("attachments")
         if isinstance(raw_attachments, list):
-            attachments.extend(
-                item for item in raw_attachments if isinstance(item, dict)
-            )
+            attachments.extend(item for item in raw_attachments if isinstance(item, dict))
         for item in value.values():
             attachments.extend(collect_submission_attachments(item))
     elif isinstance(value, list):
@@ -1018,9 +987,7 @@ def collect_submission_attachments(value: Any) -> list[dict[str, Any]]:
     return attachments
 
 
-def annotate_submission_attachments(
-    value: Any, records_by_key: dict[str, dict[str, Any]]
-) -> Any:
+def annotate_submission_attachments(value: Any, records_by_key: dict[str, dict[str, Any]]) -> Any:
     if isinstance(value, list):
         return [annotate_submission_attachments(item, records_by_key) for item in value]
     if not isinstance(value, dict):
@@ -1068,9 +1035,7 @@ def download_submitted_files(
     records: list[dict[str, Any]] = []
     records_by_key: dict[str, dict[str, Any]] = {}
     seen: set[str] = set()
-    for index, attachment in enumerate(
-        collect_submission_attachments(submission), start=1
-    ):
+    for index, attachment in enumerate(collect_submission_attachments(submission), start=1):
         attachment_key = submitted_attachment_key(attachment, index)
         if attachment_key in seen:
             continue
@@ -1181,7 +1146,7 @@ def quiz_payload_for_assignment(
         base_url=client.base_url,
     )
     questions = (
-        artifact.get("questions")
+        artifact.get("questions", [])
         if isinstance(artifact, dict) and isinstance(artifact.get("questions"), list)
         else []
     )
@@ -1319,9 +1284,7 @@ def build_assignment_record(
     if isinstance(assignment_body, str) and assignment_body:
         body_parts.append(assignment_body)
     quiz_body = (
-        quiz_detail_for_body.get("description")
-        if isinstance(quiz_detail_for_body, dict)
-        else None
+        quiz_detail_for_body.get("description") if isinstance(quiz_detail_for_body, dict) else None
     )
     if isinstance(quiz_body, str) and quiz_body and quiz_body not in body_parts:
         body_parts.append(quiz_body)
@@ -1329,8 +1292,7 @@ def build_assignment_record(
 
     existing_images = (
         existing_payload.get("images", [])
-        if isinstance(existing_payload, dict)
-        and isinstance(existing_payload.get("images"), list)
+        if isinstance(existing_payload, dict) and isinstance(existing_payload.get("images"), list)
         else []
     )
     body, images = download_assignment_images(
@@ -1346,9 +1308,7 @@ def build_assignment_record(
     if body:
         write_html(content_path, str(detail.get("name") or summary.get("name")), body)
         detail["description"] = content_rel
-        if isinstance(quiz_detail_for_body, dict) and quiz_detail_for_body.get(
-            "description"
-        ):
+        if isinstance(quiz_detail_for_body, dict) and quiz_detail_for_body.get("description"):
             quiz_detail_for_body["description"] = content_rel
     else:
         content_rel = None
@@ -1362,9 +1322,7 @@ def build_assignment_record(
         self_submission_error = str(exc)
 
     submission_source = self_submission
-    if not isinstance(submission_source, dict) and isinstance(
-        detail.get("submission"), dict
-    ):
+    if not isinstance(submission_source, dict) and isinstance(detail.get("submission"), dict):
         submission_source = detail["submission"]
     existing_submitted = (
         existing_payload.get("submitted_files", [])
@@ -1386,9 +1344,7 @@ def build_assignment_record(
         detail["submission"] = annotate_submission_attachments(
             detail["submission"],
             {
-                str(
-                    item.get("id") or item.get("_canvas_sync", {}).get("attachment_key")
-                ): item
+                str(item.get("id") or item.get("_canvas_sync", {}).get("attachment_key")): item
                 for item in submitted_files
             },
         )
@@ -1397,8 +1353,7 @@ def build_assignment_record(
     if quiz_id is not None:
         existing_quiz_path = (
             existing_payload.get("quiz", {}).get("path")
-            if isinstance(existing_payload, dict)
-            and isinstance(existing_payload.get("quiz"), dict)
+            if isinstance(existing_payload, dict) and isinstance(existing_payload.get("quiz"), dict)
             else None
         )
         quiz_info = quiz_payload_for_assignment(
@@ -1412,13 +1367,10 @@ def build_assignment_record(
             skip_quiz_content=skip_quiz_content,
             quiz_detail_hint=quiz_detail_for_body,
         )
-    elif isinstance(submission_source, dict) and is_new_quiz_submission(
-        submission_source
-    ):
+    elif isinstance(submission_source, dict) and is_new_quiz_submission(submission_source):
         existing_quiz_path = (
             existing_payload.get("quiz", {}).get("path")
-            if isinstance(existing_payload, dict)
-            and isinstance(existing_payload.get("quiz"), dict)
+            if isinstance(existing_payload, dict) and isinstance(existing_payload.get("quiz"), dict)
             else None
         )
         quiz_info = quiz_payload_for_assignment(
@@ -1456,13 +1408,9 @@ def build_assignment_record(
                 "signature": signature,
                 "file_ids": file_ids,
                 "submitted_files": [
-                    item.get("sha256")
-                    for item in submitted_files
-                    if item.get("downloaded")
+                    item.get("sha256") for item in submitted_files if item.get("downloaded")
                 ],
-                "images": [
-                    item.get("sha256") for item in images if item.get("downloaded")
-                ],
+                "images": [item.get("sha256") for item in images if item.get("downloaded")],
                 "quiz": quiz_info,
             }
         ),
@@ -1478,11 +1426,9 @@ def build_assignment_record(
         "name": payload["name"],
         "path": rel_path(assignments_json_path, assignment_json_path),
         "content": rel_path(assignments_json_path, content_path) if body else None,
-        "submission_types": detail.get("submission_types")
-        or summary.get("submission_types"),
+        "submission_types": detail.get("submission_types") or summary.get("submission_types"),
         "due_at": detail.get("due_at") or summary.get("due_at"),
-        "points_possible": detail.get("points_possible")
-        or summary.get("points_possible"),
+        "points_possible": detail.get("points_possible") or summary.get("points_possible"),
         "quiz_id": quiz_id,
         "submitted_file_count": len(submitted_files),
         "referenced_file_ids": file_ids,
@@ -1515,15 +1461,10 @@ def build_standalone_quiz_record(
     except CanvasAPIError as exc:
         detail_error = str(exc)
 
-    body = (
-        detail.get("description", "")
-        if isinstance(detail.get("description"), str)
-        else ""
-    )
+    body = detail.get("description", "") if isinstance(detail.get("description"), str) else ""
     existing_images = (
         existing_payload.get("images", [])
-        if isinstance(existing_payload, dict)
-        and isinstance(existing_payload.get("images"), list)
+        if isinstance(existing_payload, dict) and isinstance(existing_payload.get("images"), list)
         else []
     )
     body, images = download_assignment_images(
@@ -1547,17 +1488,14 @@ def build_standalone_quiz_record(
     quiz_submission_error = None
     if not skip_quiz_content:
         try:
-            quiz_submission_response = client.course_quiz_self_submission(
-                course_id, quiz_id
-            )
+            quiz_submission_response = client.course_quiz_self_submission(course_id, quiz_id)
             quiz_submission = submitted_quiz_attempt(quiz_submission_response)
         except CanvasAPIError as exc:
             quiz_submission_error = str(exc)
 
     existing_quiz_path = (
         existing_payload.get("quiz", {}).get("path")
-        if isinstance(existing_payload, dict)
-        and isinstance(existing_payload.get("quiz"), dict)
+        if isinstance(existing_payload, dict) and isinstance(existing_payload.get("quiz"), dict)
         else None
     )
     quiz_info = quiz_payload_for_assignment(
@@ -1595,9 +1533,7 @@ def build_standalone_quiz_record(
                 "quiz_submission": quiz_submission,
                 "quiz_submission_error": quiz_submission_error,
                 "file_ids": file_ids,
-                "images": [
-                    item.get("sha256") for item in images if item.get("downloaded")
-                ],
+                "images": [item.get("sha256") for item in images if item.get("downloaded")],
                 "quiz": quiz_info,
             }
         ),
@@ -1680,11 +1616,7 @@ def sync_assignments(
             "available": has_assignments_tab or has_quizzes_tab,
             "checked": True,
             "fetched": False,
-            "status": (
-                "closed"
-                if not (has_assignments_tab or has_quizzes_tab)
-                else "unchanged"
-            ),
+            "status": ("closed" if not (has_assignments_tab or has_quizzes_tab) else "unchanged"),
             "path": rel_path(course_dir / COURSE_METADATA_FILE, json_path),
             "count": 0,
             "assignments_error": assignments_error,
@@ -1692,16 +1624,10 @@ def sync_assignments(
             "quiz_assignment_errors": quiz_assignment_errors,
         }
 
-    quiz_by_id = {
-        str(quiz.get("id")): quiz for quiz in quizzes if quiz.get("id") is not None
-    }
-    assignment_ids = {
-        str(item.get("id")) for item in assignments if item.get("id") is not None
-    }
+    quiz_by_id = {str(quiz.get("id")): quiz for quiz in quizzes if quiz.get("id") is not None}
+    assignment_ids = {str(item.get("id")) for item in assignments if item.get("id") is not None}
     linked_quiz_ids = {
-        str(item.get("quiz_id"))
-        for item in assignments
-        if item.get("quiz_id") is not None
+        str(item.get("quiz_id")) for item in assignments if item.get("quiz_id") is not None
     }
     changed = force or existing is None
     changed_items = 0
@@ -1847,9 +1773,7 @@ def sync_assignments(
         "available": True,
         "checked": True,
         "fetched": changed,
-        "status": (
-            "created" if existing is None else ("updated" if changed else "unchanged")
-        ),
+        "status": ("created" if existing is None else ("updated" if changed else "unchanged")),
         "path": rel_path(course_dir / COURSE_METADATA_FILE, json_path),
         "count": len(items),
         "changed_items": changed_items,
