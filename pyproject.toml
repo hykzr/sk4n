@@ -24,10 +24,11 @@ dependencies = [
 ]
 
 [project.scripts]
+nusmods = "nusmods.cli:main"
 talent-connect = "talent_connect.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["canvas_sync", "talent_connect", "tools"]
+packages = ["canvas_sync", "nusmods", "talent_connect", "tools"]
 
 [dependency-groups]
 dev = ["pytest>=9.1.1"]
