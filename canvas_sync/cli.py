@@ -1,48 +1,92 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import sys
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import Any
 
-import pyrootutils
 from rich.console import Console
+from rich.markup import escape
+from rich.table import Table
 
-pyroot = pyrootutils.setup_root(__file__, dotenv=True, pythonpath=True, cwd=True)
+from .auth import (
+    DEFAULT_LOGIN_WAIT_SECONDS,
+    check_auth_status,
+    login,
+    logout,
+)
+from .client import CanvasAPIError, CanvasClient
+from .fetcher import CanvasFetcher
+from .sync import sync_canvas
+from .utils import DEFAULT_BASE_URL, DEFAULT_DATA_PATH, DEFAULT_SITE_NAME
 
-try:
-    from .auth import DEFAULT_LOGIN_WAIT_SECONDS
-    from .client import CanvasAPIError
-    from .sync import (
-        DEFAULT_BASE_URL,
-        DEFAULT_DATA_PATH,
-        DEFAULT_SITE_NAME,
-        sync_canvas,
-    )
-except ImportError:
-    from auth import DEFAULT_LOGIN_WAIT_SECONDS
-    from client import CanvasAPIError
-    from sync import DEFAULT_BASE_URL, DEFAULT_DATA_PATH, DEFAULT_SITE_NAME, sync_canvas
+console = Console()
+error_console = Console(stderr=True)
+OUTPUT_FORMATS = ("json", "jsonl", "plain")
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Fetch Canvas course metadata and opened course content."
-    )
+def positive_int(value: str) -> int:
+    number = int(value)
+    if number < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return number
+
+
+def http_method(value: str) -> str:
+    method = value.strip().upper()
+    if not method.isalpha():
+        raise argparse.ArgumentTypeError("must contain only letters")
+    return method
+
+
+def json_argument(value: str) -> Any:
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise argparse.ArgumentTypeError(f"must be valid JSON: {exc.msg}") from exc
+
+
+def key_value(value: str) -> tuple[str, str]:
+    for separator in ("=", ":"):
+        if separator in value:
+            key, item = value.split(separator, 1)
+            if key.strip():
+                return key.strip(), item.strip()
+    raise argparse.ArgumentTypeError("must be NAME=VALUE or NAME:VALUE")
+
+
+def add_format_argument(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--base-url",
-        default=os.getenv("CANVAS_BASE_URL", DEFAULT_BASE_URL),
-        help=f"Canvas base URL. Default: {DEFAULT_BASE_URL}",
+        "--format",
+        choices=OUTPUT_FORMATS,
+        default=None,
+        help="Output format. Default: human-friendly rich output.",
     )
-    parser.add_argument(
-        "--site-name",
-        default=os.getenv("CANVAS_SITE_NAME", DEFAULT_SITE_NAME),
-        help=f"Saved Canvas session name. Default: {DEFAULT_SITE_NAME}",
+
+
+def add_refresh_arguments(parser: argparse.ArgumentParser) -> None:
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--refresh",
+        action="store_const",
+        const="force",
+        dest="refresh_mode",
+        help="Force refresh the requested remote data and local artifacts.",
     )
-    parser.add_argument(
-        "--data-path",
-        default=os.getenv("CANVAS_DATA_PATH", str(DEFAULT_DATA_PATH)),
-        help=f"Destination folder. Default: {DEFAULT_DATA_PATH}",
+    group.add_argument(
+        "--no-refresh",
+        action="store_const",
+        const="none",
+        dest="refresh_mode",
+        help="Read only from the local cache.",
     )
+    parser.set_defaults(refresh_mode="default")
+
+
+def add_sync_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--max-courses",
         type=int,
@@ -59,53 +103,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--refresh-course",
         action="store_true",
-        help="Refresh existing course.json metadata, tabs, cover image, and syllabus.",
+        help="Refresh existing course metadata, tabs, cover image, and syllabus.",
     )
-    parser.add_argument(
-        "--refresh-people",
-        action="store_true",
-        help="Refresh people.json for existing courses.",
-    )
-    parser.add_argument(
-        "--refresh-content",
-        action="store_true",
-        help="Force refresh all supported content tabs.",
-    )
-    parser.add_argument(
-        "--refresh-announcements",
-        action="store_true",
-        help="Force refresh announcements even when cached signatures match.",
-    )
-    parser.add_argument(
-        "--refresh-discussions",
-        action="store_true",
-        help="Force refresh discussions and discussion reply views.",
-    )
-    parser.add_argument(
-        "--refresh-pages",
-        action="store_true",
-        help="Force refresh page bodies even when Canvas page summaries look unchanged.",
-    )
-    parser.add_argument(
-        "--refresh-syllabus",
-        action="store_true",
-        help="Force refresh syllabus body.",
-    )
-    parser.add_argument(
-        "--refresh-modules",
-        action="store_true",
-        help="Force refresh modules.json.",
-    )
-    parser.add_argument(
-        "--refresh-assignments",
-        action="store_true",
-        help="Force refresh assignments, quizzes, images, and submitted files.",
-    )
-    parser.add_argument(
-        "--refresh-files",
-        action="store_true",
-        help="Force refresh files metadata and re-download files.",
-    )
+    for content_type in (
+        "people",
+        "content",
+        "announcements",
+        "discussions",
+        "pages",
+        "syllabus",
+        "modules",
+        "assignments",
+        "files",
+    ):
+        parser.add_argument(
+            f"--refresh-{content_type}",
+            action="store_true",
+            help=f"Force refresh {content_type.replace('-', ' ')}.",
+        )
     for content_type in (
         "announcements",
         "discussions",
@@ -126,66 +141,504 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Validate or refresh the saved Canvas login, then exit without syncing.",
     )
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="canvas",
+        description="Query and incrementally cache NUS Canvas data.",
+    )
+    parser.add_argument(
+        "--base-url",
+        default=os.getenv("CANVAS_BASE_URL", DEFAULT_BASE_URL),
+        help=f"Canvas base URL. Default: {DEFAULT_BASE_URL}",
+    )
+    parser.add_argument(
+        "--site-name",
+        default=os.getenv("CANVAS_SITE_NAME", DEFAULT_SITE_NAME),
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--data-path",
+        type=Path,
+        default=Path(os.getenv("CANVAS_DATA_PATH", str(DEFAULT_DATA_PATH))),
+        help=f"Cache folder. Default: {DEFAULT_DATA_PATH}",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=positive_int,
+        default=int(os.getenv("CANVAS_TIMEOUT", "30")),
+        help="HTTP timeout in seconds. Default: 30.",
+    )
     parser.add_argument(
         "--login-wait-seconds",
-        type=int,
+        type=positive_int,
         default=int(os.getenv("CANVAS_LOGIN_WAIT_SECONDS", str(DEFAULT_LOGIN_WAIT_SECONDS))),
-        help="How long to wait for browser login when the saved session is invalid.",
+        help=argparse.SUPPRESS,
+    )
+
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    auth_parser = commands.add_parser("auth", help="Manage the saved NUS Canvas login.")
+    auth_commands = auth_parser.add_subparsers(dest="auth_command", required=True)
+    status_parser = auth_commands.add_parser("status", help="Check the saved login.")
+    add_format_argument(status_parser)
+    login_parser = auth_commands.add_parser("login", help="Open a browser for NUS login.")
+    login_parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Ignore the saved session and perform a fresh login.",
+    )
+    login_parser.add_argument(
+        "--wait-seconds",
+        type=positive_int,
+        default=None,
+        help=f"Login detection timeout. Default: {DEFAULT_LOGIN_WAIT_SECONDS}.",
+    )
+    auth_commands.add_parser(
+        "logout",
+        help="Delete the CLI's saved session without signing other browsers out of NUS SSO.",
+    )
+
+    sync_parser = commands.add_parser("sync", help="Sync courses using the original bulk options.")
+    add_sync_arguments(sync_parser)
+
+    student_parser = commands.add_parser("student", help="Show the current Canvas student.")
+    add_refresh_arguments(student_parser)
+    add_format_argument(student_parser)
+
+    list_parser = commands.add_parser("list", help="List accessible Canvas courses.")
+    list_parser.add_argument(
+        "-s",
+        "--semester",
+        metavar="SEM",
+        help="Case-insensitive semester: latest, 2526S1, AY2526S1, or Y3S1.",
+    )
+    add_refresh_arguments(list_parser)
+    add_format_argument(list_parser)
+
+    course_parser = commands.add_parser("course", help="Show a course or one cached content area.")
+    course_parser.add_argument("course_code", help="Course code or Canvas course ID.")
+    course_parser.add_argument(
+        "-s",
+        "--semester",
+        metavar="SEM",
+        help="Restrict course-code matches to a semester, including Non-Academic.",
+    )
+    course_parser.add_argument(
+        "resource",
+        nargs="?",
+        help="path, announcements, assignments, discussions, files, modules, pages, people, quizzes, or syllabus.",
+    )
+    course_parser.add_argument(
+        "item",
+        nargs="?",
+        default="list",
+        help="For a resource: list, path, or an item ID.",
+    )
+    add_refresh_arguments(course_parser)
+    add_format_argument(course_parser)
+
+    api_parser = commands.add_parser(
+        "api",
+        help="Send a direct low-level request with the saved Canvas session.",
+    )
+    api_parser.add_argument(
+        "url", help="Canvas API path or absolute URL; query parameters may be included."
+    )
+    api_parser.add_argument(
+        "-X",
+        "--method",
+        type=http_method,
+        default="GET",
+        help="HTTP method. Default: GET.",
+    )
+    api_parser.add_argument(
+        "-d",
+        "--data",
+        type=json_argument,
+        default=None,
+        metavar="JSON",
+        help="JSON request body.",
+    )
+    api_parser.add_argument(
+        "--param",
+        action="append",
+        type=key_value,
+        default=[],
+        metavar="NAME=VALUE",
+        help="Query parameter. Repeat for multiple values.",
+    )
+    api_parser.add_argument(
+        "-H",
+        "--header",
+        action="append",
+        type=key_value,
+        default=[],
+        metavar="NAME:VALUE",
+        help="Request header. Repeat for multiple headers.",
     )
     return parser
 
 
-def main() -> None:
-    args = build_parser().parse_args()
-    console = Console()
-    course_selectors = [item for group in args.course for item in group]
-    try:
-        result = sync_canvas(
-            data_path=Path(args.data_path),
+def _json_text(value: Any, *, pretty: bool = False) -> str:
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=not pretty,
+        indent=2 if pretty else None,
+        default=str,
+    )
+
+
+def _records(value: Any) -> list[Mapping[str, Any]]:
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, Mapping)]
+    if isinstance(value, Mapping):
+        return [value]
+    return [{"value": value}]
+
+
+def print_formatted(value: Any, output_format: str) -> None:
+    if output_format == "json":
+        print(_json_text(value))
+        return
+    records = _records(value)
+    if output_format == "jsonl":
+        for record in records:
+            print(_json_text(record))
+        return
+    if output_format == "plain":
+        for index, record in enumerate(records):
+            if index:
+                print("-" * 72)
+            for key in sorted(record):
+                item = record[key]
+                if isinstance(item, (Mapping, list)):
+                    rendered = _json_text(item)
+                elif item is None:
+                    rendered = "null"
+                elif isinstance(item, bool):
+                    rendered = str(item).lower()
+                else:
+                    rendered = str(item).replace("\n", "\\n")
+                print(f"{key}: {rendered}")
+        return
+    raise ValueError(f"Unknown output format: {output_format}")
+
+
+def print_detail(value: Mapping[str, Any], title: str | None = None) -> None:
+    if title:
+        console.print(f"[bold]{escape(title)}[/bold]")
+    table = Table(show_header=False, box=None, pad_edge=False)
+    table.add_column(style="cyan", no_wrap=True)
+    table.add_column(overflow="fold")
+    for key, item in value.items():
+        if item in (None, "", [], {}):
+            continue
+        rendered = _json_text(item, pretty=True) if isinstance(item, (Mapping, list)) else str(item)
+        table.add_row(key.replace("_", " ").title(), escape(rendered))
+    console.print(table)
+
+
+def print_courses(courses: Sequence[Mapping[str, Any]]) -> None:
+    table = Table(title=f"Canvas courses ({len(courses)})", expand=True)
+    table.add_column("Semester", no_wrap=True)
+    table.add_column("Course", no_wrap=True)
+    table.add_column("Name", ratio=1, overflow="fold")
+    table.add_column("Role", overflow="fold")
+    table.add_column("ID", no_wrap=True)
+    for course in courses:
+        table.add_row(
+            str(course.get("term_folder_name") or ""),
+            str(course.get("course_code") or ""),
+            str(course.get("name") or ""),
+            ", ".join(str(role) for role in course.get("enrollment_roles") or []),
+            str(course.get("id") or ""),
+        )
+    console.print(table)
+
+
+def print_content_list(items: Sequence[Mapping[str, Any]]) -> None:
+    local_paths = {
+        str(item.get("local_path")) for item in items if item.get("local_path") not in (None, "")
+    }
+    shared_local_path = next(iter(local_paths)) if len(local_paths) == 1 else None
+    if shared_local_path:
+        console.print(f"[cyan]Local file:[/cyan] {escape(shared_local_path)}")
+    table = Table(title=f"Canvas items ({len(items)})", expand=True)
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Type", no_wrap=True)
+    table.add_column("Name", ratio=1, overflow="fold")
+    if not shared_local_path:
+        table.add_column("Local path", ratio=1, overflow="fold")
+    for item in items:
+        row = [
+            str(item.get("id") or item.get("key") or item.get("url") or ""),
+            str(item.get("kind") or item.get("type") or ""),
+            str(item.get("name") or item.get("title") or item.get("display_name") or ""),
+        ]
+        if not shared_local_path:
+            row.append(str(item.get("local_path") or ""))
+        table.add_row(*row)
+    console.print(table)
+
+
+def print_course_detail(value: Mapping[str, Any], fallback_code: str) -> None:
+    course_value = value.get("course")
+    course: Mapping[str, Any] = course_value if isinstance(course_value, Mapping) else {}
+    term_value = course.get("term")
+    term: Mapping[str, Any] = term_value if isinstance(term_value, Mapping) else {}
+    print_detail(
+        {
+            "course_code": course.get("course_code") or fallback_code,
+            "name": course.get("name"),
+            "id": course.get("id"),
+            "term": term.get("name"),
+            "enrollment_state": course.get("enrollment_state"),
+            "roles": course.get("enrollment_roles")
+            or list(
+                dict.fromkeys(
+                    str(section.get("enrollment_role"))
+                    for section in course.get("enrolled_sections") or []
+                    if isinstance(section, Mapping) and section.get("enrollment_role")
+                )
+            ),
+            "workflow_state": course.get("workflow_state"),
+            "default_view": course.get("default_view"),
+            "sections": list(
+                dict.fromkeys(
+                    section.get("name")
+                    for section in course.get("enrolled_sections") or []
+                    if isinstance(section, Mapping) and section.get("name")
+                )
+            ),
+            "available_content": [
+                section.get("label") or section.get("id")
+                for section in value.get("available_sections") or []
+                if isinstance(section, Mapping)
+            ],
+            "course_path": value.get("course_path"),
+            "local_path": value.get("local_path"),
+        },
+        str(course.get("course_code") or fallback_code),
+    )
+
+
+def _fetcher(args: argparse.Namespace) -> CanvasFetcher:
+    return CanvasFetcher(
+        data_path=args.data_path,
+        base_url=args.base_url,
+        site_name=args.site_name,
+        timeout=args.timeout,
+        login_wait_seconds=args.login_wait_seconds,
+    )
+
+
+def _refresh_values(args: argparse.Namespace) -> tuple[bool, bool]:
+    return args.refresh_mode != "none", args.refresh_mode == "force"
+
+
+def handle_auth(args: argparse.Namespace) -> int:
+    if args.auth_command == "status":
+        status = check_auth_status(
             base_url=args.base_url,
             site_name=args.site_name,
-            max_courses=args.max_courses,
-            login_wait_seconds=args.login_wait_seconds,
-            course_selectors=course_selectors,
-            refresh_course=args.refresh_course,
-            refresh_people=args.refresh_people,
-            refresh_content=args.refresh_content,
-            refresh_announcements=args.refresh_announcements,
-            refresh_discussions=args.refresh_discussions,
-            refresh_pages=args.refresh_pages,
-            refresh_syllabus=args.refresh_syllabus,
-            refresh_modules=args.refresh_modules,
-            refresh_assignments=args.refresh_assignments,
-            refresh_files=args.refresh_files,
-            skip_announcements=args.skip_announcements,
-            skip_discussions=args.skip_discussions,
-            skip_people=args.skip_people,
-            skip_pages=args.skip_pages,
-            skip_syllabus=args.skip_syllabus,
-            skip_modules=args.skip_modules,
-            skip_assignments=args.skip_assignments,
-            skip_files=args.skip_files,
-            login_only=args.login_only,
-            show_progress=True,
-            console=console,
+            timeout=args.timeout,
         )
-    except CanvasAPIError as exc:
-        raise SystemExit(str(exc)) from exc
+        value = {
+            "authenticated": status.authenticated,
+            "name": status.name or None,
+            "email": status.email or None,
+            "user_id": status.user_id or None,
+            "error": status.error or None,
+        }
+        if args.format:
+            print_formatted(value, args.format)
+        elif status.authenticated:
+            identity = status.name or status.email
+            console.print(f"Authenticated{f' as {escape(identity)}' if identity else ''}.")
+        else:
+            console.print("Not authenticated.")
+            if status.error:
+                console.print(f"[dim]{escape(status.error)}[/dim]")
+        return 0 if status.authenticated else 1
+    if args.auth_command == "login":
+        status = login(
+            base_url=args.base_url,
+            site_name=args.site_name,
+            login_wait_seconds=args.wait_seconds or args.login_wait_seconds,
+            refresh=args.refresh,
+        )
+        identity = status.name or status.email
+        console.print(f"Authenticated{f' as {escape(identity)}' if identity else ''}.")
+        return 0
+    if args.auth_command == "logout":
+        console.print(logout(site_name=args.site_name))
+        return 0
+    raise AssertionError(f"Unknown auth command: {args.auth_command}")
 
+
+def handle_sync(args: argparse.Namespace) -> int:
+    course_selectors = [item for group in args.course for item in group]
+    result = sync_canvas(
+        data_path=args.data_path,
+        base_url=args.base_url,
+        site_name=args.site_name,
+        max_courses=args.max_courses,
+        login_wait_seconds=args.login_wait_seconds,
+        course_selectors=course_selectors,
+        refresh_course=args.refresh_course,
+        refresh_people=args.refresh_people,
+        refresh_content=args.refresh_content,
+        refresh_announcements=args.refresh_announcements,
+        refresh_discussions=args.refresh_discussions,
+        refresh_pages=args.refresh_pages,
+        refresh_syllabus=args.refresh_syllabus,
+        refresh_modules=args.refresh_modules,
+        refresh_assignments=args.refresh_assignments,
+        refresh_files=args.refresh_files,
+        skip_announcements=args.skip_announcements,
+        skip_discussions=args.skip_discussions,
+        skip_people=args.skip_people,
+        skip_pages=args.skip_pages,
+        skip_syllabus=args.skip_syllabus,
+        skip_modules=args.skip_modules,
+        skip_assignments=args.skip_assignments,
+        skip_files=args.skip_files,
+        login_only=args.login_only,
+        show_progress=True,
+        console=console,
+    )
     if args.login_only:
         console.print("Canvas login check complete.")
-        if result.session_refreshed:
-            console.print("Canvas session was refreshed through browser login.")
-        else:
-            console.print("Canvas session was valid; no browser login needed.")
-        return
+        return 0
+    console.print(f"Synced {result.course_count} course(s) into {result.data_path.resolve()}")
+    console.print(f"Index: {result.index_path.resolve()}")
+    return 0
 
-    console.print(f"Synced {result.course_count} course(s) into {result.data_path}")
-    console.print(f"Index: {result.index_path}")
-    if result.session_refreshed:
-        console.print("Canvas session was refreshed through browser login.")
+
+def handle_student(args: argparse.Namespace) -> int:
+    refresh, _ = _refresh_values(args)
+    student = _fetcher(args).student(refresh=refresh)
+    if args.format:
+        print_formatted(student, args.format)
     else:
-        console.print("Canvas session was valid; no browser login needed.")
+        print_detail(student, "Canvas student")
+    return 0
+
+
+def handle_list(args: argparse.Namespace) -> int:
+    refresh, _ = _refresh_values(args)
+    courses = _fetcher(args).courses(semester=args.semester, refresh=refresh)
+    if args.format:
+        print_formatted(courses, args.format)
+    else:
+        print_courses(courses)
+    return 0
+
+
+def handle_course(args: argparse.Namespace) -> int:
+    refresh, force = _refresh_values(args)
+    fetcher = _fetcher(args)
+    if args.resource is None:
+        value = fetcher.course(
+            args.course_code,
+            semester=args.semester,
+            refresh=refresh,
+            force=force,
+        )
+        if args.format:
+            print_formatted(value, args.format)
+        else:
+            print_course_detail(value, args.course_code)
+        return 0
+    if args.resource.casefold() == "path":
+        if args.item != "list":
+            raise ValueError("`course CODE path` does not accept an item selector.")
+        path = fetcher.course_path(
+            args.course_code,
+            semester=args.semester,
+            refresh=refresh,
+            force=force,
+        ).as_posix()
+        if args.format:
+            print_formatted({"path": path}, args.format)
+        else:
+            print(path)
+        return 0
+    value = fetcher.content(
+        args.course_code,
+        args.resource,
+        args.item,
+        semester=args.semester,
+        refresh=refresh,
+        force=force,
+    )
+    if isinstance(value, Path):
+        output: Any = {"path": value.resolve().as_posix()}
+        if args.format:
+            print_formatted(output, args.format)
+        else:
+            print(output["path"])
+    elif args.format:
+        print_formatted(value, args.format)
+    elif isinstance(value, list):
+        print_content_list(value)
+    elif isinstance(value, Mapping):
+        print_detail(value)
+    else:
+        print(value)
+    return 0
+
+
+def handle_api(args: argparse.Namespace) -> int:
+    client = CanvasClient(
+        base_url=args.base_url,
+        site_name=args.site_name,
+        timeout=args.timeout,
+    )
+    payload = client.request(
+        args.method,
+        args.url,
+        args.data,
+        params=args.param or None,
+        headers=dict(args.header) if args.header else None,
+    )
+    if isinstance(payload, str):
+        sys.stdout.write(payload)
+        if payload and not payload.endswith("\n"):
+            sys.stdout.write("\n")
+    else:
+        json.dump(payload, sys.stdout, indent=2, ensure_ascii=False)
+        sys.stdout.write("\n")
+    return 0
+
+
+def run(args: argparse.Namespace) -> int:
+    if args.command == "auth":
+        return handle_auth(args)
+    if args.command == "sync":
+        return handle_sync(args)
+    if args.command == "student":
+        return handle_student(args)
+    if args.command == "list":
+        return handle_list(args)
+    if args.command == "course":
+        return handle_course(args)
+    if args.command == "api":
+        return handle_api(args)
+    raise AssertionError(f"Unknown command: {args.command}")
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    try:
+        raise SystemExit(run(args))
+    except (CanvasAPIError, RuntimeError, TimeoutError, ValueError) as exc:
+        error_console.print(f"[red]Error:[/red] {escape(str(exc))}")
+        raise SystemExit(2) from exc
 
 
 if __name__ == "__main__":

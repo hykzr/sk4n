@@ -48,8 +48,7 @@ class CanvasClient:
         status = response.status_code if response is not None else None
         if status == 401:
             return CanvasAPIError(
-                "Canvas rejected the saved session. Rerun the sync command "
-                "and complete the browser login when prompted."
+                "Canvas rejected the saved session. Run `canvas auth login` and try again."
             )
         if status == 403:
             return CanvasAPIError(
@@ -87,6 +86,38 @@ class CanvasClient:
             )
         return response.json()
 
+    def request(
+        self,
+        method: str,
+        path_or_url: str,
+        data: Any = None,
+        *,
+        params: dict[str, Any] | list[tuple[str, Any]] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Any:
+        """Send a direct authenticated request and decode JSON responses when possible."""
+        url = path_or_url if path_or_url.startswith("http") else self.api_url(path_or_url)
+        try:
+            response = self._rt.session.request(
+                method.upper(),
+                url,
+                params=params,
+                json=data,
+                headers=headers,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            raise self.request_error(url, exc) from exc
+        except requests.RequestException as exc:
+            raise CanvasAPIError(f"Canvas request failed: {url}") from exc
+        if response.status_code == 204 or not response.content:
+            return None
+        content_type = response.headers.get("content-type", "").casefold()
+        if "json" in content_type:
+            return response.json()
+        return response.text
+
     def get_paginated(
         self,
         path: str,
@@ -119,6 +150,12 @@ class CanvasClient:
         data = self.get_json("/api/v1/users/self/profile")
         if not isinstance(data, dict) or "id" not in data:
             raise CanvasAPIError("Canvas profile response did not look like a logged-in user.")
+        return data
+
+    def user(self) -> dict[str, Any]:
+        data = self.get_json("/api/v1/users/self")
+        if not isinstance(data, dict) or "id" not in data:
+            raise CanvasAPIError("Canvas user response did not look like a logged-in user.")
         return data
 
     def active_courses(self) -> list[dict[str, Any]]:

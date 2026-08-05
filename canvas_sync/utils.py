@@ -23,6 +23,7 @@ DEFAULT_SITE_NAME = "nus_canvas"
 DEFAULT_DATA_PATH = pyroot / "data" / "canvas"
 COURSE_METADATA_FILE = "course.json"
 INDEX_FILE = "index.json"
+STUDENT_FILE = "student.json"
 CONTENT_FILES = {
     "announcements": Path("announcements") / "announcements.json",
     "discussions": Path("discussions") / "discussions.json",

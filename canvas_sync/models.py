@@ -18,6 +18,46 @@ def now_utc_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def infer_enrollment_academic_year(created_at: Any) -> str | None:
+    if not created_at:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    start = parsed.year if parsed.month >= 7 else parsed.year - 1
+    return f"{start % 100:02d}{(start + 1) % 100:02d}"
+
+
+def student_record(profile: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]:
+    """Build the safe, persisted subset of the current Canvas user's profile."""
+    result = {
+        key: profile.get(key)
+        for key in (
+            "id",
+            "name",
+            "short_name",
+            "sortable_name",
+            "primary_email",
+            "login_id",
+            "sis_user_id",
+            "integration_id",
+            "time_zone",
+            "locale",
+            "effective_locale",
+            "avatar_url",
+        )
+        if key in profile
+    }
+    result["created_at"] = user.get("created_at")
+    enrollment_year = infer_enrollment_academic_year(user.get("created_at"))
+    if enrollment_year:
+        result["enrollment_academic_year"] = enrollment_year
+        result["enrollment_year_inferred"] = True
+        result["enrollment_year_source"] = "Canvas user account creation date"
+    return result
+
+
 def card_course_id(card: dict[str, Any]) -> str | None:
     for key in ("id", "course_id"):
         value = card.get(key)
@@ -164,6 +204,30 @@ class CourseRecord:
             return str(self.course["_canvas_sync_enrollment_state"])
         return None
 
+    @property
+    def enrollment_roles(self) -> list[str]:
+        values: list[str] = []
+        course = self.course or {}
+        for collection, keys in (
+            (course.get("sections"), ("enrollment_role", "role")),
+            (course.get("enrollments"), ("role", "type")),
+        ):
+            if not isinstance(collection, list):
+                continue
+            for item in collection:
+                if not isinstance(item, dict):
+                    continue
+                for key in keys:
+                    value = item.get(key)
+                    if value:
+                        role = str(value)
+                        if key == "type" and not role.casefold().endswith("enrollment"):
+                            role = f"{role.title()}Enrollment"
+                        if role not in values:
+                            values.append(role)
+                        break
+        return values
+
     def term_folder_base_name(self) -> str:
         return normalize_term_name(self.term_name)
 
@@ -199,6 +263,7 @@ class CourseRecord:
                 "name": self.name,
                 "course_code": self.course_code,
                 "enrollment_state": self.enrollment_state,
+                "enrollment_roles": self.enrollment_roles,
                 "workflow_state": course.get("workflow_state"),
                 "default_view": course.get("default_view"),
                 "start_at": course.get("start_at"),

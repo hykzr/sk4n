@@ -24,6 +24,8 @@ dependencies = [
 ]
 
 [project.scripts]
+canvas = "canvas_sync.cli:main"
+canvas-sync = "canvas_sync.cli:main"
 nusmods = "nusmods.cli:main"
 talent-connect = "talent_connect.cli:main"
 

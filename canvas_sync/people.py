@@ -37,23 +37,23 @@ def sync_people(
 ) -> dict[str, Any]:
     json_path = content_file_path(course_dir, "people")
     existing = read_json(json_path)
-    if existing and not force:
+    items = client.course_people(course_id)
+    fingerprint_value = fingerprint(items)
+    if existing and existing.get("fingerprint") == fingerprint_value and not force:
         return {
             "available": True,
-            "checked": False,
+            "checked": True,
             "fetched": False,
-            "status": "skipped",
-            "reason": "people are assumed unchanged; use --refresh-people to force",
+            "status": "unchanged",
             "path": rel_path(course_dir / COURSE_METADATA_FILE, json_path),
-            "count": int(existing.get("count") or 0),
+            "count": int(existing.get("count") or len(items)),
         }
 
-    items = client.course_people(course_id)
     payload = list_payload(
         course_id=course_id,
         synced_at=synced_at,
         items=items,
-        fingerprint_value=fingerprint(items),
+        fingerprint_value=fingerprint_value,
     )
     write_json(json_path, payload)
     return {

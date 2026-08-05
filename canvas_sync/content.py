@@ -131,11 +131,17 @@ def sync_course_content(
     synced_at: str,
     options: Any,
     course_metadata: dict[str, Any] | None = None,
+    content_types: list[str] | tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     available_tabs = open_tab_ids(tabs)
     sections: dict[str, dict[str, Any]] = {}
 
-    for content_type in CONTENT_TYPES:
+    selected_types = tuple(content_types) if content_types is not None else CONTENT_TYPES
+    unknown = set(selected_types) - set(CONTENT_TYPES)
+    if unknown:
+        raise ValueError(f"Unsupported Canvas content type(s): {', '.join(sorted(unknown))}")
+
+    for content_type in selected_types:
         if options.skip_content(content_type):
             sections[content_type] = skipped_summary(
                 course_dir=course_dir,

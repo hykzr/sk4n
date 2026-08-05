@@ -24,6 +24,7 @@ try:
         merge_course_records,
         now_utc_iso,
         path_for_course,
+        student_record,
         unique_course_folder_names_by_term,
     )
     from .utils import (
@@ -32,6 +33,7 @@ try:
         DEFAULT_DATA_PATH,
         DEFAULT_SITE_NAME,
         INDEX_FILE,
+        STUDENT_FILE,
         normalize_existing_path,
         read_json,
         rel_path,
@@ -46,6 +48,7 @@ except ImportError:
         merge_course_records,
         now_utc_iso,
         path_for_course,
+        student_record,
         unique_course_folder_names_by_term,
     )
     from utils import (
@@ -54,6 +57,7 @@ except ImportError:
         DEFAULT_DATA_PATH,
         DEFAULT_SITE_NAME,
         INDEX_FILE,
+        STUDENT_FILE,
         normalize_existing_path,
         read_json,
         rel_path,
@@ -383,6 +387,9 @@ def sync_canvas(
     root.mkdir(parents=True, exist_ok=True)
     client = CanvasClient(base_url=base_url, site_name=site_name)
     profile = client.profile()
+    user = client.user()
+    student = {"synced_at": now_utc_iso(), **student_record(profile, user)}
+    write_json(root / STUDENT_FILE, student)
     courses = client.active_courses() + client.past_courses()
     favorite_courses = client.favorite_courses()
     dashboard_cards = client.dashboard_cards()
@@ -509,11 +516,7 @@ def sync_canvas(
         "base_url": base_url,
         "site_name": site_name,
         "session_refreshed": session_refreshed,
-        "student": {
-            "id": profile.get("id"),
-            "name": profile.get("name"),
-            "short_name": profile.get("short_name"),
-        },
+        "student": student,
         "course_count": len(index_courses),
         "courses": [relative_index_course(course, index_path) for course in index_courses],
     }

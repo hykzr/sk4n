@@ -1,0 +1,259 @@
+from __future__ import annotations
+
+import json
+from io import StringIO
+from pathlib import Path
+from typing import Any
+
+import pytest
+from rich.console import Console
+
+import canvas_sync.cli as canvas_cli
+from canvas_sync.cli import build_parser
+from canvas_sync.fetcher import (
+    CanvasFetcher,
+    absolutize_local_paths,
+    canonical_semester,
+    infer_enrollment_academic_year,
+    resolve_semester_filter,
+)
+from canvas_sync.models import CourseRecord
+from canvas_sync.people import sync_people
+
+
+def test_cli_exposes_auth_sync_info_and_api_commands() -> None:
+    parser = build_parser()
+
+    assert parser.parse_args(["auth", "status", "--format", "json"]).auth_command == "status"
+    sync = parser.parse_args(["sync", "--course", "CG2028", "--refresh-pages", "--skip-files"])
+    assert sync.course == [["CG2028"]]
+    assert sync.refresh_pages is True
+    assert sync.skip_files is True
+
+    listing = parser.parse_args(["list", "-s", "y3s1", "--no-refresh", "--format", "jsonl"])
+    assert listing.semester == "y3s1"
+    assert listing.refresh_mode == "none"
+    assert listing.format == "jsonl"
+
+    course = parser.parse_args(
+        [
+            "course",
+            "CG2028",
+            "assignments",
+            "123",
+            "--semester",
+            "non-academic",
+            "--refresh",
+            "--format",
+            "plain",
+        ]
+    )
+    assert (course.resource, course.item) == ("assignments", "123")
+    assert course.refresh_mode == "force"
+    assert course.semester == "non-academic"
+
+    api = parser.parse_args(
+        [
+            "api",
+            "/api/v1/users/self",
+            "-X",
+            "post",
+            "--data",
+            '{"ok": true}',
+            "--param",
+            "include[]=term",
+            "-H",
+            "Accept:application/json",
+        ]
+    )
+    assert api.method == "POST"
+    assert api.data == {"ok": True}
+    assert api.param == [("include[]", "term")]
+    assert api.header == [("Accept", "application/json")]
+
+
+def test_semester_filters_are_case_insensitive_and_support_study_years() -> None:
+    courses = [
+        {"term_folder_name": "2425S1"},
+        {"term_folder_name": "2526S2"},
+        {"term_folder_name": "Non-Academic"},
+    ]
+    student = {"enrollment_academic_year": "2425"}
+
+    assert canonical_semester("ay2526s1") == "2526S1"
+    assert resolve_semester_filter("LATEST", student, courses) == "2526S2"
+    assert resolve_semester_filter("Y3s1", student, courses) == "2627S1"
+    assert resolve_semester_filter("non-academic", student, courses) == "Non-Academic"
+    assert infer_enrollment_academic_year("2024-07-15T20:35:08Z") == "2425"
+    assert infer_enrollment_academic_year("2025-01-01T00:00:00Z") == "2425"
+
+
+def test_local_paths_are_returned_as_absolute_paths(tmp_path: Path) -> None:
+    course_dir = tmp_path / "2526S1" / "CG2028"
+    html_path = course_dir / "announcements" / "notice.html"
+    json_path = course_dir / "announcements" / "announcements.json"
+    html_path.parent.mkdir(parents=True)
+    html_path.write_text("notice", encoding="utf-8")
+    json_path.write_text("{}", encoding="utf-8")
+
+    value = absolutize_local_paths(
+        {
+            "message": "notice.html",
+            "path": "item.json",
+            "html_url": "https://example.test/notice",
+        },
+        json_path,
+    )
+
+    assert value["message"] == html_path.resolve().as_posix()
+    assert value["path"] == (json_path.parent / "item.json").resolve().as_posix()
+    assert value["html_url"] == "https://example.test/notice"
+
+
+class PeopleClient:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def course_people(self, _course_id: str) -> list[dict[str, Any]]:
+        self.calls += 1
+        return [{"id": 1, "name": "Student"}]
+
+
+def test_people_sync_checks_remote_but_does_not_rewrite_unchanged_cache(tmp_path: Path) -> None:
+    client = PeopleClient()
+    first = sync_people(
+        client=client,  # type: ignore[arg-type]
+        course_id="1",
+        course_dir=tmp_path,
+        synced_at="first",
+        force=False,
+    )
+    people_path = tmp_path / "people.json"
+    first_text = people_path.read_text(encoding="utf-8")
+    second = sync_people(
+        client=client,  # type: ignore[arg-type]
+        course_id="1",
+        course_dir=tmp_path,
+        synced_at="second",
+        force=False,
+    )
+
+    assert first["status"] == "created"
+    assert second["status"] == "unchanged"
+    assert second["checked"] is True
+    assert client.calls == 2
+    assert people_path.read_text(encoding="utf-8") == first_text
+
+
+def test_ambiguous_course_code_is_rejected_with_candidates(tmp_path: Path) -> None:
+    fetcher = CanvasFetcher(data_path=tmp_path)
+    courses = [
+        {
+            "id": "1",
+            "course_code": "CS1010",
+            "term_folder_name": "2425S1",
+            "enrollment_roles": ["StudentEnrollment"],
+        },
+        {
+            "id": "2",
+            "course_code": "cs1010",
+            "term_folder_name": "2526S1",
+            "enrollment_roles": ["TaEnrollment"],
+        },
+    ]
+
+    with pytest.raises(Exception) as exc_info:
+        fetcher._resolve_course("CS1010", courses)
+
+    message = str(exc_info.value)
+    assert "matched 2 courses" in message
+    assert "2425S1 | ID 1 | StudentEnrollment" in message
+    assert "2526S1 | ID 2 | TaEnrollment" in message
+    assert fetcher._resolve_course("1", courses)["id"] == "1"
+    assert fetcher._resolve_course("CS1010", [courses[0]])["id"] == "1"
+
+
+def test_course_record_exposes_unique_student_and_ta_roles() -> None:
+    record = CourseRecord(
+        id="1",
+        course={
+            "sections": [{"enrollment_role": "TaEnrollment"}],
+            "enrollments": [
+                {"role": "Student Tutor"},
+                {"role": "Student Tutor"},
+            ],
+        },
+    )
+
+    assert record.enrollment_roles == ["TaEnrollment", "Student Tutor"]
+
+
+def test_shared_people_path_is_printed_once_outside_table(monkeypatch: pytest.MonkeyPatch) -> None:
+    output = StringIO()
+    monkeypatch.setattr(
+        canvas_cli,
+        "console",
+        Console(file=output, force_terminal=False, width=120),
+    )
+
+    canvas_cli.print_content_list(
+        [
+            {"id": 1, "name": "One", "local_path": "/tmp/people.json"},
+            {"id": 2, "name": "Two", "local_path": "/tmp/people.json"},
+        ]
+    )
+
+    rendered = output.getvalue()
+    assert rendered.count("/tmp/people.json") == 1
+    assert "Local file:" in rendered
+    assert "Local path" not in rendered
+
+
+def test_cached_content_item_loads_detail_json_with_absolute_paths(tmp_path: Path) -> None:
+    course_dir = tmp_path / "2526S1" / "CG2028"
+    assignment_dir = course_dir / "assignments" / "Lab"
+    assignment_dir.mkdir(parents=True)
+    (course_dir / "course.json").write_text(
+        json.dumps({"course": {"id": "1", "course_code": "CG2028"}}),
+        encoding="utf-8",
+    )
+    (assignment_dir / "content.html").write_text("content", encoding="utf-8")
+    (assignment_dir / "assignment.json").write_text(
+        json.dumps({"id": 123, "name": "Lab", "content": "content.html"}),
+        encoding="utf-8",
+    )
+    assignments_path = course_dir / "assignments" / "assignments.json"
+    assignments_path.write_text(
+        json.dumps(
+            {
+                "items": [
+                    {
+                        "id": 123,
+                        "kind": "assignment",
+                        "name": "Lab",
+                        "path": "Lab/assignment.json",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    index = {
+        "student": {},
+        "courses": [
+            {
+                "id": "1",
+                "course_code": "CG2028",
+                "term_folder_name": "2526S1",
+                "metadata_path": "2526S1/CG2028/course.json",
+            }
+        ],
+    }
+    (tmp_path / "index.json").write_text(json.dumps(index), encoding="utf-8")
+
+    detail = CanvasFetcher(data_path=tmp_path).content(
+        "CG2028", "assignments", "123", refresh=False
+    )
+
+    assert detail["local_path"] == (assignment_dir / "assignment.json").resolve().as_posix()
+    assert detail["content"] == (assignment_dir / "content.html").resolve().as_posix()

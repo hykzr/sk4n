@@ -1,96 +1,186 @@
-## Canvas Sync
+# Canvas CLI
 
-Sync course metadata and opened course content:
+`canvas` is an authenticated, read-only NUS Canvas CLI with an incremental local
+cache. Install the project with `uv sync`, then inspect the command surface:
 
 ```bash
-python -m canvas_sync.cli
+uv run canvas --help
 ```
 
-The command validates the saved `nus_canvas` session first. If the session is
-missing or expired, it opens a visible browser and waits for you to log in, then
-saves the refreshed session and continues automatically.
+`uv run canvas-sync` and `uv run python -m canvas_sync` are equivalent entry
+points.
 
-By default this writes to `data/canvas/{term}/{course}`. Academic terms such as
-`2025/2026 Semester 2` are normalized to `2526S2`; irregular terms such as
-`Non-Academic` are kept as-is except for filesystem-unsafe characters. Each
-course folder contains `course.json` with basic course info, enrolled Canvas
-sections, available course navigation tabs such as Files/Modules/Assignments,
-and the cover image URL when Canvas provides one. Published, accessible past
-courses from Canvas's `/courses` page are included as well. Cover images are
-downloaded beside `course.json` as `cover_image.*`.
+## Authentication
 
-When a course exposes the relevant Canvas navigation tab, the sync also writes
-content files beside `course.json`:
+```bash
+uv run canvas auth status
+uv run canvas auth login
+uv run canvas auth login --refresh
+uv run canvas auth logout
+```
 
-- `announcements/announcements.json`
-- `discussions/discussions.json`
+Login opens a browser only when the saved `nus_canvas` session is missing,
+expired, or explicitly refreshed. Logout deletes only this CLI's saved session;
+it does not sign other browsers out of NUS SSO. `auth status` also supports
+`--format json`, `jsonl`, or `plain`.
+
+## Student and courses
+
+```bash
+uv run canvas student
+uv run canvas list
+uv run canvas list --semester latest
+uv run canvas list -s 2526S1
+uv run canvas list -s ay2526s1
+uv run canvas list -s Y3S1
+uv run canvas list -s Non-Academic
+uv run canvas course CG2028
+uv run canvas course CS1010 -s 2425S1
+uv run canvas course CG2028 path
+```
+
+Semester values are case-insensitive. With no semester, `list` returns every
+accessible course. `latest` selects the newest regular academic semester;
+`2526S1` and `AY2526S1` are equivalent. Available irregular terms such as
+`Non-Academic` can also be selected case-insensitively. Study-year forms such as
+`Y3S1` are resolved from the student's inferred enrollment academic year. Canvas
+does not expose a dedicated NUS matriculation-year field, so the CLI labels this
+value as an inference from the Canvas account creation date.
+
+Course codes are also case-insensitive. A code that matches multiple enrollments
+is rejected with the matching semester, Canvas ID, role, and name instead of
+silently selecting one. Add `-s/--semester` to restrict the match; if that leaves
+one course, the command proceeds. A numeric Canvas course ID is always an exact
+selection. `course CODE` prints course metadata—including student, TA, or other
+enrollment roles—available content areas, and cache paths, but not the course's
+full cached content. `course CODE path` prints the absolute course cache folder.
+
+## Course content
+
+The content command shape is:
+
+```text
+canvas course COURSE RESOURCE {list|path|ITEM_ID}
+```
+
+Supported resources are `announcements`, `assignments`, `discussions`, `files`,
+`modules`, `pages`, `people`, `quizzes`, and `syllabus`; singular aliases work
+too. Omitting the last argument defaults to `list`.
+
+```bash
+uv run canvas course CG2028 announcements list
+uv run canvas course CG2028 announcements 12345
+uv run canvas course CG2028 assignments path
+uv run canvas course 62224 assignments 118925
+uv run canvas course CG2028 quizzes list
+uv run canvas course CG2028 people list
+```
+
+`list` returns compact cached item records. An item ID returns its detailed
+record when a dedicated JSON artifact exists. HTML bodies, assignment JSON,
+quiz JSON, and downloaded-file fields include their absolute local paths.
+`path` returns the absolute collection JSON path. Every local path emitted by
+the CLI is absolute, although paths persisted inside cache JSON remain relative
+and portable. When every listed item shares one cache file, as with `people`,
+the human-readable table prints that file once above the table instead of
+repeating it in every row.
+
+All student, list, course, and course-content commands support:
+
+```bash
+--format json|jsonl|plain
+--refresh
+--no-refresh
+```
+
+The default contacts Canvas and performs the same incremental checks as the
+fetcher: cheap list/signature data is checked, unchanged artifacts are reused,
+and expensive bodies or downloads are fetched only when needed. `--refresh`
+forces the requested scope. `--no-refresh` performs a strictly cache-only read.
+A course-content command syncs only that course and content area; it does not
+sync unrelated courses or tabs. These commands use only read-only Canvas HTTP
+operations, though refreshed results are written to the local cache.
+
+## Direct API requests
+
+`api` sends a direct request with the saved Canvas cookies and prints JSON or
+text responses:
+
+```bash
+uv run canvas api /api/v1/users/self/profile
+uv run canvas api '/api/v1/courses?enrollment_state=active'
+uv run canvas api /api/v1/courses/93662/tabs --param 'include[]=external'
+uv run canvas api /api/example -X POST --data '{"key":"value"}'
+uv run canvas api /api/example -H 'Accept:application/json'
+```
+
+The direct `requests` transport is used first; the command does not launch a
+browser. If the cookies are invalid, run `canvas auth login`.
+
+## Bulk sync compatibility
+
+The original fetch-all behavior is available under `sync`, with its existing
+selection, refresh, skip, debug, and login-only options:
+
+```bash
+uv run canvas sync
+uv run canvas sync --login-only
+uv run canvas sync --course CG2028 --course 85096
+uv run canvas sync --refresh-course
+uv run canvas sync --refresh-people
+uv run canvas sync --refresh-pages --refresh-discussions
+uv run canvas sync --refresh-assignments
+uv run canvas sync --refresh-files
+uv run canvas sync --refresh-content
+uv run canvas sync --skip-files
+uv run canvas sync --skip-assignments --skip-files
+```
+
+## Cache layout
+
+The default cache is `data/canvas/{term}/{course}`. Academic terms such as
+`2025/2026 Semester 2` normalize to `2526S2`; irregular terms such as
+`Non-Academic` retain a filesystem-safe name. The root contains `index.json`
+and the privacy-trimmed `student.json`. Course folders can contain:
+
+- `course.json` and `cover_image.*`
+- `announcements/announcements.json` and announcement HTML
+- `discussions/discussions.json` and discussion HTML
 - `people.json`
-- `pages/pages.json`
+- `pages/pages.json` and page HTML
 - `syllabus.json` and `syllabus.html`
 - `modules.json`
-- `assignments/assignments.json`, with one subfolder per assignment or quiz
-- `files/files.json` plus downloaded Canvas files
+- `assignments/assignments.json`, with per-assignment or per-quiz folders
+- `files/files.json` and downloaded Canvas files
 
-Announcement, discussion, page, and syllabus HTML bodies are written to `.html`
-files. The old Canvas `message`, `body`, or `content` field is replaced with a
-relative path to that HTML file. Paths stored inside course JSON files are
-relative to the JSON file that contains them. Files are downloaded under the
-course's `files/` folder, using Canvas's folder structure when the Files tab is
-available. Files linked from modules or HTML bodies are also downloaded, even
-when the Files tab itself is closed. `files/files.json` stores metadata for each
-downloaded file, with the local `path` relative to `files.json` and a SHA-256
-hash for the downloaded bytes.
+Announcement, discussion, page, syllabus, assignment, and quiz HTML is saved as
+local `.html` files. Files referenced by modules or HTML bodies are downloaded
+even when the Files tab itself is closed. File metadata includes a SHA-256 hash.
+Assignments can also include downloaded submitted files, description images,
+Classic Quiz review content, and New Quizzes result data when Canvas exposes
+them. Unstarted quizzes are not opened, and TA/staff enrollments skip quiz
+content reads to avoid elevated-access behavior.
 
-Assignments and quizzes are stored under `assignments/`. `Roll Call Attendance`
-is ignored. Each assignment or standalone quiz gets a normalized-name subfolder
-containing `assignment.json`, optional `content.html`, optional downloaded
-description images under `images/`, optional `quiz.json`, downloaded quiz
-images under `quiz_images/` with `quiz_images.json` URL-to-file metadata, and
-submitted files under `submitted_files/` when Canvas exposes a self-submission
-with upload attachments. For submitted student attempts, `quiz.json` includes
-Classic Quiz review questions from Canvas's read-only result page when
-available, and New Quizzes result data from the submitted preview page for LTI
-quiz assignments. Quiz image links in saved HTML are rewritten to local relative
-paths when the image URL is accessible. When Canvas exposes structured quiz
-result data but no static review page, the sync writes a generated `quiz.html`
-preview from the saved question data. Standalone Classic Quiz attempts are
-detected through Canvas's quiz submission history before reading result pages.
-Unstarted quizzes are not opened, and TA/staff enrollments skip quiz-content
-reads to avoid using elevated access.
+Incremental checks compare Canvas summaries and stable signatures. Pages and
+discussion views fetch details only for changed items; files compare metadata
+and retain verified downloads; assignments compare stable assignment, quiz, and
+self-submission fields; people now compare the fetched roster fingerprint and
+avoid rewriting an unchanged cache. Syllabus bodies have no cheap update signal,
+so an existing syllabus remains lazy unless forced.
 
-Existing courses are incremental by default. `course.json` and `people.json` are
-assumed stable and are not refreshed unless forced. Pages are checked through
-Canvas page summaries and page bodies are fetched only for new or changed pages.
-Discussion reply views are fetched only for new or changed discussion topics.
-Announcements and discussion topic lists on NUS Canvas already include the
-message body, so the sync compares cached signatures and avoids rewriting
-unchanged local files. Syllabus bodies do not have a cheap update signal, so
-existing `syllabus.html` is skipped unless forced. Files are checked by Canvas
-metadata (`updated_at`, `modified_at`, `size`, filename, folder, and lock/hidden
-fields). A file is not downloaded again when that metadata signature matches the
-cache and the local file with its SHA-256 hash is still present. Assignments are
-checked through Canvas assignment and quiz list metadata plus durable
-self-submission fields; volatile values such as late-second counters are ignored.
+## Python API
 
-Useful options:
+Targeted fetching is also public as `CanvasFetcher`:
 
-```bash
-python -m canvas_sync.cli --login-only
-python -m canvas_sync.cli --course CG2023 --course 85096
-python -m canvas_sync.cli --refresh-course
-python -m canvas_sync.cli --refresh-people
-python -m canvas_sync.cli --refresh-pages --refresh-discussions
-python -m canvas_sync.cli --refresh-assignments
-python -m canvas_sync.cli --refresh-files
-python -m canvas_sync.cli --refresh-content
-python -m canvas_sync.cli --skip-files
-python -m canvas_sync.cli --skip-assignments --skip-files
+```python
+from canvas_sync import CanvasFetcher
+
+fetcher = CanvasFetcher()
+student = fetcher.student()
+courses = fetcher.courses(semester="latest")
+course = fetcher.course("CS1010", semester="2425S1")
+announcements = fetcher.content("CG2028", "announcements", "list")
 ```
 
-`--course` accepts one or more course IDs or exact course codes and can be
-repeated. `--login-only` validates or refreshes the saved Canvas session and
-exits before fetching courses. Each content sector can be skipped with its own
-flag: `--skip-announcements`, `--skip-discussions`, `--skip-people`,
-`--skip-pages`, `--skip-syllabus`, `--skip-modules`, `--skip-assignments`, or
-`--skip-files`. The CLI prints Rich progress and a summary table showing which
-tabs were created, updated, unchanged, skipped, or failed.
+Each method accepts cache/refresh controls appropriate to its scope. The legacy
+`sync_canvas()` API remains exported for bulk synchronization.
