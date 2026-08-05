@@ -224,3 +224,6 @@ data/
 ._*
 desktop.ini
 Thumbs.db
+
+.playwright/
+.playwright-cli/
