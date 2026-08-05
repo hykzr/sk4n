@@ -21,6 +21,12 @@ from rich.progress import (
 )
 from rich.table import Table
 
+from tools.playwright_cli import (
+    ensure_session_available,
+    open_authenticated_session,
+    playwright_cli_executable,
+)
+
 from .auth import (
     DEFAULT_LOGIN_WAIT_SECONDS,
     DEFAULT_SITE_NAME,
@@ -356,6 +362,36 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="JSON",
         help="JSON request body.",
+    )
+
+    playwright_parser = commands.add_parser(
+        "playwright-cli",
+        help="Open an authenticated low-level @playwright/cli browser session.",
+    )
+    playwright_parser.add_argument(
+        "--url",
+        default=None,
+        help="Initial URL. Default: the TalentConnect root page.",
+    )
+    browser_mode = playwright_parser.add_mutually_exclusive_group()
+    browser_mode.add_argument(
+        "--headless",
+        action="store_false",
+        dest="headed",
+        help="Run headless (default).",
+    )
+    browser_mode.add_argument(
+        "--headed",
+        action="store_true",
+        dest="headed",
+        help="Show the browser window.",
+    )
+    playwright_parser.set_defaults(headed=False)
+    playwright_parser.add_argument(
+        "-s",
+        "--session",
+        default="talent-connect",
+        help="@playwright/cli session ID. Default: talent-connect.",
     )
 
     fetch_parser = commands.add_parser(
@@ -851,6 +887,37 @@ def handle_api(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_playwright_cli(args: argparse.Namespace) -> int:
+    executable = playwright_cli_executable()
+    ensure_session_available(executable, args.session)
+    status = check_auth_status(
+        site_name=args.site_name,
+        app_base_url=args.app_base_url,
+    )
+    if not status.authenticated:
+        status = login(
+            site_name=args.site_name,
+            app_base_url=args.app_base_url,
+            login_wait_seconds=DEFAULT_LOGIN_WAIT_SECONDS,
+        )
+    url = args.url or args.app_base_url
+    open_authenticated_session(
+        executable=executable,
+        session_id=args.session,
+        site_name=args.site_name,
+        url=url,
+        headed=args.headed,
+    )
+    identity = status.display_name or status.email
+    if identity:
+        console.print(f"Authenticated as {escape(identity)}.")
+    console.print(
+        f"@playwright/cli session [cyan]{escape(args.session)}[/cyan] is open at {escape(url)}."
+    )
+    console.print(f"Use: playwright-cli -s={escape(args.session)} <command>")
+    return 0
+
+
 def handle_fetch(args: argparse.Namespace, store: TalentConnectStore) -> int:
     filters = filters_from_args(args)
     workflow_fetch = bool(filters.get("talent_connect_statuses"))
@@ -1114,6 +1181,8 @@ def run(args: argparse.Namespace) -> int:
         return handle_auth(args)
     if args.command == "api":
         return handle_api(args)
+    if args.command == "playwright-cli":
+        return handle_playwright_cli(args)
     with TalentConnectStore(args.data_path) as store:
         if args.command == "fetch":
             return handle_fetch(args, store)

@@ -12,6 +12,12 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
+from tools.playwright_cli import (
+    ensure_session_available,
+    open_authenticated_session,
+    playwright_cli_executable,
+)
+
 from .auth import (
     DEFAULT_LOGIN_WAIT_SECONDS,
     check_auth_status,
@@ -277,6 +283,36 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         metavar="NAME:VALUE",
         help="Request header. Repeat for multiple headers.",
+    )
+
+    playwright_parser = commands.add_parser(
+        "playwright-cli",
+        help="Open an authenticated low-level @playwright/cli browser session.",
+    )
+    playwright_parser.add_argument(
+        "--url",
+        default=None,
+        help="Initial URL. Default: the Canvas root page.",
+    )
+    browser_mode = playwright_parser.add_mutually_exclusive_group()
+    browser_mode.add_argument(
+        "--headless",
+        action="store_false",
+        dest="headed",
+        help="Run headless (default).",
+    )
+    browser_mode.add_argument(
+        "--headed",
+        action="store_true",
+        dest="headed",
+        help="Show the browser window.",
+    )
+    playwright_parser.set_defaults(headed=False)
+    playwright_parser.add_argument(
+        "-s",
+        "--session",
+        default="canvas",
+        help="@playwright/cli session ID. Default: canvas.",
     )
     return parser
 
@@ -615,6 +651,38 @@ def handle_api(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_playwright_cli(args: argparse.Namespace) -> int:
+    executable = playwright_cli_executable()
+    ensure_session_available(executable, args.session)
+    status = check_auth_status(
+        base_url=args.base_url,
+        site_name=args.site_name,
+        timeout=args.timeout,
+    )
+    if not status.authenticated:
+        status = login(
+            base_url=args.base_url,
+            site_name=args.site_name,
+            login_wait_seconds=args.login_wait_seconds,
+        )
+    url = args.url or args.base_url
+    open_authenticated_session(
+        executable=executable,
+        session_id=args.session,
+        site_name=args.site_name,
+        url=url,
+        headed=args.headed,
+    )
+    identity = status.name or status.email
+    if identity:
+        console.print(f"Authenticated as {escape(identity)}.")
+    console.print(
+        f"@playwright/cli session [cyan]{escape(args.session)}[/cyan] is open at {escape(url)}."
+    )
+    console.print(f"Use: playwright-cli -s={escape(args.session)} <command>")
+    return 0
+
+
 def run(args: argparse.Namespace) -> int:
     if args.command == "auth":
         return handle_auth(args)
@@ -628,6 +696,8 @@ def run(args: argparse.Namespace) -> int:
         return handle_course(args)
     if args.command == "api":
         return handle_api(args)
+    if args.command == "playwright-cli":
+        return handle_playwright_cli(args)
     raise AssertionError(f"Unknown command: {args.command}")
 
 

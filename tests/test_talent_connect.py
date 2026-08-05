@@ -3,11 +3,13 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 import requests
 
+import talent_connect.cli as talent_cli
 from talent_connect.authenticated_client import (
     AuthenticatedKinobiClient,
     workflow_record_to_job,
@@ -82,6 +84,66 @@ def sample_job(**overrides: Any) -> dict[str, Any]:
     }
     job.update(overrides)
     return job
+
+
+def test_cli_exposes_playwright_cli_command() -> None:
+    parser = build_parser()
+
+    defaults = parser.parse_args(["playwright-cli"])
+    assert defaults.url is None
+    assert defaults.headed is False
+    assert defaults.session == "talent-connect"
+
+    configured = parser.parse_args(
+        [
+            "playwright-cli",
+            "--url",
+            "https://talent.example.test/jobs",
+            "--headless",
+            "-s",
+            "talent-debug",
+        ]
+    )
+    assert configured.url == "https://talent.example.test/jobs"
+    assert configured.headed is False
+    assert configured.session == "talent-debug"
+
+
+def test_playwright_cli_command_logs_in_when_needed(monkeypatch: pytest.MonkeyPatch) -> None:
+    opened: list[dict[str, Any]] = []
+    monkeypatch.setattr(talent_cli, "playwright_cli_executable", lambda: "/bin/playwright-cli")
+    monkeypatch.setattr(talent_cli, "ensure_session_available", lambda *_args: None)
+    monkeypatch.setattr(
+        talent_cli,
+        "check_auth_status",
+        lambda **_kwargs: SimpleNamespace(authenticated=False, display_name="", email=""),
+    )
+    monkeypatch.setattr(
+        talent_cli,
+        "login",
+        lambda **_kwargs: SimpleNamespace(
+            authenticated=True,
+            display_name="Student",
+            email="",
+        ),
+    )
+    monkeypatch.setattr(
+        talent_cli,
+        "open_authenticated_session",
+        lambda **kwargs: opened.append(kwargs),
+    )
+    args = build_parser().parse_args(["playwright-cli", "--session", "talent-test"])
+
+    assert talent_cli.handle_playwright_cli(args) == 0
+    assert opened == [
+        {
+            "executable": "/bin/playwright-cli",
+            "session_id": "talent-test",
+            "site_name": "nus_talent_connect",
+            "url": "https://nus-talentconnect.app.kinobi.asia",
+            "headed": False,
+        }
+    ]
 
 
 def test_client_paginates_and_encodes_repeatable_filters() -> None:

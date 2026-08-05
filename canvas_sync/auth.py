@@ -115,7 +115,10 @@ async def login_with_browser(
         await page.goto(base_url, wait_until="domcontentloaded")
 
         print("Canvas session is missing or expired.")
-        print("A browser window is open. Log in to Canvas there; sync will continue automatically.")
+        print(
+            "A browser window is open. Complete the Canvas login there; "
+            "this command will continue automatically."
+        )
 
         canvas_host = urlparse(base_url).netloc
         deadline = asyncio.get_running_loop().time() + login_wait_seconds

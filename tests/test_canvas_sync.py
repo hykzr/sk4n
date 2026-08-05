@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from io import StringIO
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -70,6 +71,58 @@ def test_cli_exposes_auth_sync_info_and_api_commands() -> None:
     assert api.data == {"ok": True}
     assert api.param == [("include[]", "term")]
     assert api.header == [("Accept", "application/json")]
+
+    playwright = parser.parse_args(
+        [
+            "playwright-cli",
+            "--url",
+            "https://canvas.example.test/courses/1",
+            "--headed",
+            "--session",
+            "canvas-debug",
+        ]
+    )
+    assert playwright.url == "https://canvas.example.test/courses/1"
+    assert playwright.headed is True
+    assert playwright.session == "canvas-debug"
+
+    playwright_defaults = parser.parse_args(["playwright-cli"])
+    assert playwright_defaults.url is None
+    assert playwright_defaults.headed is False
+    assert playwright_defaults.session == "canvas"
+
+
+def test_playwright_cli_command_logs_in_when_needed(monkeypatch: pytest.MonkeyPatch) -> None:
+    opened: list[dict[str, Any]] = []
+    monkeypatch.setattr(canvas_cli, "playwright_cli_executable", lambda: "/bin/playwright-cli")
+    monkeypatch.setattr(canvas_cli, "ensure_session_available", lambda *_args: None)
+    monkeypatch.setattr(
+        canvas_cli,
+        "check_auth_status",
+        lambda **_kwargs: SimpleNamespace(authenticated=False, name="", email=""),
+    )
+    monkeypatch.setattr(
+        canvas_cli,
+        "login",
+        lambda **_kwargs: SimpleNamespace(authenticated=True, name="Student", email=""),
+    )
+    monkeypatch.setattr(
+        canvas_cli,
+        "open_authenticated_session",
+        lambda **kwargs: opened.append(kwargs),
+    )
+    args = build_parser().parse_args(["playwright-cli", "--session", "canvas-test"])
+
+    assert canvas_cli.handle_playwright_cli(args) == 0
+    assert opened == [
+        {
+            "executable": "/bin/playwright-cli",
+            "session_id": "canvas-test",
+            "site_name": "nus_canvas",
+            "url": "https://canvas.nus.edu.sg",
+            "headed": False,
+        }
+    ]
 
 
 def test_semester_filters_are_case_insensitive_and_support_study_years() -> None:

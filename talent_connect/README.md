@@ -67,6 +67,28 @@ stderr and return exit code 2, making the command suitable for shell pipelines
 and endpoint exploration. This command does not read or update the local job
 database.
 
+## Low-level authenticated browser sessions
+
+Use `playwright-cli` to inspect application behavior that is not exposed clearly
+through the known Kinobi API calls:
+
+```bash
+uv run talent-connect playwright-cli
+uv run talent-connect playwright-cli --url 'https://nus-talentconnect.app.kinobi.asia/jobs'
+uv run talent-connect playwright-cli --headed --session talent-connect-debug
+```
+
+The command checks the saved login, opens the normal interactive login flow if
+needed, starts a headless `@playwright/cli` session by default, injects the saved
+authenticated storage state, and leaves the session open. `--headed` shows the
+browser; `--headless` is the explicit form of the default. The default session
+ID is `talent-connect`, and the default URL is the TalentConnect root page.
+
+Continue with commands such as `playwright-cli -s=talent-connect snapshot` and
+close it when finished with `playwright-cli -s=talent-connect close`. The
+command fails without the separately installed `@playwright/cli` executable, if
+the browser cannot open, or if that session ID is already running.
+
 ## Fetch and persist jobs
 
 ```bash

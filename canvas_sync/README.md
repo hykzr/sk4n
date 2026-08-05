@@ -117,6 +117,28 @@ uv run canvas api /api/example -H 'Accept:application/json'
 The direct `requests` transport is used first; the command does not launch a
 browser. If the cookies are invalid, run `canvas auth login`.
 
+## Low-level authenticated browser sessions
+
+Use `playwright-cli` when an API request is not enough to inspect or extend the
+Canvas integration:
+
+```bash
+uv run canvas playwright-cli
+uv run canvas playwright-cli --url 'https://canvas.nus.edu.sg/courses/12345'
+uv run canvas playwright-cli --headed --session canvas-debug
+```
+
+The command checks the saved login, opens the normal interactive login flow if
+needed, starts a headless `@playwright/cli` session by default, injects the saved
+authenticated storage state, and leaves the session open. `--headed` shows the
+browser; `--headless` is the explicit form of the default. The default session
+ID is `canvas`, and the default URL is the Canvas root page.
+
+Continue with commands such as `playwright-cli -s=canvas snapshot` and close it
+when finished with `playwright-cli -s=canvas close`. The command fails without
+the separately installed `@playwright/cli` executable, if the browser cannot
+open, or if that session ID is already running.
+
 ## Bulk sync compatibility
 
 The original fetch-all behavior is available under `sync`, with its existing
