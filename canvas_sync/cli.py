@@ -12,6 +12,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
+from agent_for_nus.paths import canvas_data_dir
 from tools.playwright_cli import (
     ensure_session_available,
     open_authenticated_session,
@@ -27,7 +28,7 @@ from .auth import (
 from .client import CanvasAPIError, CanvasClient
 from .fetcher import CanvasFetcher
 from .sync import sync_canvas
-from .utils import DEFAULT_BASE_URL, DEFAULT_DATA_PATH, DEFAULT_SITE_NAME
+from .utils import DEFAULT_BASE_URL, DEFAULT_SITE_NAME
 
 console = Console()
 error_console = Console(stderr=True)
@@ -150,6 +151,7 @@ def add_sync_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    default_data_path = canvas_data_dir()
     parser = argparse.ArgumentParser(
         prog="canvas",
         description="Query and incrementally cache NUS Canvas data.",
@@ -167,8 +169,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--data-path",
         type=Path,
-        default=Path(os.getenv("CANVAS_DATA_PATH", str(DEFAULT_DATA_PATH))),
-        help=f"Cache folder. Default: {DEFAULT_DATA_PATH}",
+        default=default_data_path,
+        help=f"Cache folder. Default: {default_data_path}",
     )
     parser.add_argument(
         "--timeout",

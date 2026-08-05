@@ -227,3 +227,6 @@ Thumbs.db
 
 .playwright/
 .playwright-cli/
+.claude/
+.agents/
+.agent/

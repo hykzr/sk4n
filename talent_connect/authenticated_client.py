@@ -209,8 +209,6 @@ class AuthenticatedKinobiClient:
         normalized_method = method.strip().upper()
         if not HTTP_METHOD_PATTERN.fullmatch(normalized_method):
             raise ValueError(f"Invalid HTTP method: {method!r}")
-        if not path.startswith("/api/") or path.startswith("//"):
-            raise ValueError("Authenticated Kinobi request paths must start with /api/.")
         return normalized_method, path
 
     async def _request(
@@ -398,6 +396,7 @@ class AuthenticatedKinobiClient:
         workflow_jobs: dict[str, dict[str, Any]] = {}
         self.detail_errors = {}
         try:
+
             async def fetch_all(
                 endpoint: str,
                 base_params: Mapping[str, Any],
@@ -462,9 +461,7 @@ class AuthenticatedKinobiClient:
                         job,
                     )
 
-            offer_statuses = [
-                status for status in requested if status in OFFER_WORKFLOW_FILTERS
-            ]
+            offer_statuses = [status for status in requested if status in OFFER_WORKFLOW_FILTERS]
             if offer_statuses:
                 user_id = await page.evaluate(
                     """

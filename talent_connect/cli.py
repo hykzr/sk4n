@@ -21,6 +21,7 @@ from rich.progress import (
 )
 from rich.table import Table
 
+from agent_for_nus.paths import talent_connect_database_path
 from tools.playwright_cli import (
     ensure_session_available,
     open_authenticated_session,
@@ -43,7 +44,6 @@ from .client import (
     KinobiClient,
 )
 from .storage import (
-    DEFAULT_DATABASE_PATH,
     TalentConnectStore,
     UpsertStats,
     job_matches_filters,
@@ -286,6 +286,7 @@ def filters_from_args(args: argparse.Namespace, *, query: str | None = None) -> 
 
 
 def build_parser() -> argparse.ArgumentParser:
+    default_data_path = talent_connect_database_path()
     parser = argparse.ArgumentParser(
         prog="talent-connect",
         description="Fetch and persist NUS TalentConnect jobs from Kinobi.",
@@ -293,8 +294,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--data-path",
         type=Path,
-        default=Path(os.getenv("TALENT_CONNECT_DATA_PATH", str(DEFAULT_DATABASE_PATH))),
-        help=f"SQLite file or containing directory. Default: {DEFAULT_DATABASE_PATH}",
+        default=default_data_path,
+        help=f"SQLite file or containing directory. Default: {default_data_path}",
     )
     parser.add_argument(
         "--api-base-url",

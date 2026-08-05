@@ -8,11 +8,13 @@ uv run nusmods --help
 uv run python -m nusmods --help
 ```
 
-The default schedule and one-day API/review cache are stored under
-`data/nusmods/`. Use `--data-path PATH`, `NUSMODS_DATA_PATH`, or
-`--cache-ttl SECONDS` to override those defaults. The active academic year is
-inferred the same way as the timetable site (the upcoming year becomes active
-in July); override it with `--academic-year 2025/2026`.
+The default schedule and one-day API/review cache are stored in the `nusmods/`
+directory below the platform-specific Agent for NUS user-data root. Use
+`--data-path PATH` for a command-specific override, `AGENT_FOR_NUS_HOME` to
+relocate all persistent application data, or `--cache-ttl SECONDS` to change
+cache expiry. The active academic year is inferred the same way as the
+timetable site (the upcoming year becomes active in July); override it with
+`--academic-year 2025/2026`.
 
 Cache behavior can be selected globally or after commands that read remote
 data:

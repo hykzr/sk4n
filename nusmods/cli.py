@@ -14,10 +14,11 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
+from agent_for_nus.paths import nusmods_data_dir
+
 from .client import (
     DEFAULT_API_BASE_URL,
     DEFAULT_CACHE_TTL_SECONDS,
-    DEFAULT_DATA_DIR,
     NUSModsAPIError,
     NUSModsClient,
     normalize_academic_year,
@@ -172,6 +173,7 @@ def add_schedule_semester_argument(parser: argparse.ArgumentParser) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    default_data_path = nusmods_data_dir()
     parser = argparse.ArgumentParser(
         prog="nusmods",
         description="Search public NUSMods course data and manage a local timetable.",
@@ -179,8 +181,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--data-path",
         type=Path,
-        default=Path(os.getenv("NUSMODS_DATA_PATH", str(DEFAULT_DATA_DIR))),
-        help=f"Schedule and API cache directory. Default: {DEFAULT_DATA_DIR}",
+        default=default_data_path,
+        help=f"Schedule and API cache directory. Default: {default_data_path}",
     )
     parser.add_argument(
         "--academic-year",

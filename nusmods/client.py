@@ -14,6 +14,8 @@ from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from agent_for_nus.paths import nusmods_data_dir
+
 DEFAULT_API_BASE_URL = "https://api.nusmods.com/v2"
 DEFAULT_DISQUS_URL = "https://disqus.com/embed/comments/"
 DEFAULT_CALENDAR_URL = (
@@ -24,7 +26,7 @@ DEFAULT_HOLIDAYS_URL = (
     "https://raw.githubusercontent.com/nusmodifications/nusmods/master/"
     "website/src/data/holidays.json"
 )
-DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "nusmods"
+DEFAULT_DATA_DIR = nusmods_data_dir()
 DEFAULT_CACHE_TTL_SECONDS = 24 * 60 * 60
 
 

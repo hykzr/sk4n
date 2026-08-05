@@ -9,10 +9,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from agent_for_nus.paths import talent_connect_data_dir, talent_connect_database_path
+
 from .client import utc_timestamp
 
-DEFAULT_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "talent_connect"
-DEFAULT_DATABASE_PATH = DEFAULT_DATA_PATH / "talent_connect.sqlite3"
+DEFAULT_DATA_PATH = talent_connect_data_dir()
+DEFAULT_DATABASE_PATH = talent_connect_database_path()
 
 VERBOSE_JOB_FIELDS = {
     "cc_email_addresses",

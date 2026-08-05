@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
+from contextlib import suppress
 from pathlib import Path
 
-SESSION_DIR = Path(__file__).resolve().parent.parent / "sessions"
+from agent_for_nus.paths import ensure_private_directory, sessions_dir
+
+SESSION_DIR = sessions_dir()
 """Default directory for persisted session data (cookies, localStorage, etc.)."""
 
 
@@ -20,14 +25,43 @@ def clean_whitespace(text: str) -> str:
 
 def session_path(site_name: str) -> Path:
     """Return the path for a site's session file."""
-    SESSION_DIR.mkdir(parents=True, exist_ok=True)
-    return SESSION_DIR / f"{site_name}.json"
+    if (
+        not site_name
+        or site_name in {".", ".."}
+        or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", site_name)
+    ):
+        raise ValueError("site_name must be a simple file-safe name")
+    directory = ensure_private_directory(sessions_dir())
+    return directory / f"{site_name}.json"
 
 
 def save_session(site_name: str, data: dict) -> str:
     """Persist session data (cookies, localStorage, etc.) to disk."""
     path = session_path(site_name)
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        if os.name == "posix":
+            os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            json.dump(data, stream, indent=2, ensure_ascii=False)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary_path, path)
+        if os.name == "posix":
+            with suppress(OSError):
+                path.chmod(0o600)
+    except BaseException:
+        with suppress(OSError):
+            os.close(descriptor)
+        raise
+    finally:
+        with suppress(OSError):
+            temporary_path.unlink()
     return f"Session saved to {path}"
 
 

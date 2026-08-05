@@ -7,8 +7,12 @@ cache. Install the project with `uv sync`, then inspect the command surface:
 uv run canvas --help
 ```
 
-`uv run canvas-sync` and `uv run python -m canvas_sync` are equivalent entry
-points.
+`uv run python -m canvas_sync` is an equivalent development entry point. The
+legacy `canvas-sync` console script has been removed.
+
+The cache defaults to the `canvas/` directory below the platform-specific
+Agent for NUS user-data root. Use `--data-path PATH` for a command-specific
+override or `AGENT_FOR_NUS_HOME` to relocate all persistent application data.
 
 ## Authentication
 

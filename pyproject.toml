@@ -5,32 +5,41 @@ build-backend = "hatchling.build"
 [project]
 name = "agent-for-nus"
 version = "0.1.0"
-description = ""
+description = "Local command-line tools for NUS Canvas, NUSMods, and TalentConnect"
 readme = "README.md"
 requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
 dependencies = [
-    "bs4>=0.0.2",
-    "langchain>=1.3.4",
-    "langchain-anthropic>=1.4.4",
-    "langchain-google-genai>=4.2.4",
-    "langchain-ollama>=1.1.0",
-    "langchain-openai>=1.2.2",
-    "nest-asyncio>=1.6.0",
-    "openpyxl>=3.1.5",
+    "beautifulsoup4>=4.14.3",
+    "platformdirs>=4.5.1",
     "playwright>=1.60.0",
-    "pyrootutils>=1.0.4",
     "requests>=2.34.2",
     "rich>=15.0.0",
+    "urllib3>=2.6.0",
 ]
 
 [project.scripts]
+agent-for-nus = "agent_for_nus.cli:main"
 canvas = "canvas_sync.cli:main"
-canvas-sync = "canvas_sync.cli:main"
 nusmods = "nusmods.cli:main"
 talent-connect = "talent_connect.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["canvas_sync", "nusmods", "talent_connect", "tools"]
+packages = ["agent_for_nus", "canvas_sync", "nusmods", "talent_connect", "tools"]
+
+# Markdown and metadata stored below agent_for_nus/skills are package data. The
+# skill directories themselves are introduced in Phase 2.
+[tool.hatch.build]
+artifacts = ["/agent_for_nus/skills/**"]
 
 [dependency-groups]
 dev = ["pytest>=9.1.1"]

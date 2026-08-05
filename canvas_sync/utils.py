@@ -9,18 +9,16 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
 
-import pyrootutils
+from agent_for_nus.paths import canvas_data_dir
 
 try:
     from .client import CanvasAPIError, CanvasClient
 except ImportError:
     from client import CanvasAPIError, CanvasClient
 
-pyroot = pyrootutils.setup_root(__file__, dotenv=True, pythonpath=True, cwd=True)
-
 DEFAULT_BASE_URL = "https://canvas.nus.edu.sg"
 DEFAULT_SITE_NAME = "nus_canvas"
-DEFAULT_DATA_PATH = pyroot / "data" / "canvas"
+DEFAULT_DATA_PATH = canvas_data_dir()
 COURSE_METADATA_FILE = "course.json"
 INDEX_FILE = "index.json"
 STUDENT_FILE = "student.json"
