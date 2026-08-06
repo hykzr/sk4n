@@ -1,0 +1,4 @@
+interface:
+  display_name: "NUS Canvas"
+  short_description: "Use NUS Canvas safely from the local CLI"
+  default_prompt: "Use $nus-canvas to inspect my current NUS Canvas courses and assignments."

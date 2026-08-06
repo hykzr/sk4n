@@ -1,0 +1,4 @@
+interface:
+  display_name: "NUS TalentConnect"
+  short_description: "Search NUS jobs and inspect saved records"
+  default_prompt: "Use $nus-talent-connect to search TalentConnect for matching internships."

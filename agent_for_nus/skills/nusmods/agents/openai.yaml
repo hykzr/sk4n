@@ -1,0 +1,4 @@
+interface:
+  display_name: "NUSMods"
+  short_description: "Search courses and manage NUSMods timetables"
+  default_prompt: "Use $nusmods to find courses and review my local timetable."

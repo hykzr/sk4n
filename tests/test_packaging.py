@@ -9,6 +9,16 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONSOLE_SCRIPTS = ("agent-for-nus", "canvas", "nusmods", "talent-connect")
 WHEEL_PACKAGES = ("agent_for_nus", "canvas_sync", "nusmods", "talent_connect", "tools")
+WHEEL_SKILLS = {
+    "nus-canvas": ("SKILL.md", "agents/openai.yaml", "references/commands.md", "references/low-level.md"),
+    "nusmods": ("SKILL.md", "agents/openai.yaml", "references/commands.md"),
+    "nus-talent-connect": (
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md",
+        "references/low-level.md",
+    ),
+}
 
 
 def run(command: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> None:
@@ -45,6 +55,9 @@ def test_wheel_and_source_tool_installs_run_outside_checkout(tmp_path: Path) -> 
         members = archive.namelist()
     for package in WHEEL_PACKAGES:
         assert any(member.startswith(f"{package}/") for member in members)
+    for skill, files in WHEEL_SKILLS.items():
+        for filename in files:
+            assert f"agent_for_nus/skills/{skill}/{filename}" in members
     assert not any(member.startswith(("data/", "sessions/")) for member in members)
 
     git_extract_dir = tmp_path / "git-source"
