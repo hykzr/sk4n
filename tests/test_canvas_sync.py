@@ -11,7 +11,7 @@ from rich.console import Console
 
 import canvas_sync.cli as canvas_cli
 from canvas_sync.cli import build_parser
-from canvas_sync.client import CanvasAuthError, CanvasClient
+from canvas_sync.client import CanvasAPIError, CanvasAuthError, CanvasClient
 from canvas_sync.fetcher import (
     CanvasFetcher,
     absolutize_local_paths,
@@ -333,3 +333,41 @@ def test_cached_content_item_loads_detail_json_with_absolute_paths(tmp_path: Pat
 
     assert detail["local_path"] == (assignment_dir / "assignment.json").resolve().as_posix()
     assert detail["content"] == (assignment_dir / "content.html").resolve().as_posix()
+
+
+def test_unavailable_course_section_is_not_reported_as_a_cache_error(tmp_path: Path) -> None:
+    course_dir = tmp_path / "2526S1" / "CG2028"
+    course_dir.mkdir(parents=True)
+    (course_dir / "course.json").write_text(
+        json.dumps(
+            {
+                "course": {"id": "1", "course_code": "CG2028"},
+                "all_tabs": [{"id": "modules", "label": "Modules", "hidden": False}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "index.json").write_text(
+        json.dumps(
+            {
+                "student": {},
+                "courses": [
+                    {
+                        "id": "1",
+                        "course_code": "CG2028",
+                        "term_folder_name": "2526S1",
+                        "metadata_path": "2526S1/CG2028/course.json",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(CanvasAPIError) as exc_info:
+        CanvasFetcher(data_path=tmp_path).content("CG2028", "assignments", refresh=False)
+
+    assert str(exc_info.value) == (
+        "The 'assignments' section is not available for course 'CG2028'. "
+        "Accessible sections: Modules."
+    )

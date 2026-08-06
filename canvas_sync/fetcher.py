@@ -7,7 +7,7 @@ from typing import Any
 
 from .auth import DEFAULT_LOGIN_WAIT_SECONDS, ensure_canvas_session
 from .client import CanvasAPIError, CanvasClient
-from .content import sync_course_content
+from .content import content_available, sync_course_content
 from .models import (
     CourseRecord,
     infer_enrollment_academic_year,
@@ -26,6 +26,7 @@ from .utils import (
     STUDENT_FILE,
     content_file_path,
     normalize_existing_path,
+    open_tab_ids,
     read_json,
     rel_path,
     resolve_relative_path,
@@ -659,13 +660,30 @@ class CanvasFetcher:
                 f"Unknown course resource {resource!r}. Available: {', '.join(sorted(RESOURCE_ALIASES))}."
             )
         content_type = "assignments" if resource_name == "quizzes" else resource_name
-        _, course_dir, _ = self._prepare_course(
+        _, course_dir, metadata = self._prepare_course(
             selector,
             refresh=refresh,
             force=force,
             semester=semester,
             content_type=content_type,
         )
+        all_tabs = metadata.get("all_tabs") if metadata else None
+        if isinstance(all_tabs, list):
+            accessible_tabs = [
+                tab for tab in all_tabs if isinstance(tab, dict) and tab.get("hidden") is not True
+            ]
+            if not content_available(content_type, open_tab_ids(accessible_tabs)):
+                accessible_sections = list(
+                    dict.fromkeys(
+                        str(tab.get("label") or tab.get("id"))
+                        for tab in accessible_tabs
+                        if tab.get("label") or tab.get("id")
+                    )
+                )
+                raise CanvasAPIError(
+                    f"The {resource_name!r} section is not available for course {selector!r}. "
+                    f"Accessible sections: {', '.join(accessible_sections) or 'none'}."
+                )
         json_path = content_file_path(course_dir, content_type).resolve()
         if item_selector.casefold() == "path":
             if not json_path.exists():
