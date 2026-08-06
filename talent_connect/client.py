@@ -10,6 +10,8 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from agent_for_nus.errors import ExitCode
+
 DEFAULT_API_BASE_URL = "https://nus-talentconnect.server.kinobi.asia"
 DEFAULT_APP_BASE_URL = "https://nus-talentconnect.app.kinobi.asia"
 DEFAULT_PAGE_SIZE = 100
@@ -61,6 +63,20 @@ def encode_job_filters(filters: Mapping[str, Any] | None) -> dict[str, Any]:
 class KinobiAPIError(RuntimeError):
     """Raised when Kinobi returns an unusable API response."""
 
+    exit_code = ExitCode.REMOTE
+
+
+class KinobiAuthError(KinobiAPIError):
+    exit_code = ExitCode.AUTH
+
+
+class KinobiTransportError(KinobiAPIError):
+    exit_code = ExitCode.TRANSPORT
+
+
+class KinobiHTTPError(KinobiAPIError):
+    exit_code = ExitCode.REMOTE
+
 
 class KinobiClient:
     """Deterministic client for Kinobi's public job and company APIs."""
@@ -106,9 +122,9 @@ class KinobiClient:
         try:
             response = self.session.get(url, params=params, timeout=self.timeout)
         except requests.RequestException as exc:
-            raise KinobiAPIError(f"Kinobi request failed for {url}: {exc}") from exc
+            raise KinobiTransportError(f"Kinobi request failed for {url}: {exc}") from exc
         if allow_statuses and response.status_code in allow_statuses:
-            raise KinobiAPIError(f"Kinobi returned HTTP {response.status_code} for {url}.")
+            raise KinobiHTTPError(f"Kinobi returned HTTP {response.status_code} for {url}.")
         try:
             response.raise_for_status()
         except requests.HTTPError as exc:
@@ -121,7 +137,8 @@ class KinobiClient:
                 message = f"Kinobi could not find {url}."
             else:
                 message = f"Kinobi returned HTTP {response.status_code} for {url}."
-            raise KinobiAPIError(message) from exc
+            error_type = KinobiAuthError if response.status_code == 401 else KinobiHTTPError
+            raise error_type(message) from exc
         try:
             payload = response.json()
         except ValueError as exc:

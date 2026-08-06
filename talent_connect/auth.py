@@ -19,6 +19,7 @@ class AuthStatus:
     authenticated: bool
     display_name: str = ""
     email: str = ""
+    user_id: str = ""
     error: str = ""
 
 
@@ -62,6 +63,7 @@ def _status_from_profile(profile: dict[str, Any] | None) -> AuthStatus:
         authenticated=True,
         display_name=display_name,
         email=str(profile.get("email") or ""),
+        user_id=str(profile.get("_id") or ""),
     )
 
 

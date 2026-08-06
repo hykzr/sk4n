@@ -8,10 +8,12 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from playwright.async_api import Error as PlaywrightError
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
+from agent_for_nus.errors import exit_code_for_error
 from agent_for_nus.paths import canvas_data_dir
 from tools.playwright_cli import (
     ensure_session_available,
@@ -25,7 +27,7 @@ from .auth import (
     login,
     logout,
 )
-from .client import CanvasAPIError, CanvasClient
+from .client import CanvasAPIError, CanvasAuthError, CanvasClient
 from .fetcher import CanvasFetcher
 from .sync import sync_canvas
 from .utils import DEFAULT_BASE_URL, DEFAULT_SITE_NAME
@@ -155,6 +157,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="canvas",
         description="Query and incrementally cache NUS Canvas data.",
+        epilog=(
+            "Exit codes: 0 success, 1 unauthenticated status, 2 validation, "
+            "3 authentication, 4 transport, 5 remote HTTP/response failure."
+        ),
     )
     parser.add_argument(
         "--base-url",
@@ -252,7 +258,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Send a direct low-level request with the saved Canvas session.",
     )
     api_parser.add_argument(
-        "url", help="Canvas API path or absolute URL; query parameters may be included."
+        "url",
+        help=(
+            "Canvas API path or same-origin absolute URL; query parameters may be included."
+        ),
     )
     api_parser.add_argument(
         "-X",
@@ -662,10 +671,9 @@ def handle_playwright_cli(args: argparse.Namespace) -> int:
         timeout=args.timeout,
     )
     if not status.authenticated:
-        status = login(
-            base_url=args.base_url,
-            site_name=args.site_name,
-            login_wait_seconds=args.login_wait_seconds,
+        raise CanvasAuthError(
+            "No valid saved Canvas login. Run `canvas auth login` before opening an "
+            "authenticated playwright-cli session."
         )
     url = args.url or args.base_url
     open_authenticated_session(
@@ -708,9 +716,9 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = parser.parse_args(argv)
     try:
         raise SystemExit(run(args))
-    except (CanvasAPIError, RuntimeError, TimeoutError, ValueError) as exc:
+    except (CanvasAPIError, PlaywrightError, RuntimeError, TimeoutError, ValueError) as exc:
         error_console.print(f"[red]Error:[/red] {escape(str(exc))}")
-        raise SystemExit(2) from exc
+        raise SystemExit(exit_code_for_error(exc)) from exc
 
 
 if __name__ == "__main__":

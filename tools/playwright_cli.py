@@ -9,11 +9,15 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
+from agent_for_nus.errors import ExitCode
+
 from .shared import load_session
 
 
 class PlaywrightCLIError(RuntimeError):
     """Raised when an authenticated @playwright/cli session cannot be opened."""
+
+    exit_code = ExitCode.TRANSPORT
 
 
 def playwright_cli_executable() -> str:

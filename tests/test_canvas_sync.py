@@ -11,6 +11,7 @@ from rich.console import Console
 
 import canvas_sync.cli as canvas_cli
 from canvas_sync.cli import build_parser
+from canvas_sync.client import CanvasAuthError, CanvasClient
 from canvas_sync.fetcher import (
     CanvasFetcher,
     absolutize_local_paths,
@@ -92,7 +93,7 @@ def test_cli_exposes_auth_sync_info_and_api_commands() -> None:
     assert playwright_defaults.session == "canvas"
 
 
-def test_playwright_cli_command_logs_in_when_needed(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_playwright_cli_command_requires_explicit_login(monkeypatch: pytest.MonkeyPatch) -> None:
     opened: list[dict[str, Any]] = []
     monkeypatch.setattr(canvas_cli, "playwright_cli_executable", lambda: "/bin/playwright-cli")
     monkeypatch.setattr(canvas_cli, "ensure_session_available", lambda *_args: None)
@@ -101,11 +102,13 @@ def test_playwright_cli_command_logs_in_when_needed(monkeypatch: pytest.MonkeyPa
         "check_auth_status",
         lambda **_kwargs: SimpleNamespace(authenticated=False, name="", email=""),
     )
-    monkeypatch.setattr(
-        canvas_cli,
-        "login",
-        lambda **_kwargs: SimpleNamespace(authenticated=True, name="Student", email=""),
-    )
+    login_called = False
+
+    def unexpected_login(**_kwargs: Any) -> None:
+        nonlocal login_called
+        login_called = True
+
+    monkeypatch.setattr(canvas_cli, "login", unexpected_login)
     monkeypatch.setattr(
         canvas_cli,
         "open_authenticated_session",
@@ -113,16 +116,36 @@ def test_playwright_cli_command_logs_in_when_needed(monkeypatch: pytest.MonkeyPa
     )
     args = build_parser().parse_args(["playwright-cli", "--session", "canvas-test"])
 
-    assert canvas_cli.handle_playwright_cli(args) == 0
-    assert opened == [
-        {
-            "executable": "/bin/playwright-cli",
-            "session_id": "canvas-test",
-            "site_name": "nus_canvas",
-            "url": "https://canvas.nus.edu.sg",
-            "headed": False,
-        }
-    ]
+    with pytest.raises(CanvasAuthError, match="canvas auth login"):
+        canvas_cli.handle_playwright_cli(args)
+    assert not login_called
+    assert opened == []
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.test/api/v1/users/self",
+        "//example.test/api/v1/users/self",
+        "http://canvas.nus.edu.sg/api/v1/users/self",
+    ],
+)
+def test_canvas_client_rejects_cross_origin_authenticated_urls(url: str) -> None:
+    client = CanvasClient("https://canvas.nus.edu.sg", "test")
+
+    with pytest.raises(ValueError, match="configured Canvas origin"):
+        client.resolve_url(url)
+
+
+def test_canvas_client_accepts_paths_and_same_origin_absolute_urls() -> None:
+    client = CanvasClient("https://canvas.nus.edu.sg", "test")
+
+    assert client.resolve_url("/api/v1/users/self") == (
+        "https://canvas.nus.edu.sg/api/v1/users/self"
+    )
+    assert client.resolve_url("https://canvas.nus.edu.sg/api/v1/courses") == (
+        "https://canvas.nus.edu.sg/api/v1/courses"
+    )
 
 
 def test_semester_filters_are_case_insensitive_and_support_study_years() -> None:

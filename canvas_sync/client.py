@@ -6,15 +6,30 @@ import re
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, urljoin
+from urllib.parse import quote, urljoin, urlsplit
 
 import requests
 
+from agent_for_nus.errors import ExitCode
 from tools import RequestTools
 
 
 class CanvasAPIError(RuntimeError):
     """Raised when Canvas returns an unexpected response."""
+
+    exit_code = ExitCode.REMOTE
+
+
+class CanvasAuthError(CanvasAPIError):
+    exit_code = ExitCode.AUTH
+
+
+class CanvasTransportError(CanvasAPIError):
+    exit_code = ExitCode.TRANSPORT
+
+
+class CanvasHTTPError(CanvasAPIError):
+    exit_code = ExitCode.REMOTE
 
 
 def parse_next_link(link_header: str | None) -> str | None:
@@ -43,21 +58,45 @@ class CanvasClient:
     def api_url(self, path: str) -> str:
         return urljoin(self.base_url + "/", path.lstrip("/"))
 
+    @staticmethod
+    def _origin(url: str) -> tuple[str, str, int | None]:
+        parsed = urlsplit(url)
+        scheme = parsed.scheme.casefold()
+        if scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError(f"Canvas URL must use HTTP(S) and include a host: {url!r}")
+        if parsed.username is not None or parsed.password is not None:
+            raise ValueError("Canvas URLs must not include user credentials.")
+        port = parsed.port
+        if port is None:
+            port = 443 if scheme == "https" else 80
+        return scheme, parsed.hostname.casefold(), port
+
+    def resolve_url(self, path_or_url: str) -> str:
+        """Resolve a Canvas path while refusing to send saved cookies cross-origin."""
+        parsed = urlsplit(path_or_url)
+        url = path_or_url if parsed.scheme else urljoin(self.base_url + "/", path_or_url)
+        if self._origin(url) != self._origin(self.base_url):
+            raise ValueError(
+                "Authenticated Canvas requests must target the configured Canvas origin "
+                f"{self.base_url!r}; rejected {path_or_url!r}."
+            )
+        return url
+
     def request_error(self, url: str, exc: requests.HTTPError) -> CanvasAPIError:
         response = exc.response
         status = response.status_code if response is not None else None
         if status == 401:
-            return CanvasAPIError(
+            return CanvasAuthError(
                 "Canvas rejected the saved session. Run `canvas auth login` and try again."
             )
         if status == 403:
-            return CanvasAPIError(
+            return CanvasHTTPError(
                 f"Canvas denied access to {url} (HTTP 403). The item may be "
                 "locked, hidden, or unavailable for this enrollment."
             )
         if status:
-            return CanvasAPIError(f"Canvas request failed for {url} (HTTP {status}).")
-        return CanvasAPIError(f"Canvas request failed: {url}")
+            return CanvasHTTPError(f"Canvas request failed for {url} (HTTP {status}).")
+        return CanvasTransportError(f"Canvas request failed: {url}")
 
     def get_response(
         self,
@@ -65,18 +104,20 @@ class CanvasClient:
         params: dict[str, Any] | Iterable[tuple[str, Any]] | None = None,
         **kwargs: Any,
     ) -> requests.Response:
-        url = path_or_url if path_or_url.startswith("http") else self.api_url(path_or_url)
+        url = self.resolve_url(path_or_url)
         try:
             return self._rt.get(url, params=params, **kwargs)
         except requests.HTTPError as exc:
             raise self.request_error(url, exc) from exc
+        except requests.RequestException as exc:
+            raise CanvasTransportError(f"Canvas request failed: {url}") from exc
 
     def get_json(
         self,
         path_or_url: str,
         params: dict[str, Any] | Iterable[tuple[str, Any]] | None = None,
     ) -> Any:
-        url = path_or_url if path_or_url.startswith("http") else self.api_url(path_or_url)
+        url = self.resolve_url(path_or_url)
         response = self.get_response(url, params=params)
         content_type = response.headers.get("content-type", "")
         if "json" not in content_type.lower():
@@ -96,7 +137,7 @@ class CanvasClient:
         headers: dict[str, str] | None = None,
     ) -> Any:
         """Send a direct authenticated request and decode JSON responses when possible."""
-        url = path_or_url if path_or_url.startswith("http") else self.api_url(path_or_url)
+        url = self.resolve_url(path_or_url)
         try:
             response = self._rt.session.request(
                 method.upper(),
@@ -110,7 +151,7 @@ class CanvasClient:
         except requests.HTTPError as exc:
             raise self.request_error(url, exc) from exc
         except requests.RequestException as exc:
-            raise CanvasAPIError(f"Canvas request failed: {url}") from exc
+            raise CanvasTransportError(f"Canvas request failed: {url}") from exc
         if response.status_code == 204 or not response.content:
             return None
         content_type = response.headers.get("content-type", "").casefold()
@@ -142,7 +183,7 @@ class CanvasClient:
             next_url = parse_next_link(response.headers.get("link"))
             if not next_url:
                 break
-            url = next_url
+            url = self.resolve_url(next_url)
             current_params = None
         return items
 

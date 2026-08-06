@@ -11,6 +11,8 @@ from playwright.async_api import async_playwright
 from tools import RequestTools
 from tools.shared import delete_session, load_session, save_session
 
+from .client import CanvasAuthError
+
 DEFAULT_LOGIN_WAIT_SECONDS = 300
 
 
@@ -145,18 +147,10 @@ def ensure_canvas_session(
     site_name: str,
     login_wait_seconds: int = DEFAULT_LOGIN_WAIT_SECONDS,
 ) -> bool:
+    del login_wait_seconds  # Retained for API compatibility with callers.
     if validate_canvas_session(base_url, site_name):
         return False
-    asyncio.run(
-        login_with_browser(
-            base_url=base_url,
-            site_name=site_name,
-            login_wait_seconds=login_wait_seconds,
-        )
-    )
-    if not validate_canvas_session(base_url, site_name):
-        raise RuntimeError("Canvas login completed, but the saved session still is not valid.")
-    return True
+    raise CanvasAuthError("No valid saved Canvas login. Run `canvas auth login` and try again.")
 
 
 def login(
@@ -179,7 +173,7 @@ def login(
     )
     status = check_auth_status(base_url=base_url, site_name=site_name)
     if not status.authenticated:
-        raise RuntimeError("Canvas login completed, but the saved session still is not valid.")
+        raise CanvasAuthError("Canvas login completed, but the saved session still is not valid.")
     return status
 
 

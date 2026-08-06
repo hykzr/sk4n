@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from playwright.async_api import Error as PlaywrightError
 from rich.console import Console
 from rich.markup import escape
 from rich.progress import (
@@ -21,6 +22,7 @@ from rich.progress import (
 )
 from rich.table import Table
 
+from agent_for_nus.errors import exit_code_for_error
 from agent_for_nus.paths import talent_connect_database_path
 from tools.playwright_cli import (
     ensure_session_available,
@@ -41,6 +43,7 @@ from .client import (
     DEFAULT_APP_BASE_URL,
     DEFAULT_PAGE_SIZE,
     KinobiAPIError,
+    KinobiAuthError,
     KinobiClient,
 )
 from .storage import (
@@ -290,6 +293,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="talent-connect",
         description="Fetch and persist NUS TalentConnect jobs from Kinobi.",
+        epilog=(
+            "Exit codes: 0 success, 1 unauthenticated status, 2 validation, "
+            "3 authentication, 4 transport, 5 remote HTTP/response failure."
+        ),
     )
     parser.add_argument(
         "--data-path",
@@ -323,7 +330,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     auth_parser = commands.add_parser("auth", help="Manage the saved NUS login.")
     auth_commands = auth_parser.add_subparsers(dest="auth_command", required=True)
-    auth_commands.add_parser("status", help="Check the saved login.")
+    status_parser = auth_commands.add_parser("status", help="Check the saved login.")
+    status_parser.add_argument(
+        "--format",
+        choices=("json",),
+        default=None,
+        help="Output machine-readable authentication status.",
+    )
     login_parser = auth_commands.add_parser("login", help="Open a browser for NUS login.")
     login_parser.add_argument(
         "--refresh",
@@ -520,11 +533,9 @@ def _job_client(args: argparse.Namespace):
         app_base_url=args.app_base_url,
     )
     if not status.authenticated:
-        console.print("TalentConnect login is required for per-user job fields.")
-        login(
-            site_name=args.site_name,
-            app_base_url=args.app_base_url,
-            login_wait_seconds=DEFAULT_LOGIN_WAIT_SECONDS,
+        raise KinobiAuthError(
+            "No valid saved TalentConnect login. Run `talent-connect auth login` "
+            "or use --no-login for public requests."
         )
     return AuthenticatedKinobiClient(
         app_base_url=args.app_base_url,
@@ -850,6 +861,16 @@ def handle_auth(args: argparse.Namespace) -> int:
             site_name=args.site_name,
             app_base_url=args.app_base_url,
         )
+        value = {
+            "authenticated": status.authenticated,
+            "name": status.display_name or None,
+            "email": status.email or None,
+            "user_id": status.user_id or None,
+            "error": status.error or None,
+        }
+        if args.format == "json":
+            print(_json_text(value))
+            return 0 if status.authenticated else 1
         if status.authenticated:
             identity = status.display_name
             if status.email:
@@ -896,10 +917,9 @@ def handle_playwright_cli(args: argparse.Namespace) -> int:
         app_base_url=args.app_base_url,
     )
     if not status.authenticated:
-        status = login(
-            site_name=args.site_name,
-            app_base_url=args.app_base_url,
-            login_wait_seconds=DEFAULT_LOGIN_WAIT_SECONDS,
+        raise KinobiAuthError(
+            "No valid saved TalentConnect login. Run `talent-connect auth login` before "
+            "opening an authenticated playwright-cli session."
         )
     url = args.url or args.app_base_url
     open_authenticated_session(
@@ -1201,9 +1221,9 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = parser.parse_args(argv)
     try:
         raise SystemExit(run(args))
-    except (KinobiAPIError, ValueError, TimeoutError) as exc:
+    except (KinobiAPIError, PlaywrightError, ValueError, TimeoutError) as exc:
         error_console.print(f"[red]Error:[/red] {escape(str(exc))}")
-        raise SystemExit(2) from exc
+        raise SystemExit(exit_code_for_error(exc)) from exc
 
 
 if __name__ == "__main__":

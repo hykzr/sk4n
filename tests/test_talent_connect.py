@@ -109,7 +109,7 @@ def test_cli_exposes_playwright_cli_command() -> None:
     assert configured.session == "talent-debug"
 
 
-def test_playwright_cli_command_logs_in_when_needed(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_playwright_cli_command_requires_explicit_login(monkeypatch: pytest.MonkeyPatch) -> None:
     opened: list[dict[str, Any]] = []
     monkeypatch.setattr(talent_cli, "playwright_cli_executable", lambda: "/bin/playwright-cli")
     monkeypatch.setattr(talent_cli, "ensure_session_available", lambda *_args: None)
@@ -118,15 +118,13 @@ def test_playwright_cli_command_logs_in_when_needed(monkeypatch: pytest.MonkeyPa
         "check_auth_status",
         lambda **_kwargs: SimpleNamespace(authenticated=False, display_name="", email=""),
     )
-    monkeypatch.setattr(
-        talent_cli,
-        "login",
-        lambda **_kwargs: SimpleNamespace(
-            authenticated=True,
-            display_name="Student",
-            email="",
-        ),
-    )
+    login_called = False
+
+    def unexpected_login(**_kwargs: Any) -> None:
+        nonlocal login_called
+        login_called = True
+
+    monkeypatch.setattr(talent_cli, "login", unexpected_login)
     monkeypatch.setattr(
         talent_cli,
         "open_authenticated_session",
@@ -134,16 +132,10 @@ def test_playwright_cli_command_logs_in_when_needed(monkeypatch: pytest.MonkeyPa
     )
     args = build_parser().parse_args(["playwright-cli", "--session", "talent-test"])
 
-    assert talent_cli.handle_playwright_cli(args) == 0
-    assert opened == [
-        {
-            "executable": "/bin/playwright-cli",
-            "session_id": "talent-test",
-            "site_name": "nus_talent_connect",
-            "url": "https://nus-talentconnect.app.kinobi.asia",
-            "headed": False,
-        }
-    ]
+    with pytest.raises(KinobiAPIError, match="talent-connect auth login"):
+        talent_cli.handle_playwright_cli(args)
+    assert not login_called
+    assert opened == []
 
 
 def test_client_paginates_and_encodes_repeatable_filters() -> None:

@@ -17,6 +17,9 @@ from .client import (
     DEFAULT_APP_BASE_URL,
     DEFAULT_PAGE_SIZE,
     KinobiAPIError,
+    KinobiAuthError,
+    KinobiHTTPError,
+    KinobiTransportError,
     ProgressCallback,
     encode_job_filters,
 )
@@ -130,7 +133,7 @@ class AuthenticatedKinobiClient:
         session = load_session(self.site_name)
         storage_state = session.get("storage_state") if isinstance(session, dict) else None
         if not isinstance(storage_state, dict):
-            raise KinobiAPIError("No saved TalentConnect login. Run `talent-connect auth login`.")
+            raise KinobiAuthError("No saved TalentConnect login. Run `talent-connect auth login`.")
         return storage_state
 
     async def _open(self):
@@ -188,11 +191,12 @@ class AuthenticatedKinobiClient:
                 status = result.get("status") if isinstance(result, dict) else None
                 message = result.get("message") if isinstance(result, dict) else "unknown error"
                 if status == 401:
-                    raise KinobiAPIError(
+                    raise KinobiAuthError(
                         "The saved TalentConnect login expired. "
                         "Run `talent-connect auth login --refresh`."
                     )
-                raise KinobiAPIError(
+                error_type = KinobiHTTPError if status else KinobiTransportError
+                raise error_type(
                     f"Authenticated Kinobi request failed for {path}"
                     f"{f' (HTTP {status})' if status else ''}: {message}"
                 )
@@ -209,6 +213,8 @@ class AuthenticatedKinobiClient:
         normalized_method = method.strip().upper()
         if not HTTP_METHOD_PATTERN.fullmatch(normalized_method):
             raise ValueError(f"Invalid HTTP method: {method!r}")
+        if not path.startswith("/api/") or path.startswith("//"):
+            raise ValueError("Authenticated Kinobi request paths must start with /api/.")
         return normalized_method, path
 
     async def _request(
@@ -247,14 +253,15 @@ class AuthenticatedKinobiClient:
         status = result.get("status") if isinstance(result, dict) else None
         message = result.get("message") if isinstance(result, dict) else "unknown error"
         if status == 401:
-            raise KinobiAPIError(
+            raise KinobiAuthError(
                 "The saved TalentConnect login expired. Run `talent-connect auth login --refresh`."
             )
         response_payload = result.get("payload") if isinstance(result, dict) else None
         response_detail = ""
         if response_payload is not None:
             response_detail = f": {json.dumps(response_payload, ensure_ascii=False)}"
-        raise KinobiAPIError(
+        error_type = KinobiHTTPError if status else KinobiTransportError
+        raise error_type(
             f"Authenticated Kinobi {method} request failed for {path}"
             f"{f' (HTTP {status})' if status else ''}: {message}{response_detail}"
         )
