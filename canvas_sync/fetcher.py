@@ -668,11 +668,15 @@ class CanvasFetcher:
             content_type=content_type,
         )
         all_tabs = metadata.get("all_tabs") if metadata else None
+        content = metadata.get("content") if metadata else None
+        sections = content.get("sections") if isinstance(content, dict) else None
+        section = sections.get(content_type) if isinstance(sections, dict) else None
+        section_closed = isinstance(section, dict) and section.get("status") == "closed"
         if isinstance(all_tabs, list):
             accessible_tabs = [
                 tab for tab in all_tabs if isinstance(tab, dict) and tab.get("hidden") is not True
             ]
-            if not content_available(content_type, open_tab_ids(accessible_tabs)):
+            if section_closed or not content_available(content_type, open_tab_ids(accessible_tabs)):
                 accessible_sections = list(
                     dict.fromkeys(
                         str(tab.get("label") or tab.get("id"))

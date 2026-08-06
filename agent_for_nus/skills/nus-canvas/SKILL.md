@@ -18,6 +18,14 @@ Use the installed `canvas` command for deterministic, authenticated NUS Canvas r
 7. Read [references/low-level.md](references/low-level.md) and use an authenticated `playwright-cli` session only when the API cannot provide required page, DOM, or network details. Always close the named session.
 8. Return the source command and relevant local artifact paths when they help the user verify the result.
 
+### Course related tasks
+
+1. Use `canvas course list` to discover courses and their IDs.
+2. Use `canvas course <course_id>` to inspect a course's name, id, term, roles, and available sections
+3. After you see the available sections, depending on the task, use `canvas course <course_id> {path|announcements|assignments|discussions|files|modules|pages|people|quizzes|syllabus}` to get the
+detailed information for that section. Some sections are not accessible to students, and the command will
+throw an error in such case. This is expected and is not the failure of the tool
+
 ## Cache and safety rules
 
 - Use `--no-refresh` only for an explicitly offline/cache-only request or a repetitive read whose required data is already cached. Do not use it on the first call by default.
