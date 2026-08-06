@@ -342,7 +342,10 @@ def test_unavailable_course_section_is_not_reported_as_a_cache_error(tmp_path: P
         json.dumps(
             {
                 "course": {"id": "1", "course_code": "CG2028"},
-                "all_tabs": [{"id": "modules", "label": "Modules", "hidden": False}],
+                "all_tabs": [
+                    {"id": "home", "label": "Home", "hidden": False},
+                    {"id": "modules", "label": "Modules", "hidden": False},
+                ],
                 "content": {"sections": {"files": {"status": "closed"}}},
             }
         ),
@@ -370,12 +373,15 @@ def test_unavailable_course_section_is_not_reported_as_a_cache_error(tmp_path: P
 
     assert str(exc_info.value) == (
         "The 'assignments' section is not available for course 'CG2028'. "
-        "Accessible sections: Modules."
+        "Accessible Canvas sections: Home, Modules. "
+        "Queryable with `canvas course`: modules."
     )
 
     with pytest.raises(CanvasAPIError) as exc_info:
         CanvasFetcher(data_path=tmp_path).content("CG2028", "files", refresh=False)
 
     assert str(exc_info.value) == (
-        "The 'files' section is not available for course 'CG2028'. Accessible sections: Modules."
+        "The 'files' section is not available for course 'CG2028'. "
+        "Accessible Canvas sections: Home, Modules. "
+        "Queryable with `canvas course`: modules."
     )

@@ -55,6 +55,7 @@ RESOURCE_ALIASES = {
     "quizzes": "quizzes",
     "syllabus": "syllabus",
 }
+COURSE_RESOURCE_NAMES = frozenset(RESOURCE_ALIASES.values())
 
 LOCAL_PATH_KEYS = {
     "body",
@@ -684,9 +685,18 @@ class CanvasFetcher:
                         if tab.get("label") or tab.get("id")
                     )
                 )
+                queryable_sections = list(
+                    dict.fromkeys(
+                        str(tab.get("id")).casefold()
+                        for tab in accessible_tabs
+                        if str(tab.get("id") or "").casefold() in COURSE_RESOURCE_NAMES
+                    )
+                )
                 raise CanvasAPIError(
                     f"The {resource_name!r} section is not available for course {selector!r}. "
-                    f"Accessible sections: {', '.join(accessible_sections) or 'none'}."
+                    f"Accessible Canvas sections: {', '.join(accessible_sections) or 'none'}. "
+                    "Queryable with `canvas course`: "
+                    f"{', '.join(queryable_sections) or 'none'}."
                 )
         json_path = content_file_path(course_dir, content_type).resolve()
         if item_selector.casefold() == "path":

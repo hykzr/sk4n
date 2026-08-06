@@ -10,7 +10,7 @@ Use the installed `canvas` command for deterministic, authenticated NUS Canvas r
 ## Workflow
 
 1. Verify `canvas` exists on `PATH`. If it is missing, tell the user to install `agent-for-nus`; do not clone or install software silently.
-2. Read [references/commands.md](references/commands.md) before choosing unfamiliar arguments or subcommands.
+2. Before constructing or running any `canvas` CLI command, read [references/commands.md](references/commands.md), including for seemingly familiar commands. Treat it as the authoritative command grammar; do not infer subcommands, options, argument placement, or defaults.
 3. Run `canvas auth status` before any network-backed request. If authentication is required, ask before running `canvas auth login`, because login opens an interactive NUS SSO browser.
 4. Prefer the narrowest high-level command. Refresh one course or content area instead of running bulk `canvas sync` unless the user asks for a full sync.
 5. Use human output for a simple check, `--format json` or `jsonl` for parsing, and `--format plain` for line-oriented shell filtering. Expect JSON formats to expose the complete response and potentially be large.
@@ -23,8 +23,7 @@ Use the installed `canvas` command for deterministic, authenticated NUS Canvas r
 1. Use `canvas course list` to discover courses and their IDs.
 2. Use `canvas course <course_id>` to inspect a course's name, id, term, roles, and available sections
 3. After you see the available sections, depending on the task, use `canvas course <course_id> {path|announcements|assignments|discussions|files|modules|pages|people|quizzes|syllabus}` to get the
-detailed information for that section. Some sections are not accessible to students, and the command will
-throw an error in such case. This is expected and is not the failure of the tool
+detailed information for that section. Some sections are not accessible to students, so you should only use the sections that are available to the user given by `canvas course <course_id>`
 
 ## Cache and safety rules
 
