@@ -24,9 +24,15 @@ from .paths import (
     talent_connect_data_dir,
     talent_connect_database_path,
 )
+from .skill_install import (
+    AGENTS,
+    NUS_SKILLS,
+    find_project_root,
+    known_skill_roots,
+    skill_status_report,
+)
 
 CONSOLE_SCRIPTS = ("agent-for-nus", "canvas", "nusmods", "talent-connect")
-NUS_SKILLS = ("nus-canvas", "nusmods", "nus-talent-connect")
 MINIMUM_NODE_MAJOR = 18
 
 
@@ -370,36 +376,6 @@ def _playwright_cli_check() -> Check:
     )
 
 
-def _find_project_root(start: Path | None = None) -> Path | None:
-    current = (start or Path.cwd()).resolve()
-    for candidate in (current, *current.parents):
-        if (candidate / ".git").exists():
-            return candidate
-    return None
-
-
-def _skill_roots(project_root: Path | None) -> list[dict[str, Any]]:
-    user_home = Path.home()
-    roots: list[dict[str, Any]] = [
-        {"scope": "user", "agent": "codex/copilot", "path": user_home / ".agents/skills"},
-        {"scope": "user", "agent": "copilot", "path": user_home / ".copilot/skills"},
-        {"scope": "user", "agent": "claude", "path": user_home / ".claude/skills"},
-    ]
-    if project_root is not None:
-        roots.extend(
-            [
-                {
-                    "scope": "project",
-                    "agent": "codex/copilot",
-                    "path": project_root / ".agents/skills",
-                },
-                {"scope": "project", "agent": "copilot", "path": project_root / ".github/skills"},
-                {"scope": "project", "agent": "claude", "path": project_root / ".claude/skills"},
-            ]
-        )
-    return roots
-
-
 def directory_hash(path: Path) -> str:
     digest = hashlib.sha256()
     for item in sorted(
@@ -414,64 +390,42 @@ def directory_hash(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _bundled_skill_path(skill: str) -> Path:
-    return Path(__file__).resolve().parent / "skills" / skill
-
-
-def _skills_check() -> Check:
-    project_root = _find_project_root()
-    roots = _skill_roots(project_root)
-    expected = {
-        skill: directory_hash(path) if path.is_dir() else None
-        for skill in NUS_SKILLS
-        for path in [_bundled_skill_path(skill)]
-    }
-    installations: list[dict[str, Any]] = []
-    for root in roots:
-        for skill in NUS_SKILLS:
-            path = root["path"] / skill
-            installed_hash = directory_hash(path) if path.is_dir() else None
-            installations.append(
-                {
-                    "scope": root["scope"],
-                    "agent": root["agent"],
-                    "skill": skill,
-                    "path": str(path),
-                    "present": path.is_dir(),
-                    "sha256": installed_hash,
-                    "matches_bundled": (
-                        installed_hash == expected[skill]
-                        if installed_hash is not None and expected[skill] is not None
-                        else None
-                    ),
-                }
-            )
-    installed_count = sum(bool(item["present"]) for item in installations)
-    bundled_count = sum(value is not None for value in expected.values())
-    status = "ok" if bundled_count == len(NUS_SKILLS) else "warning"
-    summary = (
-        f"Found {installed_count} installed NUS skill copy/copies across known roots."
-        if status == "ok"
-        else "Bundled NUS skills are not yet present in this package (expected before Phase 2)."
-    )
+def skills_check() -> Check:
+    report = skill_status_report(agents=AGENTS, scope="all")
+    known = report["known_installations"]
+    current_count = sum(item["state"] == "current" for item in known)
+    problem_count = sum(item["state"] != "current" for item in known)
+    current_skills = {item["skill"] for item in known if item["state"] == "current"}
+    missing_skills = sorted(set(NUS_SKILLS) - current_skills)
+    if missing_skills:
+        status = "warning"
+        summary = f"No current installed copy was found for: {', '.join(missing_skills)}."
+        remediation = "Run `agent-for-nus skills install --agents all --scope user`."
+    elif problem_count or report["duplicates"]:
+        status = "warning"
+        summary = (
+            f"Found {current_count} current NUS skill copy/copies, with stale, unmanaged, or duplicate copies."
+        )
+        remediation = "Run `agent-for-nus skills status`, then update or remove duplicate copies."
+    else:
+        status = "ok"
+        summary = f"Found {current_count} current installed NUS skill copy/copies."
+        remediation = None
     return Check(
         "nus_skills",
         status,
         summary,
-        {
-            "project_root": str(project_root) if project_root else None,
-            "bundled_sha256": expected,
-            "installations": installations,
-        },
+        report,
+        remediation,
     )
 
 
 def _playwright_skill_check() -> Check:
-    roots = _skill_roots(_find_project_root())
+    roots = known_skill_roots(project_root=find_project_root())
     found: list[dict[str, Any]] = []
     seen: set[Path] = set()
     for root in roots:
-        root_path: Path = root["path"]
+        root_path = root.root
         if not root_path.is_dir():
             continue
         for path in sorted(root_path.glob("*playwright*")):
@@ -490,8 +444,8 @@ def _playwright_skill_check() -> Check:
                         break
             found.append(
                 {
-                    "scope": root["scope"],
-                    "agent": root["agent"],
+                    "scope": root.scope,
+                    "agents": list(root.agents),
                     "path": str(path),
                     "version": detected_version,
                     "sha256": directory_hash(path),
@@ -590,7 +544,7 @@ def build_doctor_report(*, browser_smoke: bool = False) -> dict[str, Any]:
         _safe_check("python_playwright", python_playwright_check),
         _safe_check("node", _node_check),
         _safe_check("playwright_cli", _playwright_cli_check),
-        _safe_check("nus_skills", _skills_check),
+        _safe_check("nus_skills", skills_check),
         _safe_check("playwright_cli_skill", _playwright_skill_check),
     ]
     if browser_smoke:

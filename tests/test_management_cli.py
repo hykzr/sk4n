@@ -23,6 +23,23 @@ def test_management_parser_exposes_phase_one_commands() -> None:
     assert parser.parse_args(["paths", "--format", "json"]).command == "paths"
     browser = parser.parse_args(["browser", "install", "chromium"])
     assert (browser.browser_command, browser.browser) == ("install", "chromium")
+    skills = parser.parse_args(
+        [
+            "skills",
+            "install",
+            "--agents",
+            "codex,copilot",
+            "--skills",
+            "nusmods",
+            "--scope",
+            "project",
+            "--dry-run",
+        ]
+    )
+    assert skills.agents == ("codex", "copilot")
+    assert skills.skills == ("nusmods",)
+    assert skills.scope == "project"
+    assert skills.dry_run is True
 
 
 def test_paths_json_is_machine_readable(capsys: pytest.CaptureFixture[str]) -> None:
@@ -159,6 +176,27 @@ def test_browser_smoke_always_closes_session(monkeypatch: pytest.MonkeyPatch) ->
 
     assert check.status == "error"
     assert calls[-1][-1] == "close"
+
+
+def test_doctor_skill_check_requires_each_bundled_skill(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        doctor,
+        "skill_status_report",
+        lambda **_kwargs: {
+            "known_installations": [
+                {"skill": "nus-canvas", "state": "current"},
+                {"skill": "nusmods", "state": "current"},
+            ],
+            "duplicates": {},
+        },
+    )
+
+    check = doctor.skills_check()
+
+    assert check.status == "warning"
+    assert "nus-talent-connect" in check.summary
 
 
 def test_talent_connect_auth_status_json_contract(

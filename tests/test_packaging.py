@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import tarfile
@@ -99,10 +100,71 @@ def test_wheel_and_source_tool_installs_run_outside_checkout(tmp_path: Path) -> 
         run(["uv", "tool", "install", *source_arguments], cwd=outside, env=env)
         assert_console_scripts(bin_dir, cwd=outside, env=env)
 
+    wheel_env, wheel_bin = tool_environment(tmp_path, "wheel")
+    skill_project = tmp_path / "codex-skill-project"
+    skill_project.mkdir()
+    (skill_project / ".git").mkdir()
+    run(
+        [
+            str(wheel_bin / "agent-for-nus"),
+            "skills",
+            "install",
+            "--agents",
+            "codex",
+            "--scope",
+            "project",
+            "--project-root",
+            str(skill_project),
+        ],
+        cwd=outside,
+        env=wheel_env,
+    )
+    status = subprocess.run(
+        [
+            str(wheel_bin / "agent-for-nus"),
+            "skills",
+            "status",
+            "--agents",
+            "codex",
+            "--scope",
+            "project",
+            "--project-root",
+            str(skill_project),
+            "--format",
+            "json",
+        ],
+        cwd=outside,
+        env=wheel_env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    installations = json.loads(status.stdout)["installations"]
+    assert len(installations) == len(WHEEL_SKILLS)
+    assert all(item["state"] == "current" for item in installations)
+    for skill in WHEEL_SKILLS:
+        assert (skill_project / ".agents" / "skills" / skill / "SKILL.md").is_file()
+    run(
+        [
+            str(wheel_bin / "agent-for-nus"),
+            "skills",
+            "uninstall",
+            "--agents",
+            "codex",
+            "--scope",
+            "project",
+            "--project-root",
+            str(skill_project),
+        ],
+        cwd=outside,
+        env=wheel_env,
+    )
+    assert (skill_project / ".agents" / "skills").is_dir()
+    assert not any((skill_project / ".agents" / "skills" / skill).exists() for skill in WHEEL_SKILLS)
+
     sentinel = tmp_path / "user-data" / "keep-after-reinstall"
     sentinel.parent.mkdir(parents=True, exist_ok=True)
     sentinel.write_text("persistent", encoding="utf-8")
-    wheel_env, wheel_bin = tool_environment(tmp_path, "wheel")
     run(
         ["uv", "tool", "install", "--force", str(wheel)],
         cwd=outside,
