@@ -41,7 +41,22 @@ except ImportError:
     )
 
 
-def content_available(content_type: str, available_tabs: set[str]) -> bool:
+DEFAULT_VIEW_CONTENT_TYPES = {
+    "assignments": "assignments",
+    "modules": "modules",
+    "syllabus": "syllabus",
+    "wiki": "pages",
+}
+
+
+def content_available(
+    content_type: str,
+    available_tabs: set[str],
+    *,
+    default_view: str | None = None,
+) -> bool:
+    if DEFAULT_VIEW_CONTENT_TYPES.get((default_view or "").casefold()) == content_type:
+        return True
     if content_type == "assignments":
         return "assignments" in available_tabs or "quizzes" in available_tabs
     if content_type == "files":
@@ -134,6 +149,9 @@ def sync_course_content(
     content_types: list[str] | tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     available_tabs = open_tab_ids(tabs)
+    course_value = course_metadata.get("course") if isinstance(course_metadata, dict) else None
+    course = course_value if isinstance(course_value, dict) else {}
+    default_view = str(course.get("default_view") or "")
     sections: dict[str, dict[str, Any]] = {}
 
     selected_types = tuple(content_types) if content_types is not None else CONTENT_TYPES
@@ -149,7 +167,11 @@ def sync_course_content(
             )
             continue
 
-        if not content_available(content_type, available_tabs):
+        if not content_available(
+            content_type,
+            available_tabs,
+            default_view=default_view,
+        ):
             sections[content_type] = closed_summary(content_type)
             continue
 

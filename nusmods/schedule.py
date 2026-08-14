@@ -7,15 +7,23 @@ import tempfile
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from .client import DEFAULT_DATA_DIR, NUSModsClient, normalize_academic_year
+from tools import academic_calendar as _academic_calendar
 
-SINGAPORE_TZ = timezone(timedelta(hours=8), name="Asia/Singapore")
+from .client import DEFAULT_DATA_DIR, NUSModsClient
+
+SINGAPORE_TZ = _academic_calendar.SINGAPORE_TZ
+current_academic_year = _academic_calendar.current_academic_year
+current_semester = _academic_calendar.current_semester
+normalize_academic_year = _academic_calendar.normalize_academic_year
+semester_for_date = _academic_calendar.semester_for_date
+semester_start = _academic_calendar.semester_start
+
 SCHEDULE_SCHEMA_VERSION = 1
 SCHEDULE_FILENAME = "schedule.json"
 
@@ -73,22 +81,6 @@ DAY_ABBREV = {
     "Sunday": "SUN",
 }
 ABBREV_DAY = {value: key for key, value in DAY_ABBREV.items()}
-
-
-def current_academic_year(today: date | None = None) -> str:
-    """Return the active NUSMods timetable year.
-
-    NUSMods switches its primary timetable to the upcoming academic year during
-    July, before Semester 1 teaching begins.
-    """
-    current = today or datetime.now(SINGAPORE_TZ).date()
-    start = current.year if current.month >= 7 else current.year - 1
-    return f"{start:04d}/{start + 1:04d}"
-
-
-def current_semester(today: date | None = None) -> int:
-    current = today or datetime.now(SINGAPORE_TZ).date()
-    return 1 if current.month >= 7 else 2
 
 
 def parse_semester(value: str | int) -> int:
@@ -768,60 +760,6 @@ def format_weeks(weeks: Any) -> str:
         start = previous = number
     ranges.append(str(start) if start == previous else f"{start}-{previous}")
     return f"Weeks {', '.join(ranges)}"
-
-
-def _second_monday(year: int, month: int) -> date:
-    first = date(year, month, 8)
-    return first + timedelta(days=(7 - first.weekday()) % 7)
-
-
-def semester_start(
-    academic_year: str,
-    semester: int,
-    calendar: Mapping[str, Any] | None,
-) -> date:
-    display_year, _ = normalize_academic_year(academic_year)
-    value = (
-        calendar.get(display_year, {}).get(str(semester), {}).get("start")
-        if isinstance(calendar, Mapping)
-        else None
-    )
-    if isinstance(value, list) and len(value) == 3:
-        return date(int(value[0]), int(value[1]), int(value[2]))
-    start_year = int(display_year[:4])
-    if semester == 1:
-        return _second_monday(start_year, 8)
-    if semester == 2:
-        return _second_monday(start_year + 1, 1)
-    raise ValueError("Only Semester 1 and Semester 2 schedules are supported.")
-
-
-def semester_for_date(
-    target: date,
-    academic_year: str,
-    calendar: Mapping[str, Any] | None,
-) -> tuple[int, int]:
-    display_year, _ = normalize_academic_year(academic_year)
-    start_year = int(display_year[:4])
-    if target < date(start_year, 7, 1) or target >= date(start_year + 1, 7, 1):
-        raise ValueError(f"{target.isoformat()} is outside AY{display_year}.")
-    semester = 1 if target.year == start_year and target.month >= 7 else 2
-    start = semester_start(display_year, semester, calendar)
-    calendar_week = (target - start).days // 7
-    # NUSMods lesson week numbers count the 13 instructional weeks and skip
-    # recess week. Its Today page also treats the weekend immediately before
-    # recess/reading week as non-instructional.
-    if 0 <= calendar_week <= 5:
-        week = calendar_week + 1
-        if calendar_week == 5 and target.weekday() >= 5:
-            week = 0
-    elif 7 <= calendar_week <= 13:
-        week = calendar_week
-        if calendar_week == 13 and target.weekday() >= 5:
-            week = 0
-    else:
-        week = 0
-    return semester, week
 
 
 def lesson_occurs_on(lesson: Mapping[str, Any], target: date, week: int) -> bool:

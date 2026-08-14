@@ -26,6 +26,7 @@ from nusmods.schedule import (
     student_to_ta,
     ta_to_student,
 )
+from tools.academic_calendar import academic_calendar_record
 
 
 def lesson(
@@ -141,6 +142,22 @@ def test_academic_year_and_semester_switch_in_july() -> None:
     assert current_semester(date(2026, 7, 31)) == 1
     assert current_semester(date(2027, 1, 1)) == 2
     assert normalize_academic_year("2026-2027") == ("2026/2027", "2026-2027")
+
+
+def test_shared_academic_calendar_record_reports_instructional_week() -> None:
+    calendar = {"2026/2027": {"1": {"start": [2026, 8, 10]}}}
+
+    result = academic_calendar_record(
+        date(2026, 8, 14),
+        "2026/2027",
+        calendar,
+    )
+
+    assert result["semesterName"] == "Semester 1"
+    assert result["week"] == 1
+    assert result["weekStart"] == "2026-08-10"
+    assert result["weekEnd"] == "2026-08-16"
+    assert result["instructional"] is True
 
 
 def test_cli_parser_covers_web_finder_filters() -> None:

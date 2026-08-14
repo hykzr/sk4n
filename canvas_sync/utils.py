@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import unquote
 
 from agent_for_nus.paths import canvas_data_dir
+from tools.shared import atomic_write_text
 
 try:
     from .client import CanvasAPIError, CanvasClient
@@ -72,9 +73,7 @@ def write_json(path: Path, data: dict[str, Any]) -> bool:
         except OSError:
             pass
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    tmp_path.write_text(text, encoding="utf-8")
-    tmp_path.replace(path)
+    atomic_write_text(path, text)
     return True
 
 
@@ -100,9 +99,7 @@ def write_html(path: Path, title: str | None, body: str | None) -> bool:
         except OSError:
             pass
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    tmp_path.write_text(html_text, encoding="utf-8")
-    tmp_path.replace(path)
+    atomic_write_text(path, html_text)
     return True
 
 

@@ -5,6 +5,7 @@ import json
 import os
 import sys
 from collections.abc import Mapping, Sequence
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -14,12 +15,20 @@ from rich.markup import escape
 from rich.table import Table
 
 from agent_for_nus.errors import exit_code_for_error
-from agent_for_nus.paths import canvas_data_dir
+from agent_for_nus.paths import canvas_data_dir, nusmods_data_dir
+from nusmods.client import NUSModsAPIError, NUSModsClient
+from tools.academic_calendar import (
+    SINGAPORE_TZ,
+    academic_calendar_record,
+    current_academic_year,
+    normalize_academic_year,
+)
 from tools.playwright_cli import (
     ensure_session_available,
     open_authenticated_session,
     playwright_cli_executable,
 )
+from tools.shared import exclusive_file_lock
 
 from .auth import (
     DEFAULT_LOGIN_WAIT_SECONDS,
@@ -42,6 +51,20 @@ def positive_int(value: str) -> int:
     if number < 1:
         raise argparse.ArgumentTypeError("must be at least 1")
     return number
+
+
+def iso_date_argument(value: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be an ISO date such as 2026-08-10") from exc
+
+
+def academic_year_argument(value: str) -> str:
+    try:
+        return normalize_academic_year(value)[0]
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
 def http_method(value: str) -> str:
@@ -231,6 +254,27 @@ def build_parser() -> argparse.ArgumentParser:
     add_refresh_arguments(list_parser)
     add_format_argument(list_parser)
 
+    calendar_parser = commands.add_parser(
+        "calendar",
+        help="Show the NUS semester and instructional week for a date.",
+    )
+    calendar_parser.add_argument(
+        "--date",
+        type=iso_date_argument,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Date in Singapore time. Default: today.",
+    )
+    calendar_parser.add_argument(
+        "--academic-year",
+        type=academic_year_argument,
+        default=None,
+        metavar="YYYY/YYYY",
+        help="Academic year. Default: the year containing the requested date.",
+    )
+    add_refresh_arguments(calendar_parser)
+    add_format_argument(calendar_parser)
+
     course_parser = commands.add_parser("course", help="Show a course or one cached content area.")
     course_parser.add_argument("course_code", help="Course code or Canvas course ID.")
     course_parser.add_argument(
@@ -242,7 +286,7 @@ def build_parser() -> argparse.ArgumentParser:
     course_parser.add_argument(
         "resource",
         nargs="?",
-        help="path, announcements, assignments, discussions, files, modules, pages, people, quizzes, or syllabus.",
+        help="path, home, announcements, assignments, discussions, files, modules, pages, people, quizzes, or syllabus.",
     )
     course_parser.add_argument(
         "item",
@@ -585,6 +629,39 @@ def handle_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_calendar(args: argparse.Namespace) -> int:
+    target = args.date or datetime.now(SINGAPORE_TZ).date()
+    academic_year = args.academic_year or current_academic_year(target)
+    client = NUSModsClient(
+        academic_year=academic_year,
+        data_dir=nusmods_data_dir(),
+        timeout=args.timeout,
+        refresh=args.refresh_mode == "force",
+        cache_only=args.refresh_mode == "none",
+    )
+    warnings: list[str] = []
+    try:
+        calendar = client.get_academic_calendar()
+    except NUSModsAPIError as exc:
+        calendar = {}
+        warnings.append(f"Academic calendar unavailable; using computed semester starts: {exc}")
+    try:
+        holidays = client.get_holidays()
+    except NUSModsAPIError as exc:
+        holidays = []
+        warnings.append(f"Public-holiday data unavailable: {exc}")
+    result = academic_calendar_record(target, academic_year, calendar, holidays)
+    result["source"] = "NUSMods academic calendar" if calendar else "computed fallback"
+    result["warnings"] = warnings
+    if args.format:
+        print_formatted(result, args.format)
+    else:
+        print_detail(result, "NUS academic calendar")
+        for warning in warnings:
+            error_console.print(f"[yellow]Warning: {escape(warning)}[/yellow]")
+    return 0
+
+
 def handle_course(args: argparse.Namespace) -> int:
     refresh, force = _refresh_values(args)
     fetcher = _fetcher(args)
@@ -693,7 +770,7 @@ def handle_playwright_cli(args: argparse.Namespace) -> int:
     return 0
 
 
-def run(args: argparse.Namespace) -> int:
+def _run_unlocked(args: argparse.Namespace) -> int:
     if args.command == "auth":
         return handle_auth(args)
     if args.command == "sync":
@@ -702,6 +779,8 @@ def run(args: argparse.Namespace) -> int:
         return handle_student(args)
     if args.command == "list":
         return handle_list(args)
+    if args.command == "calendar":
+        return handle_calendar(args)
     if args.command == "course":
         return handle_course(args)
     if args.command == "api":
@@ -709,6 +788,18 @@ def run(args: argparse.Namespace) -> int:
     if args.command == "playwright-cli":
         return handle_playwright_cli(args)
     raise AssertionError(f"Unknown command: {args.command}")
+
+
+def run(args: argparse.Namespace) -> int:
+    cache_write = args.command == "sync" or (
+        args.command in {"student", "list", "course"}
+        and getattr(args, "refresh_mode", "none") != "none"
+    )
+    if not cache_write:
+        return _run_unlocked(args)
+    lock_path = Path(args.data_path).expanduser().resolve() / ".cache.lock"
+    with exclusive_file_lock(lock_path):
+        return _run_unlocked(args)
 
 
 def main(argv: Sequence[str] | None = None) -> None:

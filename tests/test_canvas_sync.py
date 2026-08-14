@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,6 +11,7 @@ import pytest
 from rich.console import Console
 
 import canvas_sync.cli as canvas_cli
+from canvas_sync.assignments import sync_assignments
 from canvas_sync.cli import build_parser
 from canvas_sync.client import CanvasAPIError, CanvasAuthError, CanvasClient
 from canvas_sync.fetcher import (
@@ -21,6 +23,7 @@ from canvas_sync.fetcher import (
 )
 from canvas_sync.models import CourseRecord
 from canvas_sync.people import sync_people
+from canvas_sync.utils import read_json, write_json
 
 
 def test_cli_exposes_auth_sync_info_and_api_commands() -> None:
@@ -91,6 +94,16 @@ def test_cli_exposes_auth_sync_info_and_api_commands() -> None:
     assert playwright_defaults.url is None
     assert playwright_defaults.headed is False
     assert playwright_defaults.session == "canvas"
+
+    calendar = parser.parse_args(
+        ["calendar", "--date", "2026-08-14", "--academic-year", "2026/2027", "--no-refresh"]
+    )
+    assert calendar.date.isoformat() == "2026-08-14"
+    assert calendar.academic_year == "2026/2027"
+    assert calendar.refresh_mode == "none"
+
+    home = parser.parse_args(["course", "CG2028", "home", "--no-refresh"])
+    assert (home.resource, home.item) == ("home", "list")
 
 
 def test_playwright_cli_command_requires_explicit_login(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -219,6 +232,56 @@ def test_people_sync_checks_remote_but_does_not_rewrite_unchanged_cache(tmp_path
     assert second["checked"] is True
     assert client.calls == 2
     assert people_path.read_text(encoding="utf-8") == first_text
+
+
+def test_concurrent_canvas_cache_writes_use_unique_temporary_files(tmp_path: Path) -> None:
+    path = tmp_path / "course.json"
+
+    def write(writer: int) -> None:
+        write_json(path, {"writer": writer, "payload": "x" * 10_000})
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        list(executor.map(write, range(32)))
+
+    payload = read_json(path)
+    assert payload is not None
+    assert payload["writer"] in range(32)
+    assert payload["payload"] == "x" * 10_000
+    assert list(tmp_path.glob(".course.json.*.tmp")) == []
+
+
+class EmptyAssignmentsClient:
+    def course_assignments(self, _course_id: str) -> list[dict[str, Any]]:
+        return []
+
+
+def test_empty_assignments_are_cached_as_a_successful_result(tmp_path: Path) -> None:
+    metadata = {"course": {"default_view": "assignments"}}
+    first = sync_assignments(
+        client=EmptyAssignmentsClient(),  # type: ignore[arg-type]
+        course_id="1",
+        course_dir=tmp_path,
+        tabs=[],
+        synced_at="first",
+        force=False,
+        course_metadata=metadata,
+    )
+    second = sync_assignments(
+        client=EmptyAssignmentsClient(),  # type: ignore[arg-type]
+        course_id="1",
+        course_dir=tmp_path,
+        tabs=[],
+        synced_at="second",
+        force=False,
+        course_metadata=metadata,
+    )
+
+    payload = read_json(tmp_path / "assignments" / "assignments.json")
+    assert first["status"] == "created"
+    assert second["status"] == "unchanged"
+    assert payload is not None
+    assert payload["count"] == 0
+    assert payload["items"] == []
 
 
 def test_ambiguous_course_code_is_rejected_with_candidates(tmp_path: Path) -> None:
@@ -374,7 +437,7 @@ def test_unavailable_course_section_is_not_reported_as_a_cache_error(tmp_path: P
     assert str(exc_info.value) == (
         "The 'assignments' section is not available for course 'CG2028'. "
         "Accessible Canvas sections: Home, Modules. "
-        "Queryable with `canvas course`: modules."
+        "Queryable with `canvas course`: home, modules."
     )
 
     with pytest.raises(CanvasAPIError) as exc_info:
@@ -383,5 +446,56 @@ def test_unavailable_course_section_is_not_reported_as_a_cache_error(tmp_path: P
     assert str(exc_info.value) == (
         "The 'files' section is not available for course 'CG2028'. "
         "Accessible Canvas sections: Home, Modules. "
-        "Queryable with `canvas course`: modules."
+        "Queryable with `canvas course`: home, modules."
     )
+
+
+def test_hidden_default_view_is_queryable_and_home_resolves_it(tmp_path: Path) -> None:
+    course_dir = tmp_path / "2627S1" / "CP3880"
+    course_dir.mkdir(parents=True)
+    (course_dir / "course.json").write_text(
+        json.dumps(
+            {
+                "course": {
+                    "id": "1",
+                    "course_code": "CP3880",
+                    "default_view": "modules",
+                    "html_url": "https://canvas.example.test/courses/1",
+                },
+                "all_tabs": [{"id": "home", "label": "Home", "hidden": False}],
+                "content": {"sections": {"modules": {"status": "unchanged"}}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (course_dir / "modules.json").write_text(
+        json.dumps({"course_id": "1", "count": 0, "fingerprint": "empty", "items": []}),
+        encoding="utf-8",
+    )
+    (tmp_path / "index.json").write_text(
+        json.dumps(
+            {
+                "student": {},
+                "courses": [
+                    {
+                        "id": "1",
+                        "course_code": "CP3880",
+                        "term_folder_name": "2627S1",
+                        "metadata_path": "2627S1/CP3880/course.json",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    fetcher = CanvasFetcher(data_path=tmp_path)
+    assert fetcher.content("CP3880", "modules", refresh=False) == []
+    assert fetcher.content("CP3880", "home", refresh=False) == {
+        "course_id": "1",
+        "default_view": "modules",
+        "resource": "modules",
+        "html_url": "https://canvas.example.test/courses/1",
+        "count": 0,
+        "items": [],
+    }

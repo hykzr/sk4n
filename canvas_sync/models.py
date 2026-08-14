@@ -266,6 +266,7 @@ class CourseRecord:
                 "enrollment_roles": self.enrollment_roles,
                 "workflow_state": course.get("workflow_state"),
                 "default_view": course.get("default_view"),
+                "html_url": course.get("html_url") or f"{base_url}/courses/{self.id}",
                 "start_at": course.get("start_at"),
                 "end_at": course.get("end_at"),
                 "time_zone": course.get("time_zone"),

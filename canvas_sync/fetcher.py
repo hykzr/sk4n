@@ -25,6 +25,8 @@ from .utils import (
     INDEX_FILE,
     STUDENT_FILE,
     content_file_path,
+    fingerprint,
+    list_payload,
     normalize_existing_path,
     open_tab_ids,
     read_json,
@@ -45,6 +47,7 @@ RESOURCE_ALIASES = {
     "discussions": "discussions",
     "file": "files",
     "files": "files",
+    "home": "home",
     "module": "modules",
     "modules": "modules",
     "page": "pages",
@@ -660,6 +663,15 @@ class CanvasFetcher:
             raise ValueError(
                 f"Unknown course resource {resource!r}. Available: {', '.join(sorted(RESOURCE_ALIASES))}."
             )
+        if resource_name == "home":
+            if item_selector.casefold() != "list":
+                raise ValueError("`canvas course CODE home` does not accept an item selector.")
+            return self.home(
+                selector,
+                semester=semester,
+                refresh=refresh,
+                force=force,
+            )
         content_type = "assignments" if resource_name == "quizzes" else resource_name
         _, course_dir, metadata = self._prepare_course(
             selector,
@@ -673,11 +685,23 @@ class CanvasFetcher:
         sections = content.get("sections") if isinstance(content, dict) else None
         section = sections.get(content_type) if isinstance(sections, dict) else None
         section_closed = isinstance(section, dict) and section.get("status") == "closed"
+        section_error = (
+            str(section.get("error"))
+            if isinstance(section, dict) and section.get("status") == "error"
+            else None
+        )
+        course_value = metadata.get("course") if isinstance(metadata, dict) else None
+        course = course_value if isinstance(course_value, dict) else {}
+        default_view = str(course.get("default_view") or "")
         if isinstance(all_tabs, list):
             accessible_tabs = [
                 tab for tab in all_tabs if isinstance(tab, dict) and tab.get("hidden") is not True
             ]
-            if section_closed or not content_available(content_type, open_tab_ids(accessible_tabs)):
+            if section_closed or not content_available(
+                content_type,
+                open_tab_ids(accessible_tabs),
+                default_view=default_view,
+            ):
                 accessible_sections = list(
                     dict.fromkeys(
                         str(tab.get("label") or tab.get("id"))
@@ -698,6 +722,10 @@ class CanvasFetcher:
                     "Queryable with `canvas course`: "
                     f"{', '.join(queryable_sections) or 'none'}."
                 )
+        if section_error:
+            raise CanvasAPIError(
+                f"Canvas could not refresh {resource_name} for course {selector!r}: {section_error}"
+            )
         json_path = content_file_path(course_dir, content_type).resolve()
         if item_selector.casefold() == "path":
             if not json_path.exists():
@@ -724,6 +752,87 @@ class CanvasFetcher:
                 result["local_path"] = detail_json_path.resolve().as_posix()
                 return result
         return matched
+
+    def home(
+        self,
+        selector: str,
+        *,
+        semester: str | None = None,
+        refresh: bool = True,
+        force: bool = False,
+    ) -> dict[str, Any]:
+        selected, course_dir, metadata = self._prepare_course(
+            selector,
+            refresh=refresh,
+            force=force,
+            semester=semester,
+        )
+        assert metadata is not None
+        course_value = metadata.get("course")
+        course = course_value if isinstance(course_value, dict) else {}
+        default_view = str(course.get("default_view") or "feed").casefold()
+        mapped_resource = {
+            "assignments": "assignments",
+            "modules": "modules",
+            "syllabus": "syllabus",
+            "wiki": "pages",
+        }.get(default_view)
+        if mapped_resource:
+            items = self.content(
+                selector,
+                mapped_resource,
+                semester=semester,
+                refresh=refresh,
+                force=force,
+            )
+            if default_view == "wiki":
+                front_pages = [item for item in items if item.get("front_page") is True]
+                items = front_pages or items
+            return {
+                "course_id": str(selected["id"]),
+                "default_view": default_view,
+                "resource": mapped_resource,
+                "html_url": course.get("html_url"),
+                "count": len(items),
+                "items": items,
+            }
+
+        if default_view != "feed":
+            raise CanvasAPIError(
+                f"Course {selector!r} uses unsupported Canvas default view {default_view!r}."
+            )
+        json_path = (course_dir / "home.json").resolve()
+        if refresh:
+            items = self.client.course_activity_stream(str(selected["id"]))
+            fingerprint_value = fingerprint(items)
+            existing = read_json(json_path)
+            if force or existing is None or existing.get("fingerprint") != fingerprint_value:
+                write_json(
+                    json_path,
+                    list_payload(
+                        course_id=str(selected["id"]),
+                        synced_at=now_utc_iso(),
+                        items=items,
+                        fingerprint_value=fingerprint_value,
+                    ),
+                )
+        payload = read_json(json_path)
+        if not payload:
+            raise CanvasAPIError(f"Home feed is not available in the local cache for {selector!r}.")
+        prepared = [
+            self._prepare_item(item, json_path)
+            for item in payload.get("items") or []
+            if isinstance(item, dict)
+        ]
+        return {
+            "course_id": str(selected["id"]),
+            "default_view": default_view,
+            "resource": "activity_stream",
+            "html_url": course.get("html_url"),
+            "count": len(prepared),
+            "items": prepared,
+            "local_path": json_path.as_posix(),
+        }
 
     @staticmethod
     def _content_items(payload: dict[str, Any], resource: str) -> list[dict[str, Any]]:

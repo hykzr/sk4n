@@ -1580,6 +1580,9 @@ def sync_assignments(
     has_quizzes_tab = "quizzes" in available_tabs
     if course_metadata is None:
         course_metadata = read_json(course_dir / COURSE_METADATA_FILE)
+    course_value = course_metadata.get("course") if isinstance(course_metadata, dict) else None
+    course = course_value if isinstance(course_value, dict) else {}
+    has_assignments_tab = has_assignments_tab or course.get("default_view") == "assignments"
     skip_quiz_content = course_metadata_has_staff_quiz_role(course_metadata)
 
     assignments: list[dict[str, Any]] = []
@@ -1612,15 +1615,53 @@ def sync_assignments(
         )
 
     if not assignments and not quizzes:
+        errors = [error for error in (assignments_error, quizzes_error) if error]
+        if errors:
+            return {
+                "available": has_assignments_tab or has_quizzes_tab,
+                "checked": True,
+                "fetched": False,
+                "status": "error",
+                "path": rel_path(course_dir / COURSE_METADATA_FILE, json_path),
+                "count": 0,
+                "error": "; ".join(errors),
+                "assignments_error": assignments_error,
+                "quizzes_error": quizzes_error,
+                "quiz_assignment_errors": quiz_assignment_errors,
+            }
+        fingerprint_value = fingerprint([])
+        payload = {
+            "synced_at": synced_at,
+            "course_id": course_id,
+            "count": 0,
+            "assignment_count": 0,
+            "standalone_quiz_count": 0,
+            "submitted_file_count": 0,
+            "image_count": 0,
+            "assignments_available": has_assignments_tab,
+            "quizzes_available": has_quizzes_tab,
+            "assignments_error": None,
+            "quizzes_error": None,
+            "quiz_assignment_errors": quiz_assignment_errors,
+            "fingerprint": fingerprint_value,
+            "items": [],
+        }
+        changed = force or existing is None or existing.get("fingerprint") != fingerprint_value
+        if changed:
+            write_json(json_path, payload)
         return {
             "available": has_assignments_tab or has_quizzes_tab,
             "checked": True,
-            "fetched": False,
-            "status": ("closed" if not (has_assignments_tab or has_quizzes_tab) else "unchanged"),
+            "fetched": changed,
+            "status": (
+                "closed"
+                if not (has_assignments_tab or has_quizzes_tab)
+                else ("created" if existing is None else ("updated" if changed else "unchanged"))
+            ),
             "path": rel_path(course_dir / COURSE_METADATA_FILE, json_path),
             "count": 0,
-            "assignments_error": assignments_error,
-            "quizzes_error": quizzes_error,
+            "assignments_error": None,
+            "quizzes_error": None,
             "quiz_assignment_errors": quiz_assignment_errors,
         }
 

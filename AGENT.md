@@ -3,8 +3,7 @@
 This file is guidance for agents maintaining this repository. It is not the
 operating prompt for an end-user-facing NUS assistant.
 
-nus-canvas, nus-talent-connect and nusmods skills may have been installed to you, 
-but those are for end-user-facing NUS assistant as well. 
+nus-canvas, nus-talent-connect and nusmods skills may have been installed to you, those are for end-user-facing NUS assistant. 
 
 ## Repository map
 

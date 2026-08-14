@@ -38,10 +38,19 @@ uv run canvas list -s 2526S1
 uv run canvas list -s ay2526s1
 uv run canvas list -s Y3S1
 uv run canvas list -s Non-Academic
+uv run canvas calendar --date 2026-08-14
 uv run canvas course CG2028
 uv run canvas course CS1010 -s 2425S1
+uv run canvas course CG2028 home
 uv run canvas course CG2028 path
 ```
+
+`calendar` maps a Singapore date to its NUS academic year, semester, teaching
+week, week range, and public-holiday status using the public NUSMods academic
+calendar. It does not require Canvas authentication. Use `--refresh` to bypass
+the NUSMods cache or `--no-refresh` for a cache-only lookup; when calendar data
+is unavailable, the command labels its computed semester-start fallback and
+emits a warning.
 
 Semester values are case-insensitive. With no semester, `list` returns every
 accessible course. `latest` selects the newest regular academic semester;
@@ -67,9 +76,12 @@ The content command shape is:
 canvas course COURSE RESOURCE {list|path|ITEM_ID}
 ```
 
-Supported resources are `announcements`, `assignments`, `discussions`, `files`,
-`modules`, `pages`, `people`, `quizzes`, and `syllabus`; singular aliases work
-too. Omitting the last argument defaults to `list`.
+Supported resources are `home`, `announcements`, `assignments`, `discussions`,
+`files`, `modules`, `pages`, `people`, `quizzes`, and `syllabus`; singular
+aliases work too. Omitting the last argument defaults to `list`. `home` does
+not accept a final selector: it resolves the course's configured default view
+to modules, pages, assignments, syllabus, or a cached activity feed. A default
+view remains queryable even when its matching navigation tab is hidden.
 
 ```bash
 uv run canvas course CG2028 announcements list
@@ -103,7 +115,10 @@ and expensive bodies or downloads are fetched only when needed. `--refresh`
 forces the requested scope. `--no-refresh` performs a strictly cache-only read.
 A course-content command syncs only that course and content area; it does not
 sync unrelated courses or tabs. These commands use only read-only Canvas HTTP
-operations, though refreshed results are written to the local cache.
+operations, though refreshed results are written to the local cache. Cache
+mutations are serialized across CLI processes, and files are published through
+process-unique atomic temporary paths so concurrent reads never observe partial
+JSON, HTML, or downloads.
 
 ## Direct API requests
 
@@ -170,6 +185,7 @@ The default cache is `data/canvas/{term}/{course}`. Academic terms such as
 and the privacy-trimmed `student.json`. Course folders can contain:
 
 - `course.json` and `cover_image.*`
+- `home.json` when the course uses the activity-feed default view
 - `announcements/announcements.json` and announcement HTML
 - `discussions/discussions.json` and discussion HTML
 - `people.json`

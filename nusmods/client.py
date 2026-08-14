@@ -15,6 +15,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from agent_for_nus.paths import nusmods_data_dir
+from tools.academic_calendar import normalize_academic_year
 
 DEFAULT_API_BASE_URL = "https://api.nusmods.com/v2"
 DEFAULT_DISQUS_URL = "https://disqus.com/embed/comments/"
@@ -32,19 +33,6 @@ DEFAULT_CACHE_TTL_SECONDS = 24 * 60 * 60
 
 class NUSModsAPIError(RuntimeError):
     """Raised when NUSMods or its public comments feed returns unusable data."""
-
-
-def normalize_academic_year(value: str) -> tuple[str, str]:
-    """Return an academic year as (display form, API path form)."""
-    candidate = value.strip().replace("-", "/")
-    parts = candidate.split("/")
-    if len(parts) != 2 or not all(part.isdigit() and len(part) == 4 for part in parts):
-        raise ValueError("Academic year must look like 2026/2027 or 2026-2027.")
-    start, end = (int(part) for part in parts)
-    if end != start + 1:
-        raise ValueError("Academic year must contain consecutive years.")
-    return f"{start:04d}/{end:04d}", f"{start:04d}-{end:04d}"
-
 
 class NUSModsClient:
     """Read-only client for NUSMods' public static API and review feed."""

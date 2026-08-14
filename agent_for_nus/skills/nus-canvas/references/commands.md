@@ -45,6 +45,7 @@ Global options must appear before the command name.
 - `canvas sync` — Sync courses using the original bulk options.
 - `canvas student` — Show the current Canvas student.
 - `canvas list` — List accessible Canvas courses.
+- `canvas calendar` — Show the NUS semester and instructional week for a date.
 - `canvas course` — Show a course or one cached content area.
 - `canvas api` — Send a direct low-level request with the saved Canvas session.
 - `canvas playwright-cli` — Open an authenticated low-level @playwright/cli browser session.
@@ -158,6 +159,25 @@ Constraints:
 
 - Mutually exclusive: `--refresh` / `--no-refresh`.
 
+## `canvas calendar`
+
+Show the NUS semester and instructional week for a date.
+
+Usage: `canvas calendar [-h] [--date YYYY-MM-DD] [--academic-year YYYY/YYYY] [--refresh | --no-refresh] [--format {json,jsonl,plain}]`
+
+| Argument | Required | Repeatable | Default | Choices | Description |
+| --- | --- | --- | --- | --- | --- |
+| `-h, --help` | no | no | `—` | — | show this help message and exit |
+| `--date YYYY-MM-DD` | no | no | `—` | — | Date in Singapore time. Default: today. |
+| `--academic-year YYYY/YYYY` | no | no | `—` | — | Academic year. Default: the year containing the requested date. |
+| `--refresh` | no | no | `default` | — | Force refresh the requested remote data and local artifacts. |
+| `--no-refresh` | no | no | `default` | — | Read only from the local cache. |
+| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly rich output. |
+
+Constraints:
+
+- Mutually exclusive: `--refresh` / `--no-refresh`.
+
 ## `canvas course`
 
 Show a course or one cached content area.
@@ -169,7 +189,7 @@ Usage: `canvas course [-h] [-s SEM] [--refresh | --no-refresh] [--format {json,j
 | `-h, --help` | no | no | `—` | — | show this help message and exit |
 | `COURSE_CODE` | yes | no | `—` | — | Course code or Canvas course ID. |
 | `-s, --semester SEM` | no | no | `—` | — | Restrict course-code matches to a semester, including Non-Academic. |
-| `[RESOURCE]` | no | no | `—` | — | path, announcements, assignments, discussions, files, modules, pages, people, quizzes, or syllabus. |
+| `[RESOURCE]` | no | no | `—` | — | path, home, announcements, assignments, discussions, files, modules, pages, people, quizzes, or syllabus. |
 | `[ITEM]` | no | no | `list` | — | For a resource: list, path, or an item ID. |
 | `--refresh` | no | no | `default` | — | Force refresh the requested remote data and local artifacts. |
 | `--no-refresh` | no | no | `default` | — | Read only from the local cache. |
@@ -179,6 +199,7 @@ Constraints:
 
 - Mutually exclusive: `--refresh` / `--no-refresh`.
 - The `path` resource does not accept an item selector.
+- The `home` resource does not accept an item selector.
 
 ## `canvas api`
 

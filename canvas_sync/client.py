@@ -12,6 +12,7 @@ import requests
 
 from agent_for_nus.errors import ExitCode
 from tools import RequestTools
+from tools.shared import atomic_output_path
 
 
 class CanvasAPIError(RuntimeError):
@@ -396,6 +397,13 @@ class CanvasClient:
         )
         return [item for item in data if isinstance(item, dict)]
 
+    def course_activity_stream(self, course_id: str | int) -> list[dict[str, Any]]:
+        data = self.get_paginated(
+            f"/api/v1/courses/{course_id}/activity_stream",
+            params=[("per_page", "100")],
+        )
+        return [item for item in data if isinstance(item, dict)]
+
     def course_assignments(self, course_id: str | int) -> list[dict[str, Any]]:
         data = self.get_paginated(
             f"/api/v1/courses/{course_id}/assignments",
@@ -503,13 +511,15 @@ class CanvasClient:
 
     def download_file(self, url: str, output_path: Path) -> dict[str, Any]:
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = output_path.with_suffix(output_path.suffix + ".tmp")
         digest = hashlib.sha256()
         total = 0
         try:
             response = self._rt.session.get(url, timeout=self.timeout, stream=True)
             response.raise_for_status()
-            with tmp_path.open("wb") as file:
+            with (
+                atomic_output_path(output_path) as temporary_path,
+                temporary_path.open("wb") as file,
+            ):
                 for chunk in response.iter_content(chunk_size=1024 * 1024):
                     if not chunk:
                         continue
@@ -517,10 +527,7 @@ class CanvasClient:
                     digest.update(chunk)
                     file.write(chunk)
         except requests.RequestException as exc:
-            if tmp_path.exists():
-                tmp_path.unlink()
             raise CanvasAPIError(f"Canvas file download failed: {url}") from exc
-        tmp_path.replace(output_path)
         return {
             "path": output_path.as_posix(),
             "bytes": total,
@@ -529,8 +536,8 @@ class CanvasClient:
         }
 
     def download_cover_image(self, url: str | None, output_dir: Path) -> dict[str, Any]:
-        remove_existing_cover_images(output_dir)
         if not url:
+            remove_existing_cover_images(output_dir)
             return {"downloaded": False, "path": None, "content_type": None, "bytes": 0}
 
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -558,15 +565,17 @@ class CanvasClient:
             }
 
         output_path = output_dir / f"cover_image{extension}"
-        tmp_path = output_path.with_suffix(output_path.suffix + ".tmp")
         total = 0
-        with tmp_path.open("wb") as file:
+        with (
+            atomic_output_path(output_path) as temporary_path,
+            temporary_path.open("wb") as file,
+        ):
             for chunk in response.iter_content(chunk_size=64 * 1024):
                 if not chunk:
                     continue
                 total += len(chunk)
                 file.write(chunk)
-        tmp_path.replace(output_path)
+        remove_existing_cover_images(output_dir, keep=output_path)
         return {
             "downloaded": True,
             "path": output_path.as_posix(),
@@ -606,7 +615,8 @@ def image_extension(content_type: str, url: str) -> str | None:
     return None
 
 
-def remove_existing_cover_images(output_dir: Path) -> None:
-    for path in output_dir.glob("cover_image.*"):
-        if path.is_file():
+def remove_existing_cover_images(output_dir: Path, *, keep: Path | None = None) -> None:
+    for extension in (".jpg", ".png", ".gif", ".webp"):
+        path = output_dir / f"cover_image{extension}"
+        if path.is_file() and path != keep:
             path.unlink()

@@ -58,6 +58,7 @@ SERVICES = (
         constraints={
             "canvas course": (
                 "The `path` resource does not accept an item selector.",
+                "The `home` resource does not accept an item selector.",
             ),
         },
     ),
