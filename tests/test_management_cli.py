@@ -116,9 +116,7 @@ def test_shared_calendar_reports_date_outside_requested_academic_year(
     monkeypatch.setattr(management_cli, "NUSModsClient", FakeCalendarClient)
 
     assert (
-        management_cli.main(
-            ["calendar", "--date", "2025-08-14", "--academic-year", "2026/2027"]
-        )
+        management_cli.main(["calendar", "--date", "2025-08-14", "--academic-year", "2026/2027"])
         == 2
     )
     assert "outside AY2026/2027" in capsys.readouterr().err

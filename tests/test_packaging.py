@@ -11,7 +11,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONSOLE_SCRIPTS = ("agent-for-nus", "canvas", "nusmods", "talent-connect")
 WHEEL_PACKAGES = ("agent_for_nus", "canvas_sync", "nusmods", "talent_connect", "tools")
 WHEEL_SKILLS = {
-    "nus-canvas": ("SKILL.md", "agents/openai.yaml", "references/commands.md", "references/low-level.md"),
+    "nus-canvas": (
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md",
+        "references/low-level.md",
+    ),
     "nusmods": ("SKILL.md", "agents/openai.yaml", "references/commands.md"),
     "nus-talent-connect": (
         "SKILL.md",
@@ -160,7 +165,9 @@ def test_wheel_and_source_tool_installs_run_outside_checkout(tmp_path: Path) -> 
         env=wheel_env,
     )
     assert (skill_project / ".agents" / "skills").is_dir()
-    assert not any((skill_project / ".agents" / "skills" / skill).exists() for skill in WHEEL_SKILLS)
+    assert not any(
+        (skill_project / ".agents" / "skills" / skill).exists() for skill in WHEEL_SKILLS
+    )
 
     sentinel = tmp_path / "user-data" / "keep-after-reinstall"
     sentinel.parent.mkdir(parents=True, exist_ok=True)

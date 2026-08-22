@@ -559,9 +559,7 @@ def job_matches_filters(job: Mapping[str, Any], filters: Mapping[str, Any]) -> b
         if offer_response == "pending":
             actual_statuses.add("offered")
         elif offer_response == "accepted":
-            actual_statuses.add(
-                "job-history" if offer.get("is_past") is True else "accepted-offer"
-            )
+            actual_statuses.add("job-history" if offer.get("is_past") is True else "accepted-offer")
         elif offer_response == "rejected":
             actual_statuses.add("declined-offer")
         if not (actual_statuses & requested_statuses):

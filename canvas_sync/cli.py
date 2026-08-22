@@ -304,9 +304,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     api_parser.add_argument(
         "url",
-        help=(
-            "Canvas API path or same-origin absolute URL; query parameters may be included."
-        ),
+        help=("Canvas API path or same-origin absolute URL; query parameters may be included."),
     )
     api_parser.add_argument(
         "-X",
@@ -407,9 +405,7 @@ def print_formatted(value: Any, output_format: str) -> None:
     if output_format == "json":
         print(_json_text(_without_canvas_sync_metadata(value)))
         return
-    records = _records(
-        _without_canvas_sync_metadata(value) if output_format == "jsonl" else value
-    )
+    records = _records(_without_canvas_sync_metadata(value) if output_format == "jsonl" else value)
     if output_format == "jsonl":
         for record in records:
             print(_json_text(record))

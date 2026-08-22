@@ -100,9 +100,10 @@ def session_path(site_name: str) -> Path:
 def save_session(site_name: str, data: dict) -> str:
     """Persist session data (cookies, localStorage, etc.) to disk."""
     path = session_path(site_name)
-    with atomic_output_path(path) as temporary_path, temporary_path.open(
-        "w", encoding="utf-8"
-    ) as stream:
+    with (
+        atomic_output_path(path) as temporary_path,
+        temporary_path.open("w", encoding="utf-8") as stream,
+    ):
         json.dump(data, stream, indent=2, ensure_ascii=False)
         stream.flush()
         os.fsync(stream.fileno())

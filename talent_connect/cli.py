@@ -659,9 +659,7 @@ def _list_remote_jobs(
             progress_callback=progress_callback,
         )
         local_filters = {
-            key: value
-            for key, value in filters.items()
-            if key != "talent_connect_statuses"
+            key: value for key, value in filters.items() if key != "talent_connect_statuses"
         }
         jobs = [job for job in jobs if job_matches_filters(job, local_filters)]
         return jobs[:max_jobs] if max_jobs is not None else jobs

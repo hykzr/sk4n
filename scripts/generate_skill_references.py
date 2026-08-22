@@ -233,9 +233,7 @@ def _render_help(action: argparse.Action, service: Service) -> str:
 
 def _argument_table(parser: argparse.ArgumentParser, service: Service) -> list[str]:
     action_rows = [
-        action
-        for action in parser._actions
-        if action.__class__.__name__ != "_SubParsersAction"
+        action for action in parser._actions if action.__class__.__name__ != "_SubParsersAction"
     ]
     if not action_rows:
         return ["This command has no arguments."]
@@ -261,7 +259,9 @@ def _mutual_exclusions(parser: argparse.ArgumentParser) -> list[str]:
     for group in parser._mutually_exclusive_groups:
         names = [_argument_name(action).split(" ", 1)[0] for action in group._group_actions]
         if len(names) > 1:
-            exclusions.append("Mutually exclusive: " + " / ".join(f"`{name}`" for name in names) + ".")
+            exclusions.append(
+                "Mutually exclusive: " + " / ".join(f"`{name}`" for name in names) + "."
+            )
     return exclusions
 
 
@@ -295,12 +295,14 @@ def _render_service(service: Service) -> str:
         "| Variable | Effect |",
         "| --- | --- |",
     ]
-    lines.extend(f"| `{name}` | {_markdown(description)} |" for name, description in service.environment)
+    lines.extend(
+        f"| `{name}` | {_markdown(description)} |" for name, description in service.environment
+    )
     lines.extend(["", "## Global options", ""])
     lines.extend(_argument_table(parser, service))
     lines.extend(["", "Global options must appear before the command name.", "", "## Commands", ""])
     lines.extend(
-        f"- `{ ' '.join(path) }` — {_markdown(help_text) or 'No description.'}"
+        f"- `{' '.join(path)}` — {_markdown(help_text) or 'No description.'}"
         for path, _child, help_text in commands
     )
 

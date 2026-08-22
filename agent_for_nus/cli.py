@@ -178,9 +178,7 @@ def build_parser() -> argparse.ArgumentParser:
         "status", help="Report bundled and installed skill state."
     )
     _add_agent_argument(skill_status_parser)
-    skill_status_parser.add_argument(
-        "--scope", choices=("user", "project", "all"), default="user"
-    )
+    skill_status_parser.add_argument("--scope", choices=("user", "project", "all"), default="user")
     _add_project_root_argument(skill_status_parser)
     skill_status_parser.add_argument("--format", choices=OUTPUT_FORMATS, default="human")
 
@@ -291,7 +289,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 failed = any(action["action"] == "error" for action in actions)
                 changed = any(action["changed"] for action in actions)
                 if changed:
-                    print("Skills installed. Restart the agent if it does not detect them immediately.")
+                    print(
+                        "Skills installed. Restart the agent if it does not detect them immediately."
+                    )
                 return 1 if failed else 0
             if args.skills_command == "status":
                 report = skill_status_report(

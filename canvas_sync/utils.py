@@ -313,10 +313,7 @@ def extract_file_references_from_text(text: str) -> list[dict[str, str | None]]:
 
 
 def extract_file_ids_from_text(text: str) -> set[str]:
-    return {
-        str(reference["file_id"])
-        for reference in extract_file_references_from_text(text)
-    }
+    return {str(reference["file_id"]) for reference in extract_file_references_from_text(text)}
 
 
 def extract_file_references_from_json_value(value: Any) -> list[dict[str, str | None]]:
@@ -342,8 +339,7 @@ def extract_file_references_from_json_value(value: Any) -> list[dict[str, str | 
 
 def extract_file_ids_from_json_value(value: Any) -> set[str]:
     return {
-        str(reference["file_id"])
-        for reference in extract_file_references_from_json_value(value)
+        str(reference["file_id"]) for reference in extract_file_references_from_json_value(value)
     }
 
 

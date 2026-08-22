@@ -403,9 +403,7 @@ def skills_check() -> Check:
         remediation = "Run `agent-for-nus skills install --agents all --scope user`."
     elif problem_count or report["duplicates"]:
         status = "warning"
-        summary = (
-            f"Found {current_count} current NUS skill copy/copies, with stale, unmanaged, or duplicate copies."
-        )
+        summary = f"Found {current_count} current NUS skill copy/copies, with stale, unmanaged, or duplicate copies."
         remediation = "Run `agent-for-nus skills status`, then update or remove duplicate copies."
     else:
         status = "ok"

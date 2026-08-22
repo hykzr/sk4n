@@ -426,7 +426,7 @@ class CanvasFetcher:
             str(course.get("id") or ""),
         )
 
-    def _resolve_course(self, selector: str, courses: list[dict[str, Any]]) -> dict[str, Any]:
+    def resolve_course(self, selector: str, courses: list[dict[str, Any]]) -> dict[str, Any]:
         normalized = selector.casefold()
         id_matches = [
             course for course in courses if str(course.get("id") or "").casefold() == normalized
@@ -460,7 +460,7 @@ class CanvasFetcher:
                 return record
         raise CanvasAPIError(f"Course {course_id} was not present in the refreshed Canvas catalog.")
 
-    def _refresh_course_metadata(
+    def refresh_course_metadata(
         self,
         *,
         record: CourseRecord,
@@ -516,7 +516,7 @@ class CanvasFetcher:
         write_json(metadata_path, metadata)
         return metadata, "updated" if existing else "created"
 
-    def _prepare_course(
+    def prepare_course(
         self,
         selector: str,
         *,
@@ -526,7 +526,7 @@ class CanvasFetcher:
         content_type: str | None = None,
     ) -> tuple[dict[str, Any], Path, dict[str, Any] | None]:
         courses = self.courses(semester=semester, refresh=refresh)
-        selected = self._resolve_course(selector, courses)
+        selected = self.resolve_course(selector, courses)
         metadata_path = Path(str(selected["metadata_path"]))
         course_dir = metadata_path.parent
         if not refresh:
@@ -544,7 +544,7 @@ class CanvasFetcher:
             folder_names=folder_names,
             existing_index=existing_index,
         )
-        metadata, _ = self._refresh_course_metadata(
+        metadata, _ = self.refresh_course_metadata(
             record=record,
             course_dir=course_dir,
             term_folder_name=term_folder_name,
@@ -612,7 +612,7 @@ class CanvasFetcher:
         refresh: bool = True,
         force: bool = False,
     ) -> dict[str, Any]:
-        selected, course_dir, metadata = self._prepare_course(
+        selected, course_dir, metadata = self.prepare_course(
             selector, refresh=refresh, force=force, semester=semester
         )
         assert metadata is not None
@@ -662,7 +662,7 @@ class CanvasFetcher:
         refresh: bool = True,
         force: bool = False,
     ) -> Path:
-        _, course_dir, _ = self._prepare_course(
+        _, course_dir, _ = self.prepare_course(
             selector, refresh=refresh, force=force, semester=semester
         )
         return course_dir.resolve()
@@ -692,7 +692,7 @@ class CanvasFetcher:
                 force=force,
             )
         content_type = "assignments" if resource_name == "quizzes" else resource_name
-        _, course_dir, metadata = self._prepare_course(
+        _, course_dir, metadata = self.prepare_course(
             selector,
             refresh=refresh,
             force=force,
@@ -780,7 +780,7 @@ class CanvasFetcher:
         refresh: bool = True,
         force: bool = False,
     ) -> dict[str, Any]:
-        selected, course_dir, metadata = self._prepare_course(
+        selected, course_dir, metadata = self.prepare_course(
             selector,
             refresh=refresh,
             force=force,

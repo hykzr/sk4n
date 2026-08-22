@@ -35,7 +35,9 @@ def package_version() -> str:
 
 
 def parse_selection(value: str, *, choices: Sequence[str], label: str) -> tuple[str, ...]:
-    selected = tuple(dict.fromkeys(part.strip().lower() for part in value.split(",") if part.strip()))
+    selected = tuple(
+        dict.fromkeys(part.strip().lower() for part in value.split(",") if part.strip())
+    )
     if not selected:
         raise ValueError(f"{label} must select at least one value.")
     unknown = sorted(set(selected) - {*choices, "all"})
@@ -120,9 +122,7 @@ def known_skill_roots(
     if project_root is not None:
         targets.extend(
             [
-                SkillTarget(
-                    "project", ("codex", "copilot"), project_root / ".agents" / "skills"
-                ),
+                SkillTarget("project", ("codex", "copilot"), project_root / ".agents" / "skills"),
                 SkillTarget("project", ("copilot",), project_root / ".github" / "skills"),
                 SkillTarget("project", ("claude",), project_root / ".claude" / "skills"),
             ]
@@ -130,9 +130,7 @@ def known_skill_roots(
     return tuple(targets)
 
 
-def _walk_resource(
-    node: Any, prefix: PurePosixPath | None = None
-) -> Iterable[tuple[str, bytes]]:
+def _walk_resource(node: Any, prefix: PurePosixPath | None = None) -> Iterable[tuple[str, bytes]]:
     prefix = prefix or PurePosixPath()
     for child in sorted(node.iterdir(), key=lambda item: item.name):
         if child.name in {"__pycache__", ".DS_Store"}:
@@ -185,7 +183,9 @@ def _manifest(skill: str, files: Mapping[str, bytes]) -> dict[str, Any]:
         "package_version": package_version(),
         "skill": skill,
         "source_sha256": _content_hash(files),
-        "managed_files": {relative: _file_hash(content) for relative, content in sorted(files.items())},
+        "managed_files": {
+            relative: _file_hash(content) for relative, content in sorted(files.items())
+        },
     }
 
 
@@ -208,7 +208,9 @@ def _read_manifest(destination: Path, skill: str) -> dict[str, Any] | None:
     return payload
 
 
-def installation_status(destination: Path, skill: str, files: Mapping[str, bytes]) -> dict[str, Any]:
+def installation_status(
+    destination: Path, skill: str, files: Mapping[str, bytes]
+) -> dict[str, Any]:
     source_hash = _content_hash(files)
     base = {
         "skill": skill,
@@ -217,7 +219,12 @@ def installation_status(destination: Path, skill: str, files: Mapping[str, bytes
         "source_sha256": source_hash,
     }
     if destination.is_symlink() or not destination.is_dir():
-        return {**base, "state": "unmanaged" if destination.exists() else "missing", "managed": False, "matches_bundled": False}
+        return {
+            **base,
+            "state": "unmanaged" if destination.exists() else "missing",
+            "managed": False,
+            "matches_bundled": False,
+        }
     manifest = _read_manifest(destination, skill)
     if manifest is None:
         return {**base, "state": "unmanaged", "managed": False, "matches_bundled": False}
@@ -388,7 +395,9 @@ def _install_one(
     temporary = target.root / f".{skill}.tmp-{uuid.uuid4().hex}"
     previous_manifest = _read_manifest(destination, skill)
     try:
-        _prepare_directory(temporary, destination, files, _manifest(skill, files), previous_manifest)
+        _prepare_directory(
+            temporary, destination, files, _manifest(skill, files), previous_manifest
+        )
         _swap_directory(temporary, destination)
     except Exception as exc:
         if temporary.exists():
@@ -408,9 +417,7 @@ def install_skills(
     force: bool = False,
 ) -> list[dict[str, Any]]:
     resolved_project = resolve_project_root(project_root, required=scope == "project")
-    targets = destination_targets(
-        agents, scope, home=home, project_root=resolved_project
-    )
+    targets = destination_targets(agents, scope, home=home, project_root=resolved_project)
     bundles = {skill: bundled_skill_files(skill) for skill in skills}
     return [
         _install_one(target, skill, bundles[skill], dry_run=dry_run, force=force)
@@ -481,13 +488,9 @@ def uninstall_skills(
     dry_run: bool = False,
 ) -> list[dict[str, Any]]:
     resolved_project = resolve_project_root(project_root, required=scope == "project")
-    targets = destination_targets(
-        agents, scope, home=home, project_root=resolved_project
-    )
+    targets = destination_targets(agents, scope, home=home, project_root=resolved_project)
     return [
-        _uninstall_one(target, skill, dry_run=dry_run)
-        for target in targets
-        for skill in skills
+        _uninstall_one(target, skill, dry_run=dry_run) for target in targets for skill in skills
     ]
 
 

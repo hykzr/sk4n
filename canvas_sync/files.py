@@ -174,11 +174,7 @@ def sync_files(
         if file_id in discovered:
             continue
         reference_urls = sorted(
-            {
-                client.api_url(url)
-                for url in references[file_id]["urls"]
-                if isinstance(url, str)
-            }
+            {client.api_url(url) for url in references[file_id]["urls"] if isinstance(url, str)}
         )
         if not reference_urls:
             reference_urls = [client.api_url(f"/courses/{course_id}/files/{file_id}")]

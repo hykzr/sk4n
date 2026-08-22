@@ -18,11 +18,7 @@ def test_bundled_skills_have_portable_structure_and_metadata() -> None:
         skill_dir = SKILLS_ROOT / name
         skill_text = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
         frontmatter = skill_text.split("---", 2)[1]
-        keys = {
-            line.partition(":")[0]
-            for line in frontmatter.splitlines()
-            if line.strip()
-        }
+        keys = {line.partition(":")[0] for line in frontmatter.splitlines() if line.strip()}
 
         assert keys == {"name", "description"}
         assert f"name: {name}" in frontmatter

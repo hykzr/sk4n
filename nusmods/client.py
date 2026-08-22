@@ -34,6 +34,7 @@ DEFAULT_CACHE_TTL_SECONDS = 24 * 60 * 60
 class NUSModsAPIError(RuntimeError):
     """Raised when NUSMods or its public comments feed returns unusable data."""
 
+
 class NUSModsClient:
     """Read-only client for NUSMods' public static API and review feed."""
 

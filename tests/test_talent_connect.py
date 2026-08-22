@@ -399,7 +399,7 @@ def test_cli_parser_builds_authenticated_api_request() -> None:
 
 def test_authenticated_request_rejects_external_urls() -> None:
     with pytest.raises(ValueError, match="must start with /api/"):
-        AuthenticatedKinobiClient._validate_request(
+        AuthenticatedKinobiClient.validate_request(
             "GET",
             "https://example.test/api/auth/",
         )
@@ -446,7 +446,7 @@ def test_authenticated_request_reports_http_errors() -> None:
 
     client = AuthenticatedKinobiClient()
     with pytest.raises(KinobiAPIError, match=r"DELETE.*HTTP 403.*forbidden"):
-        asyncio.run(client._request(FakePage(), "delete", "/api/example"))
+        asyncio.run(client.make_request(FakePage(), "delete", "/api/example"))
 
 
 def test_authenticated_get_uses_generic_request_transport() -> None:
@@ -461,7 +461,7 @@ def test_authenticated_get_uses_generic_request_transport() -> None:
 
     client = AuthenticatedKinobiClient()
 
-    assert asyncio.run(client._get(FakePage(), "/api/example")) == {
+    assert asyncio.run(client.make_request(FakePage(), "GET", "/api/example")) == {
         "data": ["result"]
     }
 

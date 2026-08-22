@@ -354,14 +354,14 @@ def test_ambiguous_course_code_is_rejected_with_candidates(tmp_path: Path) -> No
     ]
 
     with pytest.raises(Exception) as exc_info:
-        fetcher._resolve_course("CS1010", courses)
+        fetcher.resolve_course("CS1010", courses)
 
     message = str(exc_info.value)
     assert "matched 2 courses" in message
     assert "2425S1 | ID 1 | StudentEnrollment" in message
     assert "2526S1 | ID 2 | TaEnrollment" in message
-    assert fetcher._resolve_course("1", courses)["id"] == "1"
-    assert fetcher._resolve_course("CS1010", [courses[0]])["id"] == "1"
+    assert fetcher.resolve_course("1", courses)["id"] == "1"
+    assert fetcher.resolve_course("CS1010", [courses[0]])["id"] == "1"
 
 
 def test_course_record_exposes_unique_student_and_ta_roles() -> None:

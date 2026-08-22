@@ -129,19 +129,19 @@ class AuthenticatedKinobiClient:
         self.timeout = timeout
         self.detail_errors: dict[str, str] = {}
 
-    def _storage_state(self) -> Any:
+    def storage_state(self) -> Any:
         session = load_session(self.site_name)
         storage_state = session.get("storage_state") if isinstance(session, dict) else None
         if not isinstance(storage_state, dict):
             raise KinobiAuthError("No saved TalentConnect login. Run `talent-connect auth login`.")
         return storage_state
 
-    async def _open(self):
+    async def open_browser(self):
 
         playwright = await async_playwright().start()
         browser = await playwright.chromium.launch(headless=True)
         context = await browser.new_context(
-            storage_state=self._storage_state(),
+            storage_state=self.storage_state(),
             viewport={"width": 1440, "height": 950},
         )
         page = await context.new_page()
@@ -157,13 +157,13 @@ class AuthenticatedKinobiClient:
         )
         return playwright, browser, page
 
-    async def _get(self, page: Any, path: str) -> dict[str, Any]:
-        payload = await self._request(page, "GET", path)
+    async def get(self, page: Any, path: str) -> dict[str, Any]:
+        payload = await self.make_request(page, "GET", path)
         if not isinstance(payload, dict):
             raise KinobiAPIError(f"Authenticated Kinobi response for {path} was not a JSON object.")
         return payload
 
-    async def _get_many(self, page: Any, paths: Sequence[str]) -> list[dict[str, Any]]:
+    async def get_many(self, page: Any, paths: Sequence[str]) -> list[dict[str, Any]]:
         results = await page.evaluate(
             """
             async (paths) => Promise.all(paths.map(async (path) => {
@@ -209,7 +209,7 @@ class AuthenticatedKinobiClient:
         return payloads
 
     @staticmethod
-    def _validate_request(method: str, path: str) -> tuple[str, str]:
+    def validate_request(method: str, path: str) -> tuple[str, str]:
         normalized_method = method.strip().upper()
         if not HTTP_METHOD_PATTERN.fullmatch(normalized_method):
             raise ValueError(f"Invalid HTTP method: {method!r}")
@@ -217,14 +217,14 @@ class AuthenticatedKinobiClient:
             raise ValueError("Authenticated Kinobi request paths must start with /api/.")
         return normalized_method, path
 
-    async def _request(
+    async def make_request(
         self,
         page: Any,
         method: str,
         path: str,
         data: Any = None,
     ) -> Any:
-        method, path = self._validate_request(method, path)
+        method, path = self.validate_request(method, path)
         result = await page.evaluate(
             """
             async ({method, path, data}) => {
@@ -266,16 +266,16 @@ class AuthenticatedKinobiClient:
             f"{f' (HTTP {status})' if status else ''}: {message}{response_detail}"
         )
 
-    async def _request_async(
+    async def request_async(
         self,
         method: str,
         path: str,
         data: Any = None,
     ) -> Any:
-        method, path = self._validate_request(method, path)
-        playwright, browser, page = await self._open()
+        method, path = self.validate_request(method, path)
+        playwright, browser, page = await self.open_browser()
         try:
-            return await self._request(page, method, path, data)
+            return await self.make_request(page, method, path, data)
         finally:
             await browser.close()
             await playwright.stop()
@@ -287,9 +287,9 @@ class AuthenticatedKinobiClient:
         data: Any = None,
     ) -> Any:
         """Send one request through Kinobi's authenticated in-page Axios client."""
-        return asyncio.run(self._request_async(method, path, data))
+        return asyncio.run(self.request_async(method, path, data))
 
-    async def _list_jobs_async(
+    async def list_jobs_async(
         self,
         *,
         filters: Mapping[str, Any] | None,
@@ -301,7 +301,7 @@ class AuthenticatedKinobiClient:
         if max_jobs is not None and max_jobs < 1:
             return []
         params = encode_job_filters(filters)
-        playwright, browser, page = await self._open()
+        playwright, browser, page = await self.open_browser()
         jobs: list[dict[str, Any]] = []
         try:
             endpoint = "/api/job/recommendation?" if recommended else "/api/job?"
@@ -309,7 +309,7 @@ class AuthenticatedKinobiClient:
             async def fetch_page(page_number: int) -> dict[str, Any]:
                 page_params = dict(params)
                 page_params.update({"page": page_number, "entries_per_page": page_size})
-                return await self._get(page, endpoint + urlencode(page_params))
+                return await self.get(page, endpoint + urlencode(page_params))
 
             async def append_payload(payload: dict[str, Any]) -> bool:
                 data = payload.get("data")
@@ -355,7 +355,7 @@ class AuthenticatedKinobiClient:
                     page_params = dict(params)
                     page_params.update({"page": page_number, "entries_per_page": page_size})
                     paths.append(endpoint + urlencode(page_params))
-                payloads = await self._get_many(
+                payloads = await self.get_many(
                     page,
                     paths,
                 )
@@ -377,7 +377,7 @@ class AuthenticatedKinobiClient:
         progress_callback: ProgressCallback | None = None,
     ) -> list[dict[str, Any]]:
         return asyncio.run(
-            self._list_jobs_async(
+            self.list_jobs_async(
                 filters=filters,
                 max_jobs=max_jobs,
                 page_size=page_size,
@@ -386,7 +386,7 @@ class AuthenticatedKinobiClient:
             )
         )
 
-    async def _list_workflow_jobs_async(
+    async def list_workflow_jobs_async(
         self,
         *,
         statuses: Sequence[str],
@@ -399,7 +399,7 @@ class AuthenticatedKinobiClient:
         if unsupported:
             raise ValueError(f"Unsupported TalentConnect status: {unsupported[0]}")
 
-        playwright, browser, page = await self._open()
+        playwright, browser, page = await self.open_browser()
         workflow_jobs: dict[str, dict[str, Any]] = {}
         self.detail_errors = {}
         try:
@@ -418,7 +418,7 @@ class AuthenticatedKinobiClient:
                             "entries_per_page": page_size,
                         }
                     )
-                    payload = await self._get(page, endpoint + "?" + urlencode(params))
+                    payload = await self.get(page, endpoint + "?" + urlencode(params))
                     data = payload.get("data")
                     pagination = payload.get("pagination")
                     if not isinstance(data, list):
@@ -479,7 +479,7 @@ class AuthenticatedKinobiClient:
                     """
                 )
                 if not user_id:
-                    auth_payload = await self._get(page, "/api/auth/")
+                    auth_payload = await self.get(page, "/api/auth/")
                     auth_user = auth_payload.get("data")
                     if isinstance(auth_user, Mapping):
                         user_id = auth_user.get("_id") or auth_user.get("user_id")
@@ -516,12 +516,12 @@ class AuthenticatedKinobiClient:
                 batch = identifiers[offset : offset + batch_size]
                 paths = [f"/api/job/{identifier}" for identifier in batch]
                 try:
-                    payloads = await self._get_many(page, paths)
+                    payloads = await self.get_many(page, paths)
                 except KinobiAPIError:
                     payloads = []
                     for identifier, path in zip(batch, paths, strict=True):
                         try:
-                            payloads.append(await self._get(page, path))
+                            payloads.append(await self.get(page, path))
                         except KinobiAPIError as exc:
                             self.detail_errors[identifier] = str(exc)
                             payloads.append({})
@@ -557,7 +557,7 @@ class AuthenticatedKinobiClient:
         progress_callback: ProgressCallback | None = None,
     ) -> list[dict[str, Any]]:
         return asyncio.run(
-            self._list_workflow_jobs_async(
+            self.list_workflow_jobs_async(
                 statuses=statuses,
                 query=query,
                 page_size=page_size,
@@ -565,10 +565,10 @@ class AuthenticatedKinobiClient:
             )
         )
 
-    async def _get_job_async(self, identifier: str) -> dict[str, Any]:
-        playwright, browser, page = await self._open()
+    async def get_job_async(self, identifier: str) -> dict[str, Any]:
+        playwright, browser, page = await self.open_browser()
         try:
-            payload = await self._get(page, f"/api/job/{identifier}")
+            payload = await self.get(page, f"/api/job/{identifier}")
             data = payload.get("data")
             if not isinstance(data, dict) or not data.get("_id"):
                 raise KinobiAPIError(
@@ -580,9 +580,9 @@ class AuthenticatedKinobiClient:
             await playwright.stop()
 
     def get_job(self, identifier: str) -> dict[str, Any]:
-        return asyncio.run(self._get_job_async(identifier))
+        return asyncio.run(self.get_job_async(identifier))
 
-    async def _get_jobs_async(
+    async def get_jobs_async(
         self,
         identifiers: Sequence[str],
         *,
@@ -593,7 +593,7 @@ class AuthenticatedKinobiClient:
         self.detail_errors = {}
         if not unique_identifiers:
             return []
-        playwright, browser, page = await self._open()
+        playwright, browser, page = await self.open_browser()
         details: list[dict[str, Any]] = []
         try:
             for offset in range(0, len(unique_identifiers), batch_size):
@@ -651,7 +651,7 @@ class AuthenticatedKinobiClient:
         progress_callback: ProgressCallback | None = None,
     ) -> list[dict[str, Any]]:
         return asyncio.run(
-            self._get_jobs_async(
+            self.get_jobs_async(
                 identifiers,
                 batch_size=batch_size,
                 progress_callback=progress_callback,
