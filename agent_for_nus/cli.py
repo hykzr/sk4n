@@ -5,9 +5,19 @@ import json
 import subprocess
 import sys
 from collections.abc import Sequence
+from datetime import date, datetime
 from pathlib import Path
 
+from nusmods.client import NUSModsAPIError, NUSModsClient
+
+from .academic_calendar import (
+    SINGAPORE_TZ,
+    academic_calendar_record,
+    current_academic_year,
+    normalize_academic_year,
+)
 from .doctor import build_doctor_report, package_version, path_report, print_doctor_report
+from .paths import nusmods_data_dir
 from .skill_install import (
     AGENTS,
     NUS_SKILLS,
@@ -20,6 +30,21 @@ from .skill_install import (
 )
 
 OUTPUT_FORMATS = ("human", "json")
+STRUCTURED_OUTPUT_FORMATS = ("json", "jsonl", "plain")
+
+
+def _iso_date_argument(value: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be an ISO date such as 2026-08-10") from exc
+
+
+def _academic_year_argument(value: str) -> str:
+    try:
+        return normalize_academic_year(value)[0]
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
 def _selection_argument(choices: Sequence[str], label: str):
@@ -82,6 +107,47 @@ def build_parser() -> argparse.ArgumentParser:
     paths_parser = commands.add_parser("paths", help="Show application data paths.")
     paths_parser.add_argument("--format", choices=OUTPUT_FORMATS, default="human")
 
+    calendar_parser = commands.add_parser(
+        "calendar",
+        help="Show the shared NUS semester and instructional week for a date.",
+    )
+    calendar_parser.add_argument(
+        "--date",
+        type=_iso_date_argument,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Date in Singapore time. Default: today.",
+    )
+    calendar_parser.add_argument(
+        "--academic-year",
+        type=_academic_year_argument,
+        default=None,
+        metavar="YYYY/YYYY",
+        help="Academic year. Default: the year containing the requested date.",
+    )
+    refresh_group = calendar_parser.add_mutually_exclusive_group()
+    refresh_group.add_argument(
+        "--refresh",
+        action="store_const",
+        const="force",
+        dest="refresh_mode",
+        help="Bypass the cached public NUSMods calendar data.",
+    )
+    refresh_group.add_argument(
+        "--no-refresh",
+        action="store_const",
+        const="none",
+        dest="refresh_mode",
+        help="Use only cached public NUSMods calendar data.",
+    )
+    calendar_parser.set_defaults(refresh_mode="default")
+    calendar_parser.add_argument(
+        "--format",
+        choices=STRUCTURED_OUTPUT_FORMATS,
+        default=None,
+        help="Output format. Default: human-friendly details.",
+    )
+
     browser_parser = commands.add_parser("browser", help="Manage the Python Playwright browser.")
     browser_commands = browser_parser.add_subparsers(dest="browser_command", required=True)
     install_parser = browser_commands.add_parser(
@@ -131,6 +197,62 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _print_calendar_result(result: dict[str, object], output_format: str | None) -> None:
+    if output_format == "json":
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+        return
+    if output_format == "jsonl":
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+        return
+    if output_format == "plain":
+        for key in sorted(result):
+            value = result[key]
+            if isinstance(value, (dict, list)):
+                rendered = json.dumps(value, ensure_ascii=False, sort_keys=True)
+            elif value is None:
+                rendered = "null"
+            elif isinstance(value, bool):
+                rendered = str(value).lower()
+            else:
+                rendered = str(value)
+            print(f"{key}: {rendered}")
+        return
+    print("NUS academic calendar")
+    for key, value in result.items():
+        if value not in (None, "", [], {}):
+            print(f"{key.replace('_', ' ').title()}: {value}")
+
+
+def _handle_calendar(args: argparse.Namespace) -> int:
+    target = args.date or datetime.now(SINGAPORE_TZ).date()
+    academic_year = args.academic_year or current_academic_year(target)
+    client = NUSModsClient(
+        academic_year=academic_year,
+        data_dir=nusmods_data_dir(),
+        refresh=args.refresh_mode == "force",
+        cache_only=args.refresh_mode == "none",
+    )
+    warnings: list[str] = []
+    try:
+        calendar = client.get_academic_calendar()
+    except NUSModsAPIError as exc:
+        calendar = {}
+        warnings.append(f"Academic calendar unavailable; using computed semester starts: {exc}")
+    try:
+        holidays = client.get_holidays()
+    except NUSModsAPIError as exc:
+        holidays = []
+        warnings.append(f"Public-holiday data unavailable: {exc}")
+    result = academic_calendar_record(target, academic_year, calendar, holidays)
+    result["source"] = "NUSMods academic calendar" if calendar else "computed fallback"
+    result["warnings"] = warnings
+    _print_calendar_result(result, args.format)
+    if not args.format:
+        for warning in warnings:
+            print(f"warning: {warning}", file=sys.stderr)
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -146,6 +268,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             for name, path in paths.items():
                 print(f"{name}: {path}")
         return 0
+    if args.command == "calendar":
+        try:
+            return _handle_calendar(args)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
     if args.command == "browser" and args.browser_command == "install":
         return subprocess.call([sys.executable, "-m", "playwright", "install", args.browser])
     if args.command == "skills":

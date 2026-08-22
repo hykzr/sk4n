@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from agent_for_nus.academic_calendar import academic_calendar_record
 from nusmods.cli import build_parser, module_matches_filters
 from nusmods.client import NUSModsAPIError, NUSModsClient, normalize_academic_year
 from nusmods.schedule import (
@@ -26,7 +27,6 @@ from nusmods.schedule import (
     student_to_ta,
     ta_to_student,
 )
-from tools.academic_calendar import academic_calendar_record
 
 
 def lesson(

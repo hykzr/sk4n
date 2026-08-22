@@ -10,7 +10,7 @@ Query and incrementally cache NUS Canvas data.
 - Use `--format json` for one complete JSON document.
 - Use `--format jsonl` for one complete JSON record per line when the command offers it.
 - Use `--format plain` for line-oriented `key: value` records suited to shell filtering when the command offers it.
-- Structured formats preserve full records and may be substantially larger than human output.
+- JSON and JSONL omit internal `_canvas_sync*` cache metadata but remaining records may still be substantially larger than human output.
 
 ## Environment variables
 
@@ -45,7 +45,9 @@ Global options must appear before the command name.
 - `canvas sync` — Sync courses using the original bulk options.
 - `canvas student` — Show the current Canvas student.
 - `canvas list` — List accessible Canvas courses.
-- `canvas calendar` — Show the NUS semester and instructional week for a date.
+- `canvas calendar-events` — List the current user's Canvas calendar events.
+- `canvas todo` — List the current user's Canvas To-Do items.
+- `canvas upcoming` — List the current user's upcoming Canvas events.
 - `canvas course` — Show a course or one cached content area.
 - `canvas api` — Send a direct low-level request with the saved Canvas session.
 - `canvas playwright-cli` — Open an authenticated low-level @playwright/cli browser session.
@@ -159,24 +161,41 @@ Constraints:
 
 - Mutually exclusive: `--refresh` / `--no-refresh`.
 
-## `canvas calendar`
+## `canvas calendar-events`
 
-Show the NUS semester and instructional week for a date.
+List the current user's Canvas calendar events.
 
-Usage: `canvas calendar [-h] [--date YYYY-MM-DD] [--academic-year YYYY/YYYY] [--refresh | --no-refresh] [--format {json,jsonl,plain}]`
+Usage: `canvas calendar-events [-h] [--start YYYY-MM-DD] [--end YYYY-MM-DD] [--type {event,assignment}] [--format {json,jsonl,plain}]`
 
 | Argument | Required | Repeatable | Default | Choices | Description |
 | --- | --- | --- | --- | --- | --- |
 | `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `--date YYYY-MM-DD` | no | no | `—` | — | Date in Singapore time. Default: today. |
-| `--academic-year YYYY/YYYY` | no | no | `—` | — | Academic year. Default: the year containing the requested date. |
-| `--refresh` | no | no | `default` | — | Force refresh the requested remote data and local artifacts. |
-| `--no-refresh` | no | no | `default` | — | Read only from the local cache. |
+| `--start YYYY-MM-DD` | no | no | `—` | — | Inclusive start date in Canvas time. Default: Canvas endpoint default. |
+| `--end YYYY-MM-DD` | no | no | `—` | — | Inclusive end date in Canvas time. Default: Canvas endpoint default. |
+| `--type EVENT_TYPE` | no | no | `event` | event, assignment | Canvas calendar item type. Default: event. |
 | `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly rich output. |
 
-Constraints:
+## `canvas todo`
 
-- Mutually exclusive: `--refresh` / `--no-refresh`.
+List the current user's Canvas To-Do items.
+
+Usage: `canvas todo [-h] [--format {json,jsonl,plain}]`
+
+| Argument | Required | Repeatable | Default | Choices | Description |
+| --- | --- | --- | --- | --- | --- |
+| `-h, --help` | no | no | `—` | — | show this help message and exit |
+| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly rich output. |
+
+## `canvas upcoming`
+
+List the current user's upcoming Canvas events.
+
+Usage: `canvas upcoming [-h] [--format {json,jsonl,plain}]`
+
+| Argument | Required | Repeatable | Default | Choices | Description |
+| --- | --- | --- | --- | --- | --- |
+| `-h, --help` | no | no | `—` | — | show this help message and exit |
+| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly rich output. |
 
 ## `canvas course`
 

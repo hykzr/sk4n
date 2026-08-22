@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
@@ -21,12 +22,13 @@ from canvas_sync.fetcher import (
     infer_enrollment_academic_year,
     resolve_semester_filter,
 )
+from canvas_sync.files import collect_referenced_files, sync_files
 from canvas_sync.models import CourseRecord
 from canvas_sync.people import sync_people
 from canvas_sync.utils import read_json, write_json
 
 
-def test_cli_exposes_auth_sync_info_and_api_commands() -> None:
+def test_cli_exposes_auth_sync_info_activity_and_api_commands() -> None:
     parser = build_parser()
 
     assert parser.parse_args(["auth", "status", "--format", "json"]).auth_command == "status"
@@ -95,12 +97,24 @@ def test_cli_exposes_auth_sync_info_and_api_commands() -> None:
     assert playwright_defaults.headed is False
     assert playwright_defaults.session == "canvas"
 
-    calendar = parser.parse_args(
-        ["calendar", "--date", "2026-08-14", "--academic-year", "2026/2027", "--no-refresh"]
+    events = parser.parse_args(
+        [
+            "calendar-events",
+            "--start",
+            "2026-08-10",
+            "--end",
+            "2026-08-16",
+            "--type",
+            "assignment",
+            "--format",
+            "json",
+        ]
     )
-    assert calendar.date.isoformat() == "2026-08-14"
-    assert calendar.academic_year == "2026/2027"
-    assert calendar.refresh_mode == "none"
+    assert events.start.isoformat() == "2026-08-10"
+    assert events.end.isoformat() == "2026-08-16"
+    assert events.event_type == "assignment"
+    assert parser.parse_args(["todo", "--format", "jsonl"]).command == "todo"
+    assert parser.parse_args(["upcoming", "--format", "plain"]).command == "upcoming"
 
     home = parser.parse_args(["course", "CG2028", "home", "--no-refresh"])
     assert (home.resource, home.item) == ("home", "list")
@@ -159,6 +173,44 @@ def test_canvas_client_accepts_paths_and_same_origin_absolute_urls() -> None:
     assert client.resolve_url("https://canvas.nus.edu.sg/api/v1/courses") == (
         "https://canvas.nus.edu.sg/api/v1/courses"
     )
+
+
+def test_canvas_client_activity_endpoints_use_paginated_reads(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = CanvasClient("https://canvas.nus.edu.sg", "test")
+    calls: list[tuple[str, list[tuple[str, Any]] | None]] = []
+
+    def fake_get_paginated(
+        path: str,
+        params: list[tuple[str, Any]] | None = None,
+        max_pages: int = 50,
+    ) -> list[dict[str, Any]]:
+        del max_pages
+        calls.append((path, params))
+        return [{"id": len(calls)}]
+
+    monkeypatch.setattr(client, "get_paginated", fake_get_paginated)
+
+    assert client.calendar_events(
+        start=date(2026, 8, 10),
+        end=date(2026, 8, 16),
+        event_type="assignment",
+    ) == [{"id": 1}]
+    assert client.todo() == [{"id": 2}]
+    assert client.upcoming_events() == [{"id": 3}]
+    assert calls[0] == (
+        "/api/v1/calendar_events",
+        [
+            ("type", "assignment"),
+            ("include[]", "context"),
+            ("per_page", "100"),
+            ("start_date", "2026-08-10"),
+            ("end_date", "2026-08-16"),
+        ],
+    )
+    assert calls[1][0] == "/api/v1/users/self/todo"
+    assert calls[2][0] == "/api/v1/users/self/upcoming_events"
 
 
 def test_semester_filters_are_case_insensitive_and_support_study_years() -> None:
@@ -346,6 +398,174 @@ def test_shared_people_path_is_printed_once_outside_table(monkeypatch: pytest.Mo
     assert rendered.count("/tmp/people.json") == 1
     assert "Local file:" in rendered
     assert "Local path" not in rendered
+
+
+def test_json_and_jsonl_outputs_remove_internal_canvas_sync_metadata(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    value = [
+        {
+            "id": 1,
+            "_canvas_sync": {"signature": "large"},
+            "nested": {"_canvas_sync_detail_error": "internal", "name": "visible"},
+        }
+    ]
+
+    canvas_cli.print_formatted(value, "json")
+    assert json.loads(capsys.readouterr().out) == [{"id": 1, "nested": {"name": "visible"}}]
+
+    canvas_cli.print_formatted(value, "jsonl")
+    assert json.loads(capsys.readouterr().out) == {"id": 1, "nested": {"name": "visible"}}
+
+
+def test_empty_module_home_uses_canvas_style_human_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = StringIO()
+    monkeypatch.setattr(
+        canvas_cli,
+        "console",
+        Console(file=output, force_terminal=False, width=120),
+    )
+
+    canvas_cli.print_empty_home({"resource": "modules", "count": 0, "items": []})
+
+    assert output.getvalue().strip() == "No modules have been defined for this course."
+
+
+def test_inaccessible_file_link_is_visible_in_human_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = StringIO()
+    monkeypatch.setattr(
+        canvas_cli,
+        "console",
+        Console(file=output, force_terminal=False, width=180),
+    )
+    canvas_cli.print_content_list(
+        [
+            {
+                "id": 99,
+                "display_name": "Canvas file 99",
+                "url": "https://canvas.example.test/files/99/preview",
+                "inaccessible": True,
+                "access_error": "Canvas denied access",
+            }
+        ]
+    )
+
+    rendered = output.getvalue()
+    assert "https://canvas.example.test/files/99/preview" in rendered
+    assert "Inaccessible: Canvas denied access" in rendered
+    assert "Local path" not in rendered
+
+
+@pytest.mark.parametrize("output_format", ["json", "jsonl", "plain"])
+def test_inaccessible_file_link_is_visible_in_machine_outputs(
+    output_format: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    canvas_cli.print_formatted(
+        {
+            "id": 99,
+            "url": "https://canvas.example.test/files/99/preview",
+            "inaccessible": True,
+            "access_error": "Canvas denied access",
+        },
+        output_format,
+    )
+
+    rendered = capsys.readouterr().out
+    assert "https://canvas.example.test/files/99/preview" in rendered
+    assert "Canvas denied access" in rendered
+
+
+def test_cross_course_embedded_file_reference_is_ignored(tmp_path: Path) -> None:
+    announcements = tmp_path / "announcements"
+    announcements.mkdir()
+    (announcements / "notice.html").write_text(
+        (
+            '<img src="/courses/2/files/200/preview">'
+            '<a href="/courses/1/files/100/download">same course</a>'
+        ),
+        encoding="utf-8",
+    )
+
+    references = collect_referenced_files(tmp_path, "1")
+
+    assert set(references) == {"100"}
+    assert references["100"]["urls"] == {"/courses/1/files/100/download"}
+
+
+class InaccessibleFileClient:
+    def api_url(self, path: str) -> str:
+        return f"https://canvas.example.test{path}"
+
+    def course_folders(self, _course_id: str) -> list[dict[str, Any]]:
+        return []
+
+    def file_details(self, _file_id: str) -> dict[str, Any]:
+        raise CanvasAPIError("Canvas denied access")
+
+
+def test_inaccessible_same_course_file_reference_is_cached_and_returned(tmp_path: Path) -> None:
+    announcements = tmp_path / "announcements"
+    announcements.mkdir()
+    (announcements / "notice.html").write_text(
+        '<img src="/courses/1/files/99/preview">',
+        encoding="utf-8",
+    )
+
+    result = sync_files(
+        client=InaccessibleFileClient(),  # type: ignore[arg-type]
+        course_id="1",
+        course_dir=tmp_path,
+        tabs=[],
+        synced_at="now",
+        force=False,
+    )
+    payload = read_json(tmp_path / "files" / "files.json")
+
+    assert result["count"] == 1
+    assert payload is not None
+    item = payload["files"][0]
+    assert item["inaccessible"] is True
+    assert item["access_error"] == "Canvas denied access"
+    assert item["url"] == "https://canvas.example.test/courses/1/files/99/preview"
+    assert item["downloaded"] is False
+    assert "path" not in item
+
+    unchanged = sync_files(
+        client=InaccessibleFileClient(),  # type: ignore[arg-type]
+        course_id="1",
+        course_dir=tmp_path,
+        tabs=[],
+        synced_at="later",
+        force=False,
+    )
+    assert unchanged["status"] == "unchanged"
+
+
+def test_inaccessible_content_id_reference_gets_a_canvas_link(tmp_path: Path) -> None:
+    (tmp_path / "modules.json").write_text(
+        json.dumps({"items": [{"type": "File", "content_id": 77}]}),
+        encoding="utf-8",
+    )
+
+    sync_files(
+        client=InaccessibleFileClient(),  # type: ignore[arg-type]
+        course_id="1",
+        course_dir=tmp_path,
+        tabs=[],
+        synced_at="now",
+        force=False,
+    )
+    payload = read_json(tmp_path / "files" / "files.json")
+
+    assert payload is not None
+    item = payload["files"][0]
+    assert item["url"] == "https://canvas.example.test/courses/1/files/77"
+    assert item["reference_urls"] == ["https://canvas.example.test/courses/1/files/77"]
 
 
 def test_cached_content_item_loads_detail_json_with_absolute_paths(tmp_path: Path) -> None:

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from tools import academic_calendar as _academic_calendar
+from agent_for_nus import academic_calendar as _academic_calendar
 
 from .client import DEFAULT_DATA_DIR, NUSModsClient
 

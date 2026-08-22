@@ -48,7 +48,8 @@ BODY_FIELD_NAMES = {"body", "content", "message"}
 FILENAME_CHARS = re.compile(r"[^A-Za-z0-9._ -]+")
 MULTISPACE = re.compile(r"\s+")
 CANVAS_FILE_LINK = re.compile(
-    r"(?:/courses/\d+)?/files/(\d+)(?:/(?:download|preview))?[^\"'<>\s)]*"
+    r"(?P<url>(?:/api/v1)?(?:/courses/(?P<course_id>\d+))?/files/"
+    r"(?P<file_id>\d+)(?:/(?:download|preview))?[^\"'<>\s)]*)"
 )
 
 
@@ -300,23 +301,50 @@ def file_signature(file_item: dict[str, Any]) -> str:
     )
 
 
+def extract_file_references_from_text(text: str) -> list[dict[str, str | None]]:
+    return [
+        {
+            "file_id": match.group("file_id"),
+            "course_id": match.group("course_id"),
+            "url": html.unescape(match.group("url")),
+        }
+        for match in CANVAS_FILE_LINK.finditer(text)
+    ]
+
+
 def extract_file_ids_from_text(text: str) -> set[str]:
-    return {match.group(1) for match in CANVAS_FILE_LINK.finditer(text)}
+    return {
+        str(reference["file_id"])
+        for reference in extract_file_references_from_text(text)
+    }
+
+
+def extract_file_references_from_json_value(value: Any) -> list[dict[str, str | None]]:
+    references: list[dict[str, str | None]] = []
+    if isinstance(value, dict):
+        if value.get("type") == "File" and value.get("content_id") is not None:
+            references.append(
+                {
+                    "file_id": str(value["content_id"]),
+                    "course_id": None,
+                    "url": None,
+                }
+            )
+        for item in value.values():
+            references.extend(extract_file_references_from_json_value(item))
+    elif isinstance(value, list):
+        for item in value:
+            references.extend(extract_file_references_from_json_value(item))
+    elif isinstance(value, str):
+        references.extend(extract_file_references_from_text(value))
+    return references
 
 
 def extract_file_ids_from_json_value(value: Any) -> set[str]:
-    ids: set[str] = set()
-    if isinstance(value, dict):
-        if value.get("type") == "File" and value.get("content_id") is not None:
-            ids.add(str(value["content_id"]))
-        for item in value.values():
-            ids.update(extract_file_ids_from_json_value(item))
-    elif isinstance(value, list):
-        for item in value:
-            ids.update(extract_file_ids_from_json_value(item))
-    elif isinstance(value, str):
-        ids.update(extract_file_ids_from_text(value))
-    return ids
+    return {
+        str(reference["file_id"])
+        for reference in extract_file_references_from_json_value(value)
+    }
 
 
 def download_with_fallbacks(

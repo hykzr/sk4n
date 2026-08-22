@@ -11,9 +11,16 @@ keeping useful data available locally.
 | `nusmods/` | Search public NUSMods course data and manage a share-link-compatible timetable. | [NUSMods CLI](nusmods/README.md) |
 | `talent_connect/` | Search, fetch, and persist NUS TalentConnect jobs and companies from Kinobi. | [TalentConnect CLI](talent_connect/README.md) |
 
-Shared browser, request, and session helpers live under
-`tools/`. Application-specific code should remain inside its application
-package.
+Shared browser, request, and session helpers live under `tools/`. Shared NUS
+academic-calendar logic lives under `agent_for_nus/` and is exposed as:
+
+```bash
+agent-for-nus calendar --date 2026-08-14
+```
+
+This public NUSMods-backed command maps dates to academic years, instructional
+weeks, week ranges, and holidays without requiring Canvas authentication.
+Application-specific code should remain inside its application package.
 
 ## Install
 

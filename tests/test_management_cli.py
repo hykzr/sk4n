@@ -21,6 +21,21 @@ def test_management_parser_exposes_phase_one_commands() -> None:
     assert parser.parse_args(["doctor", "--format", "json"]).format == "json"
     assert parser.parse_args(["doctor", "--browser-smoke"]).browser_smoke is True
     assert parser.parse_args(["paths", "--format", "json"]).command == "paths"
+    calendar = parser.parse_args(
+        [
+            "calendar",
+            "--date",
+            "2026-08-14",
+            "--academic-year",
+            "2026/2027",
+            "--no-refresh",
+            "--format",
+            "json",
+        ]
+    )
+    assert calendar.date.isoformat() == "2026-08-14"
+    assert calendar.academic_year == "2026/2027"
+    assert calendar.refresh_mode == "none"
     browser = parser.parse_args(["browser", "install", "chromium"])
     assert (browser.browser_command, browser.browser) == ("install", "chromium")
     skills = parser.parse_args(
@@ -55,6 +70,58 @@ def test_paths_json_is_machine_readable(capsys: pytest.CaptureFixture[str]) -> N
         "talent_connect_database",
     }
     assert all(Path(value).is_absolute() for value in payload.values())
+
+
+def test_shared_calendar_command_uses_nusmods_data(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class FakeCalendarClient:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def get_academic_calendar(self) -> dict[str, object]:
+            return {"2026/2027": {"1": {"start": [2026, 8, 10]}}}
+
+        def get_holidays(self) -> list[str]:
+            return []
+
+    monkeypatch.setattr(management_cli, "NUSModsClient", FakeCalendarClient)
+
+    assert (
+        management_cli.main(
+            ["calendar", "--date", "2026-08-14", "--academic-year", "2026/2027", "--format", "json"]
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["week"] == 1
+    assert payload["source"] == "NUSMods academic calendar"
+
+
+def test_shared_calendar_reports_date_outside_requested_academic_year(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class FakeCalendarClient:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def get_academic_calendar(self) -> dict[str, object]:
+            return {}
+
+        def get_holidays(self) -> list[str]:
+            return []
+
+    monkeypatch.setattr(management_cli, "NUSModsClient", FakeCalendarClient)
+
+    assert (
+        management_cli.main(
+            ["calendar", "--date", "2025-08-14", "--academic-year", "2026/2027"]
+        )
+        == 2
+    )
+    assert "outside AY2026/2027" in capsys.readouterr().err
 
 
 def test_doctor_json_and_exit_status(

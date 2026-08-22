@@ -4,6 +4,7 @@ import hashlib
 import mimetypes
 import re
 from collections.abc import Iterable
+from datetime import date
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urljoin, urlsplit
@@ -274,6 +275,39 @@ class CanvasClient:
         data = self.get_json("/api/v1/dashboard/dashboard_cards")
         if not isinstance(data, list):
             raise CanvasAPIError("Dashboard cards response was not a JSON list.")
+        return [item for item in data if isinstance(item, dict)]
+
+    def calendar_events(
+        self,
+        *,
+        start: date | None = None,
+        end: date | None = None,
+        event_type: str = "event",
+    ) -> list[dict[str, Any]]:
+        params: list[tuple[str, Any]] = [
+            ("type", event_type),
+            ("include[]", "context"),
+            ("per_page", "100"),
+        ]
+        if start is not None:
+            params.append(("start_date", start.isoformat()))
+        if end is not None:
+            params.append(("end_date", end.isoformat()))
+        data = self.get_paginated("/api/v1/calendar_events", params=params)
+        return [item for item in data if isinstance(item, dict)]
+
+    def todo(self) -> list[dict[str, Any]]:
+        data = self.get_paginated(
+            "/api/v1/users/self/todo",
+            params=[("per_page", "100")],
+        )
+        return [item for item in data if isinstance(item, dict)]
+
+    def upcoming_events(self) -> list[dict[str, Any]]:
+        data = self.get_paginated(
+            "/api/v1/users/self/upcoming_events",
+            params=[("per_page", "100")],
+        )
         return [item for item in data if isinstance(item, dict)]
 
     def course_tabs(self, course_id: str | int) -> list[dict[str, Any]]:

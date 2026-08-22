@@ -269,6 +269,12 @@ def _render_service(service: Service) -> str:
     parser = _build_parser(service)
     prog = parser.prog
     commands = list(_commands(parser, (prog,)))
+    structured_output_note = (
+        "- JSON and JSONL omit internal `_canvas_sync*` cache metadata but remaining "
+        "records may still be substantially larger than human output."
+        if service.skill_name == "nus-canvas"
+        else "- Structured formats preserve full records and may be substantially larger than human output."
+    )
     lines = [
         f"# `{prog}` command reference",
         "",
@@ -282,7 +288,7 @@ def _render_service(service: Service) -> str:
         "- Use `--format json` for one complete JSON document.",
         "- Use `--format jsonl` for one complete JSON record per line when the command offers it.",
         "- Use `--format plain` for line-oriented `key: value` records suited to shell filtering when the command offers it.",
-        "- Structured formats preserve full records and may be substantially larger than human output.",
+        structured_output_note,
         "",
         "## Environment variables",
         "",

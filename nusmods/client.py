@@ -14,8 +14,8 @@ from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from agent_for_nus.academic_calendar import normalize_academic_year
 from agent_for_nus.paths import nusmods_data_dir
-from tools.academic_calendar import normalize_academic_year
 
 DEFAULT_API_BASE_URL = "https://api.nusmods.com/v2"
 DEFAULT_DISQUS_URL = "https://disqus.com/embed/comments/"

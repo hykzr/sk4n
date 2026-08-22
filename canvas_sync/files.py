@@ -12,8 +12,8 @@ try:
         content_file_path,
         download_with_fallbacks,
         existing_items_by_key,
-        extract_file_ids_from_json_value,
-        extract_file_ids_from_text,
+        extract_file_references_from_json_value,
+        extract_file_references_from_text,
         file_signature,
         fingerprint,
         normalize_existing_path,
@@ -33,8 +33,8 @@ except ImportError:
         content_file_path,
         download_with_fallbacks,
         existing_items_by_key,
-        extract_file_ids_from_json_value,
-        extract_file_ids_from_text,
+        extract_file_references_from_json_value,
+        extract_file_references_from_text,
         file_signature,
         fingerprint,
         normalize_existing_path,
@@ -75,9 +75,12 @@ def source_name_for_path(course_dir: Path, path: Path) -> str:
     return parts[0]
 
 
-def collect_referenced_file_ids(course_dir: Path) -> dict[str, set[str]]:
+def collect_referenced_files(
+    course_dir: Path,
+    course_id: str,
+) -> dict[str, dict[str, set[str]]]:
     files_root = course_dir / "files"
-    references: dict[str, set[str]] = {}
+    references: dict[str, dict[str, set[str]]] = {}
     for path in course_dir.rglob("*"):
         if not path.is_file() or path_is_relative_to(path, files_root):
             continue
@@ -87,18 +90,25 @@ def collect_referenced_file_ids(course_dir: Path) -> dict[str, set[str]]:
             text = path.read_text(encoding="utf-8", errors="ignore")
         except OSError:
             continue
-        ids = extract_file_ids_from_text(text)
+        found = extract_file_references_from_text(text)
         if path.suffix.lower() == ".json":
             try:
                 data = json.loads(text)
             except json.JSONDecodeError:
                 data = None
-            ids.update(extract_file_ids_from_json_value(data))
-        if not ids:
+            found.extend(extract_file_references_from_json_value(data))
+        if not found:
             continue
         source = source_name_for_path(course_dir, path)
-        for file_id in ids:
-            references.setdefault(file_id, set()).add(source)
+        for reference in found:
+            referenced_course_id = reference.get("course_id")
+            if referenced_course_id and str(referenced_course_id) != str(course_id):
+                continue
+            file_id = str(reference["file_id"])
+            record = references.setdefault(file_id, {"sources": set(), "urls": set()})
+            record["sources"].add(source)
+            if reference.get("url"):
+                record["urls"].add(str(reference["url"]))
     return references
 
 
@@ -142,10 +152,10 @@ def sync_files(
         str(folder.get("id")): folder for folder in folders if folder.get("id") is not None
     }
 
-    references = collect_referenced_file_ids(course_dir)
+    references = collect_referenced_files(course_dir, course_id)
     discovered: dict[str, dict[str, Any]] = {}
     sources_by_id: dict[str, set[str]] = {
-        file_id: set(sources) for file_id, sources in references.items()
+        file_id: set(reference["sources"]) for file_id, reference in references.items()
     }
     course_files_error: str | None = None
 
@@ -163,12 +173,36 @@ def sync_files(
     for file_id in references:
         if file_id in discovered:
             continue
+        reference_urls = sorted(
+            {
+                client.api_url(url)
+                for url in references[file_id]["urls"]
+                if isinstance(url, str)
+            }
+        )
+        if not reference_urls:
+            reference_urls = [client.api_url(f"/courses/{course_id}/files/{file_id}")]
         try:
-            discovered[file_id] = client.file_details(file_id)
-        except CanvasAPIError:
+            detail = client.file_details(file_id)
+        except CanvasAPIError as exc:
             if file_id in existing_by_id:
-                discovered[file_id] = copy.deepcopy(existing_by_id[file_id])
-                sources_by_id.setdefault(file_id, set()).add("cached_reference")
+                detail = copy.deepcopy(existing_by_id[file_id])
+            else:
+                detail = {
+                    "id": int(file_id) if file_id.isdigit() else file_id,
+                    "display_name": f"Canvas file {file_id}",
+                    "downloaded": False,
+                }
+            detail["inaccessible"] = True
+            detail["access_error"] = str(exc)
+            detail["reference_urls"] = reference_urls
+            if reference_urls:
+                detail["url"] = reference_urls[0]
+        else:
+            if reference_urls:
+                detail["reference_urls"] = reference_urls
+                detail["_canvas_sync_reference_urls"] = reference_urls
+        discovered[file_id] = detail
 
     if not discovered:
         return {
@@ -200,6 +234,37 @@ def sync_files(
             else None
         )
         sources = sources_by_id.get(file_id, set())
+
+        if file_item.get("inaccessible") is True:
+            record = copy.deepcopy(existing_item) if existing_item else {}
+            record.update(copy.deepcopy(file_item))
+            record["sources"] = sorted(sources or {"file_reference"})
+            existing_target_path = (
+                str(existing_item["path"])
+                if isinstance(existing_item, dict) and isinstance(existing_item.get("path"), str)
+                else None
+            )
+            existing_path = resolve_relative_path(json_path, existing_target_path)
+            if (
+                existing_path is not None
+                and existing_path.exists()
+                and existing_target_path is not None
+            ):
+                record["path"] = normalize_existing_path(
+                    json_path=json_path,
+                    target_path=existing_target_path,
+                    course_dir=json_path.parent,
+                )
+                record["downloaded"] = True
+            else:
+                record.pop("path", None)
+                record["downloaded"] = False
+            record["_canvas_sync"] = {"signature": signature}
+            items.append(record)
+            if existing_signature != signature or existing_item != record:
+                changed = True
+                changed_files += 1
+            continue
 
         existing_path = (
             resolve_relative_path(json_path, existing_item.get("path"))

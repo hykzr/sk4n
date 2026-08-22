@@ -5,7 +5,7 @@ import json
 import os
 import sys
 from collections.abc import Mapping, Sequence
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -15,14 +15,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from agent_for_nus.errors import exit_code_for_error
-from agent_for_nus.paths import canvas_data_dir, nusmods_data_dir
-from nusmods.client import NUSModsAPIError, NUSModsClient
-from tools.academic_calendar import (
-    SINGAPORE_TZ,
-    academic_calendar_record,
-    current_academic_year,
-    normalize_academic_year,
-)
+from agent_for_nus.paths import canvas_data_dir
 from tools.playwright_cli import (
     ensure_session_available,
     open_authenticated_session,
@@ -58,13 +51,6 @@ def iso_date_argument(value: str) -> date:
         return date.fromisoformat(value)
     except ValueError as exc:
         raise argparse.ArgumentTypeError("must be an ISO date such as 2026-08-10") from exc
-
-
-def academic_year_argument(value: str) -> str:
-    try:
-        return normalize_academic_year(value)[0]
-    except ValueError as exc:
-        raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
 def http_method(value: str) -> str:
@@ -254,26 +240,41 @@ def build_parser() -> argparse.ArgumentParser:
     add_refresh_arguments(list_parser)
     add_format_argument(list_parser)
 
-    calendar_parser = commands.add_parser(
-        "calendar",
-        help="Show the NUS semester and instructional week for a date.",
+    events_parser = commands.add_parser(
+        "calendar-events",
+        help="List the current user's Canvas calendar events.",
     )
-    calendar_parser.add_argument(
-        "--date",
+    events_parser.add_argument(
+        "--start",
         type=iso_date_argument,
         default=None,
         metavar="YYYY-MM-DD",
-        help="Date in Singapore time. Default: today.",
+        help="Inclusive start date in Canvas time. Default: Canvas endpoint default.",
     )
-    calendar_parser.add_argument(
-        "--academic-year",
-        type=academic_year_argument,
+    events_parser.add_argument(
+        "--end",
+        type=iso_date_argument,
         default=None,
-        metavar="YYYY/YYYY",
-        help="Academic year. Default: the year containing the requested date.",
+        metavar="YYYY-MM-DD",
+        help="Inclusive end date in Canvas time. Default: Canvas endpoint default.",
     )
-    add_refresh_arguments(calendar_parser)
-    add_format_argument(calendar_parser)
+    events_parser.add_argument(
+        "--type",
+        choices=("event", "assignment"),
+        default="event",
+        dest="event_type",
+        help="Canvas calendar item type. Default: event.",
+    )
+    add_format_argument(events_parser)
+
+    todo_parser = commands.add_parser("todo", help="List the current user's Canvas To-Do items.")
+    add_format_argument(todo_parser)
+
+    upcoming_parser = commands.add_parser(
+        "upcoming",
+        help="List the current user's upcoming Canvas events.",
+    )
+    add_format_argument(upcoming_parser)
 
     course_parser = commands.add_parser("course", help="Show a course or one cached content area.")
     course_parser.add_argument("course_code", help="Course code or Canvas course ID.")
@@ -390,11 +391,25 @@ def _records(value: Any) -> list[Mapping[str, Any]]:
     return [{"value": value}]
 
 
+def _without_canvas_sync_metadata(value: Any) -> Any:
+    if isinstance(value, list):
+        return [_without_canvas_sync_metadata(item) for item in value]
+    if isinstance(value, Mapping):
+        return {
+            key: _without_canvas_sync_metadata(item)
+            for key, item in value.items()
+            if not str(key).startswith("_canvas_sync")
+        }
+    return value
+
+
 def print_formatted(value: Any, output_format: str) -> None:
     if output_format == "json":
-        print(_json_text(value))
+        print(_json_text(_without_canvas_sync_metadata(value)))
         return
-    records = _records(value)
+    records = _records(
+        _without_canvas_sync_metadata(value) if output_format == "jsonl" else value
+    )
     if output_format == "jsonl":
         for record in records:
             print(_json_text(record))
@@ -451,9 +466,18 @@ def print_courses(courses: Sequence[Mapping[str, Any]]) -> None:
 
 
 def print_content_list(items: Sequence[Mapping[str, Any]]) -> None:
+    for item in items:
+        if item.get("inaccessible") is not True:
+            continue
+        link = str(item.get("html_url") or item.get("url") or item.get("download_url") or "")
+        error = str(item.get("access_error") or "Canvas denied access")
+        console.print(
+            f"[yellow]Inaccessible Canvas link:[/yellow] {escape(link)} ({escape(error)})"
+        )
     local_paths = {
         str(item.get("local_path")) for item in items if item.get("local_path") not in (None, "")
     }
+    has_local_paths = bool(local_paths)
     shared_local_path = next(iter(local_paths)) if len(local_paths) == 1 else None
     if shared_local_path:
         console.print(f"[cyan]Local file:[/cyan] {escape(shared_local_path)}")
@@ -461,7 +485,17 @@ def print_content_list(items: Sequence[Mapping[str, Any]]) -> None:
     table.add_column("ID", no_wrap=True)
     table.add_column("Type", no_wrap=True)
     table.add_column("Name", ratio=1, overflow="fold")
-    if not shared_local_path:
+    has_canvas_links = any(
+        item.get("html_url") or item.get("url") or item.get("download_url") for item in items
+    )
+    has_status = any(
+        item.get("inaccessible") is True or item.get("download_error") for item in items
+    )
+    if has_canvas_links:
+        table.add_column("Canvas link", ratio=1, overflow="fold")
+    if has_status:
+        table.add_column("Status", ratio=1, overflow="fold")
+    if has_local_paths and not shared_local_path:
         table.add_column("Local path", ratio=1, overflow="fold")
     for item in items:
         row = [
@@ -469,10 +503,76 @@ def print_content_list(items: Sequence[Mapping[str, Any]]) -> None:
             str(item.get("kind") or item.get("type") or ""),
             str(item.get("name") or item.get("title") or item.get("display_name") or ""),
         ]
-        if not shared_local_path:
+        if has_canvas_links:
+            row.append(
+                str(item.get("html_url") or item.get("url") or item.get("download_url") or "")
+            )
+        if has_status:
+            if item.get("inaccessible") is True:
+                row.append(f"Inaccessible: {item.get('access_error') or 'Canvas denied access'}")
+            elif item.get("download_error"):
+                row.append(f"Download failed: {item.get('download_error')}")
+            else:
+                row.append("")
+        if has_local_paths and not shared_local_path:
             row.append(str(item.get("local_path") or ""))
         table.add_row(*row)
     console.print(table)
+
+
+def print_activity_list(items: Sequence[Mapping[str, Any]], title: str) -> None:
+    if not items:
+        console.print(f"No {escape(title.casefold())} found.")
+        return
+    table = Table(title=f"{title} ({len(items)})", expand=True)
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Title", ratio=1, overflow="fold")
+    table.add_column("When", no_wrap=True)
+    table.add_column("Context", ratio=1, overflow="fold")
+    table.add_column("Canvas link", ratio=1, overflow="fold")
+    for item in items:
+        assignment_value = item.get("assignment")
+        assignment = assignment_value if isinstance(assignment_value, Mapping) else {}
+        quiz_value = item.get("quiz")
+        quiz = quiz_value if isinstance(quiz_value, Mapping) else {}
+        table.add_row(
+            str(item.get("id") or assignment.get("id") or quiz.get("id") or ""),
+            str(
+                item.get("title")
+                or item.get("name")
+                or assignment.get("name")
+                or quiz.get("title")
+                or ""
+            ),
+            str(
+                item.get("start_at")
+                or item.get("all_day_date")
+                or item.get("due_at")
+                or assignment.get("due_at")
+                or quiz.get("due_at")
+                or ""
+            ),
+            str(item.get("context_name") or item.get("course_id") or ""),
+            str(
+                item.get("html_url")
+                or item.get("url")
+                or assignment.get("html_url")
+                or quiz.get("html_url")
+                or ""
+            ),
+        )
+    console.print(table)
+
+
+def print_empty_home(value: Mapping[str, Any]) -> None:
+    resource = str(value.get("resource") or "content").casefold()
+    messages = {
+        "modules": "No modules have been defined for this course.",
+        "assignments": "No assignments have been defined for this course.",
+        "pages": "No pages have been defined for this course.",
+        "activity_stream": "No activity has been posted for this course.",
+    }
+    console.print(messages.get(resource, "No Home content has been defined for this course."))
 
 
 def print_course_detail(value: Mapping[str, Any], fallback_code: str) -> None:
@@ -629,36 +729,36 @@ def handle_list(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_calendar(args: argparse.Namespace) -> int:
-    target = args.date or datetime.now(SINGAPORE_TZ).date()
-    academic_year = args.academic_year or current_academic_year(target)
-    client = NUSModsClient(
-        academic_year=academic_year,
-        data_dir=nusmods_data_dir(),
-        timeout=args.timeout,
-        refresh=args.refresh_mode == "force",
-        cache_only=args.refresh_mode == "none",
+def handle_calendar_events(args: argparse.Namespace) -> int:
+    if args.start and args.end and args.start > args.end:
+        raise ValueError("--start must be on or before --end.")
+    items = _fetcher(args).calendar_events(
+        start=args.start,
+        end=args.end,
+        event_type=args.event_type,
     )
-    warnings: list[str] = []
-    try:
-        calendar = client.get_academic_calendar()
-    except NUSModsAPIError as exc:
-        calendar = {}
-        warnings.append(f"Academic calendar unavailable; using computed semester starts: {exc}")
-    try:
-        holidays = client.get_holidays()
-    except NUSModsAPIError as exc:
-        holidays = []
-        warnings.append(f"Public-holiday data unavailable: {exc}")
-    result = academic_calendar_record(target, academic_year, calendar, holidays)
-    result["source"] = "NUSMods academic calendar" if calendar else "computed fallback"
-    result["warnings"] = warnings
     if args.format:
-        print_formatted(result, args.format)
+        print_formatted(items, args.format)
     else:
-        print_detail(result, "NUS academic calendar")
-        for warning in warnings:
-            error_console.print(f"[yellow]Warning: {escape(warning)}[/yellow]")
+        print_activity_list(items, "Canvas calendar events")
+    return 0
+
+
+def handle_todo(args: argparse.Namespace) -> int:
+    items = _fetcher(args).todo()
+    if args.format:
+        print_formatted(items, args.format)
+    else:
+        print_activity_list(items, "Canvas To-Do items")
+    return 0
+
+
+def handle_upcoming(args: argparse.Namespace) -> int:
+    items = _fetcher(args).upcoming()
+    if args.format:
+        print_formatted(items, args.format)
+    else:
+        print_activity_list(items, "Upcoming Canvas events")
     return 0
 
 
@@ -710,7 +810,10 @@ def handle_course(args: argparse.Namespace) -> int:
     elif isinstance(value, list):
         print_content_list(value)
     elif isinstance(value, Mapping):
-        print_detail(value)
+        if args.resource.casefold() == "home" and value.get("count") == 0:
+            print_empty_home(value)
+        else:
+            print_detail(value)
     else:
         print(value)
     return 0
@@ -779,8 +882,12 @@ def _run_unlocked(args: argparse.Namespace) -> int:
         return handle_student(args)
     if args.command == "list":
         return handle_list(args)
-    if args.command == "calendar":
-        return handle_calendar(args)
+    if args.command == "calendar-events":
+        return handle_calendar_events(args)
+    if args.command == "todo":
+        return handle_todo(args)
+    if args.command == "upcoming":
+        return handle_upcoming(args)
     if args.command == "course":
         return handle_course(args)
     if args.command == "api":

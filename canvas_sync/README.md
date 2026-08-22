@@ -38,19 +38,20 @@ uv run canvas list -s 2526S1
 uv run canvas list -s ay2526s1
 uv run canvas list -s Y3S1
 uv run canvas list -s Non-Academic
-uv run canvas calendar --date 2026-08-14
+uv run agent-for-nus calendar --date 2026-08-14
 uv run canvas course CG2028
 uv run canvas course CS1010 -s 2425S1
 uv run canvas course CG2028 home
 uv run canvas course CG2028 path
 ```
 
-`calendar` maps a Singapore date to its NUS academic year, semester, teaching
-week, week range, and public-holiday status using the public NUSMods academic
-calendar. It does not require Canvas authentication. Use `--refresh` to bypass
-the NUSMods cache or `--no-refresh` for a cache-only lookup; when calendar data
-is unavailable, the command labels its computed semester-start fallback and
-emits a warning.
+`agent-for-nus calendar` is a shared command rather than a Canvas command. It
+maps a Singapore date to its NUS academic year, semester, teaching week, week
+range, and public-holiday status using the public NUSMods academic calendar. It
+does not require Canvas authentication. Use `--refresh` to bypass the NUSMods
+cache or `--no-refresh` for a cache-only lookup; when calendar data is
+unavailable, the command labels its computed semester-start fallback and emits
+a warning.
 
 Semester values are case-insensitive. With no semester, `list` returns every
 accessible course. `latest` selects the newest regular academic semester;
@@ -68,6 +69,23 @@ selection. `course CODE` prints course metadata—including student, TA, or othe
 enrollment roles—available content areas, and cache paths, but not the course's
 full cached content. `course CODE path` prints the absolute course cache folder.
 
+## Calendar events, To-Do, and upcoming items
+
+These live, read-only commands query the current user's Canvas activity without
+writing it to the course cache:
+
+```bash
+uv run canvas calendar-events
+uv run canvas calendar-events --start 2026-08-10 --end 2026-11-15
+uv run canvas calendar-events --type assignment
+uv run canvas todo
+uv run canvas upcoming
+```
+
+All three support `--format json|jsonl|plain`. Use `calendar-events` for the
+Canvas calendar; use the separate shared `agent-for-nus calendar` command for
+NUS instructional-week and holiday mapping.
+
 ## Course content
 
 The content command shape is:
@@ -82,6 +100,9 @@ aliases work too. Omitting the last argument defaults to `list`. `home` does
 not accept a final selector: it resolves the course's configured default view
 to modules, pages, assignments, syllabus, or a cached activity feed. A default
 view remains queryable even when its matching navigation tab is hidden.
+When Home resolves to an empty module list, human output says that no modules
+have been defined. JSON and JSONL retain the stable Home object and
+`"items": []` so parsers do not need a special case.
 
 ```bash
 uv run canvas course CG2028 announcements list
@@ -112,13 +133,18 @@ All student, list, course, and course-content commands support:
 The default contacts Canvas and performs the same incremental checks as the
 fetcher: cheap list/signature data is checked, unchanged artifacts are reused,
 and expensive bodies or downloads are fetched only when needed. `--refresh`
-forces the requested scope. `--no-refresh` performs a strictly cache-only read.
+forces the requested scope and is normally unnecessary. `--no-refresh`
+performs a strictly cache-only read.
 A course-content command syncs only that course and content area; it does not
 sync unrelated courses or tabs. These commands use only read-only Canvas HTTP
 operations, though refreshed results are written to the local cache. Cache
 mutations are serialized across CLI processes, and files are published through
 process-unique atomic temporary paths so concurrent reads never observe partial
 JSON, HTML, or downloads.
+
+JSON and JSONL omit internal `_canvas_sync*` cache metadata. File listings can
+still be large; redirect `--format json` to a file and use `jq` when the complete
+record set would overwhelm the terminal or an agent context.
 
 ## Direct API requests
 
@@ -198,6 +224,10 @@ and the privacy-trimmed `student.json`. Course folders can contain:
 Announcement, discussion, page, syllabus, assignment, and quiz HTML is saved as
 local `.html` files. Files referenced by modules or HTML bodies are downloaded
 even when the Files tab itself is closed. File metadata includes a SHA-256 hash.
+An inaccessible same-course or unscoped file reference remains in every output
+format with its Canvas link and access error. An explicit embed belonging to a
+different Canvas course is ignored rather than fetched under the current
+course.
 Assignments can also include downloaded submitted files, description images,
 Classic Quiz review content, and New Quizzes result data when Canvas exposes
 them. Unstarted quizzes are not opened, and TA/staff enrollments skip quiz

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import re
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -219,6 +220,24 @@ class CanvasFetcher:
         write_json(self.student_path, payload)
         self._student = payload
         return payload
+
+    def calendar_events(
+        self,
+        *,
+        start: date | None = None,
+        end: date | None = None,
+        event_type: str = "event",
+    ) -> list[dict[str, Any]]:
+        self._ensure_session()
+        return self.client.calendar_events(start=start, end=end, event_type=event_type)
+
+    def todo(self) -> list[dict[str, Any]]:
+        self._ensure_session()
+        return self.client.todo()
+
+    def upcoming(self) -> list[dict[str, Any]]:
+        self._ensure_session()
+        return self.client.upcoming_events()
 
     def _fetch_records(self) -> list[CourseRecord]:
         courses = self.client.active_courses() + self.client.past_courses()
@@ -861,7 +880,8 @@ class CanvasFetcher:
             if isinstance(value, str) and Path(value.partition("#")[0]).exists():
                 result.setdefault("local_path", value.partition("#")[0])
                 break
-        result.setdefault("local_path", json_path.resolve().as_posix())
+        if json_path.name != "files.json":
+            result.setdefault("local_path", json_path.resolve().as_posix())
         return result
 
     @staticmethod
