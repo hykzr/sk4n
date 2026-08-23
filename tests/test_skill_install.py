@@ -26,19 +26,26 @@ def test_selection_and_destination_resolution(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="cannot be combined"):
         parse_selection("all,a", choices=("a", "b"), label="items")
 
-    all_user = destination_targets(("codex", "copilot", "claude"), "user", home=home)
+    all_user = destination_targets(("codex", "copilot", "claude", "antigravity"), "user", home=home)
     assert [(target.agents, target.root) for target in all_user] == [
         (("codex", "copilot"), home / ".agents" / "skills"),
         (("claude",), home / ".claude" / "skills"),
+        (("antigravity",), home / ".gemini" / "config" / "skills"),
     ]
     copilot_user = destination_targets(("copilot",), "user", home=home)
     assert copilot_user[0].root == home / ".copilot" / "skills"
     all_project = destination_targets(
-        ("codex", "copilot", "claude"), "project", home=home, project_root=project
+        ("codex", "copilot", "claude", "antigravity"),
+        "project",
+        home=home,
+        project_root=project,
     )
-    assert [target.root for target in all_project] == [
-        project / ".agents" / "skills",
-        project / ".claude" / "skills",
+    assert [(target.agents, target.root) for target in all_project] == [
+        (
+            ("codex", "copilot", "antigravity"),
+            project / ".agents" / "skills",
+        ),
+        (("claude",), project / ".claude" / "skills"),
     ]
 
 

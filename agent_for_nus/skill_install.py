@@ -13,7 +13,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 NUS_SKILLS = ("nus-canvas", "nusmods", "nus-talent-connect")
-AGENTS = ("codex", "copilot", "claude")
+AGENTS = ("codex", "copilot", "claude", "antigravity")
 SCOPES = ("user", "project")
 MANIFEST_NAME = ".agent-for-nus-managed.json"
 MANIFEST_MANAGER = "agent-for-nus"
@@ -76,6 +76,7 @@ def _scope_targets(scope: str, home: Path, project_root: Path | None) -> dict[st
             "shared": home / ".agents" / "skills",
             "copilot": home / ".copilot" / "skills",
             "claude": home / ".claude" / "skills",
+            "antigravity": home / ".gemini" / "config" / "skills",
         }
     if project_root is None:
         raise ValueError("Project scope requires a project root.")
@@ -100,13 +101,18 @@ def destination_targets(
         raise ValueError(f"Scope must be one of {', '.join(SCOPES)}.")
     roots = _scope_targets(scope, (home or Path.home()).expanduser().resolve(), project_root)
     targets: list[SkillTarget] = []
-    if "codex" in selected:
-        shared_agents = tuple(agent for agent in ("codex", "copilot") if agent in selected)
+    shared_agent_names = (
+        ("codex", "copilot", "antigravity") if scope == "project" else ("codex", "copilot")
+    )
+    shared_agents = tuple(agent for agent in shared_agent_names if agent in selected)
+    if "codex" in selected or (scope == "project" and "antigravity" in selected):
         targets.append(SkillTarget(scope, shared_agents, roots["shared"]))
     elif "copilot" in selected:
         targets.append(SkillTarget(scope, ("copilot",), roots["copilot"]))
     if "claude" in selected:
         targets.append(SkillTarget(scope, ("claude",), roots["claude"]))
+    if scope == "user" and "antigravity" in selected:
+        targets.append(SkillTarget(scope, ("antigravity",), roots["antigravity"]))
     return tuple(targets)
 
 
@@ -118,11 +124,20 @@ def known_skill_roots(
         SkillTarget("user", ("codex", "copilot"), resolved_home / ".agents" / "skills"),
         SkillTarget("user", ("copilot",), resolved_home / ".copilot" / "skills"),
         SkillTarget("user", ("claude",), resolved_home / ".claude" / "skills"),
+        SkillTarget(
+            "user",
+            ("antigravity",),
+            resolved_home / ".gemini" / "config" / "skills",
+        ),
     ]
     if project_root is not None:
         targets.extend(
             [
-                SkillTarget("project", ("codex", "copilot"), project_root / ".agents" / "skills"),
+                SkillTarget(
+                    "project",
+                    ("codex", "copilot", "antigravity"),
+                    project_root / ".agents" / "skills",
+                ),
                 SkillTarget("project", ("copilot",), project_root / ".github" / "skills"),
                 SkillTarget("project", ("claude",), project_root / ".claude" / "skills"),
             ]

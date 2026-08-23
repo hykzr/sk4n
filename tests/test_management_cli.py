@@ -43,7 +43,7 @@ def test_management_parser_exposes_phase_one_commands() -> None:
             "skills",
             "install",
             "--agents",
-            "codex,copilot",
+            "codex,copilot,antigravity",
             "--skills",
             "nusmods",
             "--scope",
@@ -51,7 +51,7 @@ def test_management_parser_exposes_phase_one_commands() -> None:
             "--dry-run",
         ]
     )
-    assert skills.agents == ("codex", "copilot")
+    assert skills.agents == ("codex", "copilot", "antigravity")
     assert skills.skills == ("nusmods",)
     assert skills.scope == "project"
     assert skills.dry_run is True

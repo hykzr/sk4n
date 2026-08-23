@@ -62,7 +62,7 @@ def _add_agent_argument(parser: argparse.ArgumentParser) -> None:
         "--agents",
         type=_selection_argument(AGENTS, "agents"),
         default=AGENTS,
-        metavar="codex,copilot,claude,all",
+        metavar="codex,copilot,claude,antigravity,all",
         help="Target agents as a comma-separated list. Default: all.",
     )
 

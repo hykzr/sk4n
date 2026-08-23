@@ -52,6 +52,22 @@ talent-connect --help
 pipx install .
 ```
 
+## Agent skills
+
+The package bundles skills for Canvas, NUSMods, and TalentConnect. Install,
+inspect, or remove the managed copies with:
+
+```bash
+agent-for-nus skills install --agents all --scope user
+agent-for-nus skills status --agents all --scope all
+agent-for-nus skills uninstall --agents antigravity --scope user
+```
+
+Supported agents are Codex, GitHub Copilot, Claude, and Google Antigravity.
+Antigravity skills use `~/.gemini/config/skills` at user scope and the shared
+`.agents/skills` directory at project scope. Use `--agents antigravity` to
+target only Antigravity, or combine agent names in a comma-separated list.
+
 ## Data locations
 
 Mutable data is stored in the operating system's user-data directory under
