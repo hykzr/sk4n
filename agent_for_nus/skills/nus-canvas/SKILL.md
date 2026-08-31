@@ -26,7 +26,7 @@ Use the installed `canvas` command for deterministic, authenticated NUS Canvas r
 
 ### Course related tasks
 
-1. Use `canvas list` to discover courses and their IDs.
+1. Use `canvas list` to discover courses, their IDs, and their availability. Retired courses are retained as archived cache data and are labeled `retired`.
 2. Use `canvas course <course_id>` to inspect a course's name, ID, term, roles, default view, and available sections.
 3. Use `canvas course <course_id> home` to inspect what the course presents as Home. It resolves Canvas's default view to modules, pages, assignments, syllabus, or the activity feed, including a default view whose navigation tab is hidden.
    A course can legitimately have no modules or no published Home content. Human output states that `no content is defined`; JSON/JSONL retain the normal Home object with `"items": []`. Do not treat an empty item list as a fetch failure unless the command also reports an error.
@@ -41,5 +41,6 @@ Use the installed `canvas` command for deterministic, authenticated NUS Canvas r
 - Omit refresh flags normally. The default performs incremental remote checks and reuses unchanged cache artifacts; explicit `--refresh` forces the requested scope and is rarely necessary. Use `--no-refresh` only for an explicitly offline/cache-only request or a repetitive read whose required data is already cached.
 - Preserve the default data location so incremental refreshes keep working. Do not clear caches or sessions, choose a temporary data path, log out, or delete artifacts unless the user asks.
 - Do not open an unstarted quiz or assignment merely to inspect it.
+- A retired course has disappeared from the authenticated Canvas catalog. Sync preserves and skips it, while course commands read its archived cache and print a retirement notice to stderr. Do not interpret that notice as a fetch failure.
 - Do not use TA, staff, or elevated access beyond the user's stated task.
 - Never create, edit, delete, submit, enroll, grade, message, or otherwise change Canvas state without explicit user approval.

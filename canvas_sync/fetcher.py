@@ -17,7 +17,15 @@ from .models import (
     student_record,
     unique_course_folder_names_by_term,
 )
-from .sync import SyncOptions, course_dir_for_record, load_existing_index, relative_index_course
+from .sync import (
+    AVAILABLE_COURSE_STATUS,
+    RETIRED_COURSE_STATUS,
+    SyncOptions,
+    course_dir_for_record,
+    load_existing_index,
+    relative_index_course,
+    with_course_availability,
+)
 from .utils import (
     COURSE_METADATA_FILE,
     DEFAULT_BASE_URL,
@@ -188,6 +196,7 @@ class CanvasFetcher:
         self.client = CanvasClient(base_url=self.base_url, site_name=site_name, timeout=timeout)
         self._records: list[CourseRecord] = []
         self._student: dict[str, Any] = {}
+        self.last_selected_course: dict[str, Any] | None = None
 
     @property
     def index_path(self) -> Path:
@@ -354,7 +363,31 @@ class CanvasFetcher:
                 metadata=metadata,
                 previous=existing.get(record.id),
             )
-            index_courses.append(relative_index_course(entry, self.index_path))
+            index_courses.append(
+                relative_index_course(
+                    with_course_availability(
+                        entry,
+                        AVAILABLE_COURSE_STATUS,
+                        checked_at=student["synced_at"],
+                    ),
+                    self.index_path,
+                )
+            )
+
+        accessible_ids = {record.id for record in records}
+        for course_id, existing_course in existing.items():
+            if course_id in accessible_ids:
+                continue
+            index_courses.append(
+                relative_index_course(
+                    with_course_availability(
+                        existing_course,
+                        RETIRED_COURSE_STATUS,
+                        checked_at=student["synced_at"],
+                    ),
+                    self.index_path,
+                )
+            )
 
         index_payload = {
             "synced_at": now_utc_iso(),
@@ -390,6 +423,11 @@ class CanvasFetcher:
 
     def _absolute_index_course(self, course: dict[str, Any]) -> dict[str, Any]:
         result = copy.deepcopy(course)
+        result.setdefault("availability_status", "unknown")
+        result.setdefault(
+            "archived_data",
+            result.get("availability_status") == RETIRED_COURSE_STATUS,
+        )
         for key in ("metadata_path", "cover_image_path"):
             value = result.get(key)
             if not isinstance(value, str) or not value:
@@ -527,11 +565,14 @@ class CanvasFetcher:
         semester: str | None = None,
         content_type: str | None = None,
     ) -> tuple[dict[str, Any], Path, dict[str, Any] | None]:
+        self.last_selected_course = None
         courses = self.courses(semester=semester, refresh=refresh)
         selected = self.resolve_course(selector, courses)
+        self.last_selected_course = copy.deepcopy(selected)
         metadata_path = Path(str(selected["metadata_path"]))
         course_dir = metadata_path.parent
-        if not refresh:
+        retired = selected.get("availability_status") == RETIRED_COURSE_STATUS
+        if not refresh or retired:
             metadata = read_json(metadata_path)
             if not metadata:
                 raise CanvasAPIError(f"Course {selector!r} is not present in the local cache.")
@@ -585,6 +626,11 @@ class CanvasFetcher:
             folder_name=folder_name,
             metadata=metadata,
             previous=existing_index.get(record.id),
+        )
+        entry = with_course_availability(
+            entry,
+            AVAILABLE_COURSE_STATUS,
+            checked_at=now_utc_iso(),
         )
         index = read_json(self.index_path) or {}
         index_courses_value = index.get("courses")
@@ -654,6 +700,11 @@ class CanvasFetcher:
             )
         result["local_path"] = metadata_path.resolve().as_posix()
         result["course_path"] = course_dir.resolve().as_posix()
+        result["availability_status"] = selected.get("availability_status")
+        result["availability_checked_at"] = selected.get("availability_checked_at")
+        result["archived_data"] = selected.get("archived_data", False)
+        if selected.get("retired_at"):
+            result["retired_at"] = selected["retired_at"]
         return result
 
     def course_path(
@@ -799,11 +850,12 @@ class CanvasFetcher:
             "wiki": "pages",
         }.get(default_view)
         if mapped_resource:
+            archived = selected.get("availability_status") == RETIRED_COURSE_STATUS
             items = self.content(
                 selector,
                 mapped_resource,
                 semester=semester,
-                refresh=refresh,
+                refresh=False if archived else refresh,
                 force=force,
             )
             if default_view == "wiki":
@@ -823,7 +875,7 @@ class CanvasFetcher:
                 f"Course {selector!r} uses unsupported Canvas default view {default_view!r}."
             )
         json_path = (course_dir / "home.json").resolve()
-        if refresh:
+        if refresh and selected.get("availability_status") != RETIRED_COURSE_STATUS:
             items = self.client.course_activity_stream(str(selected["id"]))
             fingerprint_value = fingerprint(items)
             existing = read_json(json_path)

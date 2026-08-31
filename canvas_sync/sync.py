@@ -137,6 +137,35 @@ class SyncOptions:
         return False
 
 
+AVAILABLE_COURSE_STATUS = "available"
+RETIRED_COURSE_STATUS = "retired"
+
+
+def with_course_availability(
+    course: dict[str, Any],
+    status: str,
+    *,
+    checked_at: str,
+) -> dict[str, Any]:
+    result = copy.deepcopy(course)
+    result["availability_status"] = status
+    result["availability_checked_at"] = checked_at
+    result["archived_data"] = status == RETIRED_COURSE_STATUS
+    if status == RETIRED_COURSE_STATUS:
+        result["retired_at"] = result.get("retired_at") or checked_at
+    else:
+        result.pop("retired_at", None)
+    return result
+
+
+def index_course_matches(course: dict[str, Any], selector: str) -> bool:
+    normalized = selector.casefold()
+    return normalized in {
+        str(course.get("id") or "").casefold(),
+        str(course.get("course_code") or "").casefold(),
+    }
+
+
 def build_course_metadata(
     *,
     client: CanvasClient,
@@ -241,9 +270,15 @@ def course_dir_for_record(
     )
 
 
-def filter_records(records: list[CourseRecord], selectors: list[str]) -> list[CourseRecord]:
+def filter_records(
+    records: list[CourseRecord],
+    selectors: list[str],
+    *,
+    existing_index: dict[str, dict[str, Any]] | None = None,
+    accessible_ids: set[str] | None = None,
+) -> tuple[list[CourseRecord], set[str]]:
     if not selectors:
-        return records
+        return records, set()
     normalized = {selector.casefold() for selector in selectors}
     matched: list[CourseRecord] = []
     for record in records:
@@ -253,14 +288,26 @@ def filter_records(records: list[CourseRecord], selectors: list[str]) -> list[Co
         }
         if values & normalized:
             matched.append(record)
-    found_ids = {record.id.casefold() for record in matched}
-    found_codes = {(record.course_code or "").casefold() for record in matched}
+    retired_matches: set[str] = set()
+    for course_id, course in (existing_index or {}).items():
+        if accessible_ids is not None and course_id in accessible_ids:
+            continue
+        if any(index_course_matches(course, selector) for selector in selectors):
+            retired_matches.add(course_id)
+
+    found_ids = {record.id.casefold() for record in matched} | {
+        course_id.casefold() for course_id in retired_matches
+    }
+    found_codes = {(record.course_code or "").casefold() for record in matched} | {
+        str((existing_index or {})[course_id].get("course_code") or "").casefold()
+        for course_id in retired_matches
+    }
     missing = [
         selector for selector in selectors if selector.casefold() not in found_ids | found_codes
     ]
     if missing:
         raise CanvasAPIError(f"No accessible course matched: {', '.join(missing)}")
-    return matched
+    return matched, retired_matches
 
 
 def relative_index_course(course: dict[str, Any], index_path: Path) -> dict[str, Any]:
@@ -393,14 +440,20 @@ def sync_canvas(
     courses = client.active_courses() + client.past_courses()
     favorite_courses = client.favorite_courses()
     dashboard_cards = client.dashboard_cards()
-    records = merge_course_records(courses, favorite_courses, dashboard_cards)
-    records = filter_records(records, course_selectors or [])
+    all_records = merge_course_records(courses, favorite_courses, dashboard_cards)
+    accessible_ids = {record.id for record in all_records}
+    existing_index = load_existing_index(root)
+    records, selected_retired_ids = filter_records(
+        all_records,
+        course_selectors or [],
+        existing_index=existing_index,
+        accessible_ids=accessible_ids,
+    )
     if max_courses is not None:
         records = records[:max_courses]
 
     synced_at = now_utc_iso()
-    folder_names = unique_course_folder_names_by_term(records)
-    existing_index = load_existing_index(root)
+    folder_names = unique_course_folder_names_by_term(all_records)
     course_paths: list[Path] = []
     index_courses: list[dict[str, Any]] = []
     updates: list[dict[str, Any]] = []
@@ -495,7 +548,13 @@ def sync_canvas(
                 ],
                 "content": content_summary["sections"],
             }
-            index_courses.append(index_course)
+            index_courses.append(
+                with_course_availability(
+                    index_course,
+                    AVAILABLE_COURSE_STATUS,
+                    checked_at=synced_at,
+                )
+            )
             updates.append(
                 {
                     "id": record.id,
@@ -509,6 +568,31 @@ def sync_canvas(
     finally:
         if progress is not None:
             progress.stop()
+
+    processed_ids = {str(course.get("id")) for course in index_courses}
+    for course_id, existing_course in existing_index.items():
+        if course_id in processed_ids:
+            continue
+        status = AVAILABLE_COURSE_STATUS if course_id in accessible_ids else RETIRED_COURSE_STATUS
+        index_courses.append(
+            with_course_availability(existing_course, status, checked_at=synced_at)
+        )
+        if status == RETIRED_COURSE_STATUS and (
+            not course_selectors or course_id in selected_retired_ids
+        ):
+            updates.append(
+                {
+                    "id": course_id,
+                    "course_code": existing_course.get("course_code"),
+                    "course_status": "retired (skipped)",
+                    "content": {
+                        "archived cache": {
+                            "status": "skipped",
+                            "reason": "course is retired and no longer accessible on Canvas",
+                        }
+                    },
+                }
+            )
 
     index_path = root / INDEX_FILE
     index = {

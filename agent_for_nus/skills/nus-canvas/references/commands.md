@@ -44,7 +44,7 @@ Global options must appear before the command name.
 - `canvas auth logout` — Delete the CLI's saved session without signing other browsers out of NUS SSO.
 - `canvas sync` — Sync courses using the original bulk options.
 - `canvas student` — Show the current Canvas student.
-- `canvas list` — List accessible Canvas courses.
+- `canvas list` — List Canvas courses, including retired courses retained in the cache.
 - `canvas calendar-events` — List the current user's Canvas calendar events.
 - `canvas todo` — List the current user's Canvas To-Do items.
 - `canvas upcoming` — List the current user's upcoming Canvas events.
@@ -145,7 +145,7 @@ Constraints:
 
 ## `canvas list`
 
-List accessible Canvas courses.
+List Canvas courses, including retired courses retained in the cache.
 
 Usage: `canvas list [-h] [-s SEM] [--refresh | --no-refresh] [--format {json,jsonl,plain}]`
 

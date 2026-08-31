@@ -12,6 +12,7 @@ import pytest
 from rich.console import Console
 
 import canvas_sync.cli as canvas_cli
+import canvas_sync.sync as canvas_sync_module
 from canvas_sync.assignments import sync_assignments
 from canvas_sync.cli import build_parser
 from canvas_sync.client import CanvasAPIError, CanvasAuthError, CanvasClient
@@ -472,6 +473,167 @@ def test_course_record_exposes_unique_student_and_ta_roles() -> None:
     )
 
     assert record.enrollment_roles == ["TaEnrollment", "Student Tutor"]
+
+
+class RetiredCourseCatalogClient:
+    def profile(self) -> dict[str, Any]:
+        return {"id": 10, "name": "Student"}
+
+    def user(self) -> dict[str, Any]:
+        return {"id": 10, "created_at": "2024-07-15T20:35:08Z"}
+
+    def active_courses(self) -> list[dict[str, Any]]:
+        return []
+
+    def past_courses(self) -> list[dict[str, Any]]:
+        return []
+
+    def favorite_courses(self) -> list[dict[str, Any]]:
+        return []
+
+    def dashboard_cards(self) -> list[dict[str, Any]]:
+        return []
+
+    def course_tabs(self, _course_id: str) -> list[dict[str, Any]]:
+        raise AssertionError("retired course metadata must not be fetched")
+
+    def course_announcements(self, _course_id: str) -> list[dict[str, Any]]:
+        raise AssertionError("retired course content must not be fetched")
+
+
+def write_retired_course_cache(root: Path, *, availability: str | None = None) -> None:
+    course_dir = root / "2526S2" / "CG2023"
+    announcements_dir = course_dir / "announcements"
+    announcements_dir.mkdir(parents=True)
+    (course_dir / "course.json").write_text(
+        json.dumps(
+            {
+                "course": {
+                    "id": "85080",
+                    "course_code": "CG2023",
+                    "name": "CG2023 Signals and Systems [2520]",
+                    "default_view": "modules",
+                    "enrolled_sections": [{"enrollment_role": "StudentEnrollment"}],
+                },
+                "all_tabs": [{"id": "announcements", "label": "Announcements", "hidden": False}],
+                "available_sections": [
+                    {"id": "announcements", "label": "Announcements", "hidden": False}
+                ],
+                "content": {"sections": {"announcements": {"status": "unchanged"}}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (announcements_dir / "announcements.json").write_text(
+        json.dumps(
+            {
+                "items": [
+                    {
+                        "id": 1,
+                        "title": "Archived notice",
+                        "html_url": "https://canvas.example.test/courses/85080/announcements/1",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    index_course: dict[str, Any] = {
+        "id": "85080",
+        "course_code": "CG2023",
+        "name": "CG2023 Signals and Systems [2520]",
+        "term_folder_name": "2526S2",
+        "folder_name": "CG2023",
+        "metadata_path": "2526S2/CG2023/course.json",
+    }
+    if availability:
+        index_course.update(
+            {
+                "availability_status": availability,
+                "archived_data": availability == "retired",
+            }
+        )
+    (root / "index.json").write_text(
+        json.dumps({"student": {}, "course_count": 1, "courses": [index_course]}),
+        encoding="utf-8",
+    )
+
+
+def test_catalog_refresh_preserves_and_classifies_retired_course_cache(tmp_path: Path) -> None:
+    write_retired_course_cache(tmp_path)
+    fetcher = CanvasFetcher(data_path=tmp_path)
+    fetcher.client = RetiredCourseCatalogClient()  # type: ignore[assignment]
+    fetcher._ensure_session = lambda: False  # type: ignore[method-assign]
+
+    courses = fetcher.courses(refresh=True)
+
+    assert len(courses) == 1
+    assert courses[0]["availability_status"] == "retired"
+    assert courses[0]["archived_data"] is True
+    persisted = read_json(tmp_path / "index.json")
+    assert persisted is not None
+    assert persisted["courses"][0]["availability_status"] == "retired"
+
+    course = fetcher.course("CG2023", refresh=True, force=True)
+    announcements = fetcher.content("CG2023", "announcements", refresh=True, force=True)
+    assert course["availability_status"] == "retired"
+    assert course["archived_data"] is True
+    assert announcements[0]["title"] == "Archived notice"
+
+
+def test_sync_selector_skips_and_preserves_retired_course(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_retired_course_cache(tmp_path)
+    client = RetiredCourseCatalogClient()
+    monkeypatch.setattr(canvas_sync_module, "ensure_canvas_session", lambda **_kwargs: False)
+    monkeypatch.setattr(canvas_sync_module, "CanvasClient", lambda **_kwargs: client)
+
+    result = canvas_sync_module.sync_canvas(
+        data_path=tmp_path,
+        course_selectors=["CG2023"],
+    )
+
+    index = read_json(tmp_path / "index.json")
+    assert index is not None
+    assert index["course_count"] == 1
+    assert index["courses"][0]["availability_status"] == "retired"
+    assert result.updates == [
+        {
+            "id": "85080",
+            "course_code": "CG2023",
+            "course_status": "retired (skipped)",
+            "content": {
+                "archived cache": {
+                    "status": "skipped",
+                    "reason": "course is retired and no longer accessible on Canvas",
+                }
+            },
+        }
+    ]
+
+
+def test_retired_course_command_prints_archived_cache_notice_to_stderr(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_retired_course_cache(tmp_path, availability="retired")
+    args = build_parser().parse_args(
+        [
+            "--data-path",
+            str(tmp_path),
+            "course",
+            "CG2023",
+            "--no-refresh",
+            "--format",
+            "json",
+        ]
+    )
+
+    assert canvas_cli.run(args) == 0
+    captured = capsys.readouterr()
+    assert '"availability_status": "retired"' in captured.out
+    assert "CG2023 has been retired and is no longer accessible on Canvas" in captured.err
+    assert "showing data from the archived cache" in captured.err
 
 
 def test_shared_people_path_is_printed_once_outside_table(monkeypatch: pytest.MonkeyPatch) -> None:

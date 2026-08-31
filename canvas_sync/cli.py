@@ -238,7 +238,10 @@ def build_parser() -> argparse.ArgumentParser:
     add_refresh_arguments(student_parser)
     add_format_argument(student_parser)
 
-    list_parser = commands.add_parser("list", help="List accessible Canvas courses.")
+    list_parser = commands.add_parser(
+        "list",
+        help="List Canvas courses, including retired courses retained in the cache.",
+    )
     list_parser.add_argument(
         "-s",
         "--semester",
@@ -456,6 +459,7 @@ def print_courses(courses: Sequence[Mapping[str, Any]]) -> None:
     table.add_column("Semester", no_wrap=True)
     table.add_column("Course", no_wrap=True)
     table.add_column("Name", ratio=1, overflow="fold")
+    table.add_column("Availability", no_wrap=True)
     table.add_column("Role", overflow="fold")
     table.add_column("ID", no_wrap=True)
     for course in courses:
@@ -463,6 +467,7 @@ def print_courses(courses: Sequence[Mapping[str, Any]]) -> None:
             str(course.get("term_folder_name") or ""),
             str(course.get("course_code") or ""),
             str(course.get("name") or ""),
+            str(course.get("availability_status") or "unknown").title(),
             ", ".join(str(role) for role in course.get("enrollment_roles") or []),
             str(course.get("id") or ""),
         )
@@ -655,6 +660,7 @@ def print_course_detail(value: Mapping[str, Any], fallback_code: str) -> None:
             "course_code": course.get("course_code") or fallback_code,
             "name": course.get("name"),
             "id": course.get("id"),
+            "availability": value.get("availability_status"),
             "term": term.get("name"),
             "enrollment_state": course.get("enrollment_state"),
             "roles": course.get("enrollment_roles")
@@ -774,7 +780,10 @@ def handle_sync(args: argparse.Namespace) -> int:
     if args.login_only:
         console.print("Canvas login check complete.")
         return 0
-    console.print(f"Synced {result.course_count} course(s) into {result.data_path.resolve()}")
+    console.print(
+        f"Sync complete; cache contains {result.course_count} course(s) in "
+        f"{result.data_path.resolve()}"
+    )
     console.print(f"Index: {result.index_path.resolve()}")
     return 0
 
@@ -835,61 +844,72 @@ def handle_upcoming(args: argparse.Namespace) -> int:
 def handle_course(args: argparse.Namespace) -> int:
     refresh, force = _refresh_values(args)
     fetcher = _fetcher(args)
-    if args.resource is None:
-        value = fetcher.course(
+    try:
+        if args.resource is None:
+            value = fetcher.course(
+                args.course_code,
+                semester=args.semester,
+                refresh=refresh,
+                force=force,
+            )
+            if args.format:
+                print_formatted(value, args.format)
+            else:
+                print_course_detail(value, args.course_code)
+            return 0
+        if args.resource.casefold() == "path":
+            if args.item != "list":
+                raise ValueError("`course CODE path` does not accept an item selector.")
+            path = fetcher.course_path(
+                args.course_code,
+                semester=args.semester,
+                refresh=refresh,
+                force=force,
+            ).as_posix()
+            if args.format:
+                print_formatted({"path": path}, args.format)
+            else:
+                print(path)
+            return 0
+        value = fetcher.content(
             args.course_code,
+            args.resource,
+            args.item,
             semester=args.semester,
             refresh=refresh,
             force=force,
         )
-        if args.format:
+        if isinstance(value, Path):
+            output: Any = {"path": value.resolve().as_posix()}
+            if args.format:
+                print_formatted(output, args.format)
+            else:
+                print(output["path"])
+        elif args.format:
             print_formatted(value, args.format)
+        elif isinstance(value, list):
+            if args.resource.casefold() in {"group", "groups"}:
+                print_group_list(value)
+            else:
+                print_content_list(value)
+        elif isinstance(value, Mapping):
+            if args.resource.casefold() == "home" and value.get("count") == 0:
+                print_empty_home(value)
+            else:
+                print_detail(value)
         else:
-            print_course_detail(value, args.course_code)
+            print(value)
         return 0
-    if args.resource.casefold() == "path":
-        if args.item != "list":
-            raise ValueError("`course CODE path` does not accept an item selector.")
-        path = fetcher.course_path(
-            args.course_code,
-            semester=args.semester,
-            refresh=refresh,
-            force=force,
-        ).as_posix()
-        if args.format:
-            print_formatted({"path": path}, args.format)
-        else:
-            print(path)
-        return 0
-    value = fetcher.content(
-        args.course_code,
-        args.resource,
-        args.item,
-        semester=args.semester,
-        refresh=refresh,
-        force=force,
-    )
-    if isinstance(value, Path):
-        output: Any = {"path": value.resolve().as_posix()}
-        if args.format:
-            print_formatted(output, args.format)
-        else:
-            print(output["path"])
-    elif args.format:
-        print_formatted(value, args.format)
-    elif isinstance(value, list):
-        if args.resource.casefold() in {"group", "groups"}:
-            print_group_list(value)
-        else:
-            print_content_list(value)
-    elif isinstance(value, Mapping):
-        if args.resource.casefold() == "home" and value.get("count") == 0:
-            print_empty_home(value)
-        else:
-            print_detail(value)
-    else:
-        print(value)
-    return 0
+    finally:
+        selected = fetcher.last_selected_course
+        if selected and selected.get("availability_status") == "retired":
+            label = selected.get("course_code") or selected.get("name") or args.course_code
+            error_console.print(
+                "[yellow]Notice:[/yellow] "
+                f"{escape(str(label))} has been retired and is no longer accessible on Canvas; "
+                "showing data from the archived cache.",
+                soft_wrap=True,
+            )
 
 
 def handle_api(args: argparse.Namespace) -> int:

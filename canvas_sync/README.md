@@ -45,6 +45,10 @@ uv run canvas course CG2028 home
 uv run canvas course CG2028 path
 ```
 
+Course listings include an availability status. Courses that disappear from the authenticated
+Canvas catalog are retained as `retired`; sync skips them, and course commands use their archived
+cache without attempting to fetch inaccessible content.
+
 `agent-for-nus calendar` is a shared command rather than a Canvas command. It
 maps a Singapore date to its NUS academic year, semester, teaching week, week
 range, and public-holiday status using the public NUSMods academic calendar. It
@@ -54,7 +58,7 @@ unavailable, the command labels its computed semester-start fallback and emits
 a warning.
 
 Semester values are case-insensitive. With no semester, `list` returns every
-accessible course. `latest` selects the newest regular academic semester;
+indexed course, including retired archived courses. `latest` selects the newest regular academic semester;
 `2526S1` and `AY2526S1` are equivalent. Available irregular terms such as
 `Non-Academic` can also be selected case-insensitively. Study-year forms such as
 `Y3S1` are resolved from the student's inferred enrollment academic year. Canvas
