@@ -7,6 +7,7 @@ try:
     from .assignments import sync_assignments
     from .client import CanvasAPIError, CanvasClient
     from .files import sync_files
+    from .groups import sync_groups
     from .modules import sync_modules
     from .pages import sync_pages
     from .people import sync_people
@@ -25,6 +26,7 @@ except ImportError:
     from assignments import sync_assignments
     from client import CanvasAPIError, CanvasClient
     from files import sync_files
+    from groups import sync_groups
     from modules import sync_modules
     from pages import sync_pages
     from people import sync_people
@@ -66,6 +68,7 @@ def content_available(
 
 BASIC_SYNCERS = {
     "people": sync_people,
+    "groups": sync_groups,
     "pages": sync_pages,
     "syllabus": sync_syllabus,
     "modules": sync_modules,
@@ -90,12 +93,13 @@ def closed_summary(content_type: str) -> dict[str, Any]:
 def skipped_summary(*, course_dir: Path, content_type: str) -> dict[str, Any]:
     json_path = content_file_path(course_dir, content_type)
     existing = read_json(json_path)
+    skip_option = "people" if content_type == "groups" else content_type
     return {
         "available": True,
         "checked": False,
         "fetched": False,
         "status": "skipped",
-        "reason": f"skipped by --skip-{content_type}",
+        "reason": f"skipped by --skip-{skip_option}",
         "path": rel_path(course_dir / COURSE_METADATA_FILE, json_path),
         "count": int(existing.get("count") or 0) if existing else 0,
     }

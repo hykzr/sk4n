@@ -95,7 +95,7 @@ canvas course COURSE RESOURCE {list|path|ITEM_ID}
 ```
 
 Supported resources are `home`, `announcements`, `assignments`, `discussions`,
-`files`, `modules`, `pages`, `people`, `quizzes`, and `syllabus`; singular
+`files`, `groups`, `modules`, `pages`, `people`, `quizzes`, and `syllabus`; singular
 aliases work too. Omitting the last argument defaults to `list`. `home` does
 not accept a final selector: it resolves the course's configured default view
 to modules, pages, assignments, syllabus, or a cached activity feed. A default
@@ -111,6 +111,8 @@ uv run canvas course CG2028 assignments path
 uv run canvas course 62224 assignments 118925
 uv run canvas course CG2028 quizzes list
 uv run canvas course CG2028 people list
+uv run canvas course CG2028 groups list
+uv run canvas course CG2028 groups 215659
 ```
 
 `list` returns compact cached item records. An item ID returns its detailed
@@ -120,7 +122,10 @@ quiz JSON, and downloaded-file fields include their absolute local paths.
 the CLI is absolute, although paths persisted inside cache JSON remain relative
 and portable. When every listed item shares one cache file, as with `people`,
 the human-readable table prints that file once above the table instead of
-repeating it in every row.
+repeating it in every row. People derive their displayed type from the nested
+Canvas enrollment role. Groups include the Canvas group set, member count,
+member names, whether the current user belongs to the group, and a visit link
+for the current user's groups.
 
 All student, list, course, and course-content commands support:
 
@@ -194,7 +199,7 @@ uv run canvas sync
 uv run canvas sync --login-only
 uv run canvas sync --course CG2028 --course 85096
 uv run canvas sync --refresh-course
-uv run canvas sync --refresh-people
+uv run canvas sync --refresh-people  # refreshes the People roster and groups
 uv run canvas sync --refresh-pages --refresh-discussions
 uv run canvas sync --refresh-assignments
 uv run canvas sync --refresh-files
@@ -215,6 +220,7 @@ and the privacy-trimmed `student.json`. Course folders can contain:
 - `announcements/announcements.json` and announcement HTML
 - `discussions/discussions.json` and discussion HTML
 - `people.json`
+- `groups.json`
 - `pages/pages.json` and page HTML
 - `syllabus.json` and `syllabus.html`
 - `modules.json`
@@ -236,8 +242,8 @@ content reads to avoid elevated-access behavior.
 Incremental checks compare Canvas summaries and stable signatures. Pages and
 discussion views fetch details only for changed items; files compare metadata
 and retain verified downloads; assignments compare stable assignment, quiz, and
-self-submission fields; people now compare the fetched roster fingerprint and
-avoid rewriting an unchanged cache. Syllabus bodies have no cheap update signal,
+self-submission fields; people and groups compare their fetched fingerprints and
+avoid rewriting unchanged caches. Syllabus bodies have no cheap update signal,
 so an existing syllabus remains lazy unless forced.
 
 ## Python API

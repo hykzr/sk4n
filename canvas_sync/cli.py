@@ -137,7 +137,11 @@ def add_sync_arguments(parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
             f"--refresh-{content_type}",
             action="store_true",
-            help=f"Force refresh {content_type.replace('-', ' ')}.",
+            help=(
+                "Force refresh people and groups."
+                if content_type == "people"
+                else f"Force refresh {content_type.replace('-', ' ')}."
+            ),
         )
     for content_type in (
         "announcements",
@@ -152,7 +156,11 @@ def add_sync_arguments(parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
             f"--skip-{content_type}",
             action="store_true",
-            help=f"Skip syncing {content_type}.",
+            help=(
+                "Skip syncing people and groups."
+                if content_type == "people"
+                else f"Skip syncing {content_type}."
+            ),
         )
     parser.add_argument(
         "--login-only",
@@ -287,7 +295,7 @@ def build_parser() -> argparse.ArgumentParser:
     course_parser.add_argument(
         "resource",
         nargs="?",
-        help="path, home, announcements, assignments, discussions, files, modules, pages, people, quizzes, or syllabus.",
+        help="path, home, announcements, assignments, discussions, files, groups, modules, pages, people, quizzes, or syllabus.",
     )
     course_parser.add_argument(
         "item",
@@ -461,6 +469,35 @@ def print_courses(courses: Sequence[Mapping[str, Any]]) -> None:
     console.print(table)
 
 
+def _content_item_type(item: Mapping[str, Any]) -> str:
+    direct = item.get("kind") or item.get("type")
+    if direct:
+        return str(direct)
+    enrollments = item.get("enrollments")
+    if isinstance(enrollments, Sequence) and not isinstance(enrollments, (str, bytes)):
+        roles = list(
+            dict.fromkeys(
+                str(enrollment.get("role") or enrollment.get("type"))
+                for enrollment in enrollments
+                if isinstance(enrollment, Mapping)
+                and (enrollment.get("role") or enrollment.get("type"))
+            )
+        )
+        if roles:
+            return ", ".join(roles)
+    return ""
+
+
+def _print_shared_local_path(items: Sequence[Mapping[str, Any]]) -> tuple[bool, str | None]:
+    local_paths = {
+        str(item.get("local_path")) for item in items if item.get("local_path") not in (None, "")
+    }
+    shared_local_path = next(iter(local_paths)) if len(local_paths) == 1 else None
+    if shared_local_path:
+        console.print(f"[cyan]Local file:[/cyan] {escape(shared_local_path)}")
+    return bool(local_paths), shared_local_path
+
+
 def print_content_list(items: Sequence[Mapping[str, Any]]) -> None:
     for item in items:
         if item.get("inaccessible") is not True:
@@ -470,16 +507,12 @@ def print_content_list(items: Sequence[Mapping[str, Any]]) -> None:
         console.print(
             f"[yellow]Inaccessible Canvas link:[/yellow] {escape(link)} ({escape(error)})"
         )
-    local_paths = {
-        str(item.get("local_path")) for item in items if item.get("local_path") not in (None, "")
-    }
-    has_local_paths = bool(local_paths)
-    shared_local_path = next(iter(local_paths)) if len(local_paths) == 1 else None
-    if shared_local_path:
-        console.print(f"[cyan]Local file:[/cyan] {escape(shared_local_path)}")
+    has_local_paths, shared_local_path = _print_shared_local_path(items)
     table = Table(title=f"Canvas items ({len(items)})", expand=True)
     table.add_column("ID", no_wrap=True)
-    table.add_column("Type", no_wrap=True)
+    has_types = any(_content_item_type(item) for item in items)
+    if has_types:
+        table.add_column("Type", no_wrap=True)
     table.add_column("Name", ratio=1, overflow="fold")
     has_canvas_links = any(
         item.get("html_url") or item.get("url") or item.get("download_url") for item in items
@@ -494,11 +527,10 @@ def print_content_list(items: Sequence[Mapping[str, Any]]) -> None:
     if has_local_paths and not shared_local_path:
         table.add_column("Local path", ratio=1, overflow="fold")
     for item in items:
-        row = [
-            str(item.get("id") or item.get("key") or item.get("url") or ""),
-            str(item.get("kind") or item.get("type") or ""),
-            str(item.get("name") or item.get("title") or item.get("display_name") or ""),
-        ]
+        row = [str(item.get("id") or item.get("key") or item.get("url") or "")]
+        if has_types:
+            row.append(_content_item_type(item))
+        row.append(str(item.get("name") or item.get("title") or item.get("display_name") or ""))
         if has_canvas_links:
             row.append(
                 str(item.get("html_url") or item.get("url") or item.get("download_url") or "")
@@ -512,6 +544,48 @@ def print_content_list(items: Sequence[Mapping[str, Any]]) -> None:
                 row.append("")
         if has_local_paths and not shared_local_path:
             row.append(str(item.get("local_path") or ""))
+        table.add_row(*row)
+    console.print(table)
+
+
+def print_group_list(items: Sequence[Mapping[str, Any]]) -> None:
+    _print_shared_local_path(items)
+    table = Table(title=f"Canvas groups ({len(items)})", expand=True)
+    table.add_column("ID", no_wrap=True)
+    table.add_column("Group set", overflow="fold")
+    table.add_column("Name", ratio=1, overflow="fold")
+    table.add_column("Members", no_wrap=True)
+    table.add_column("Member names", ratio=2, overflow="fold")
+    has_membership = any(item.get("is_current_user_member") is True for item in items)
+    if has_membership:
+        table.add_column("My group", no_wrap=True)
+    has_canvas_links = any(item.get("html_url") for item in items)
+    if has_canvas_links:
+        table.add_column("Canvas link", ratio=1, overflow="fold")
+    for item in items:
+        category_value = item.get("group_category")
+        category = category_value if isinstance(category_value, Mapping) else {}
+        users = item.get("users")
+        member_names = [
+            str(user.get("name") or user.get("display_name") or "")
+            for user in users or []
+            if isinstance(user, Mapping) and (user.get("name") or user.get("display_name"))
+        ]
+        row = [
+            str(item.get("id") or ""),
+            str(category.get("name") or item.get("group_category_id") or ""),
+            str(item.get("name") or ""),
+            str(
+                item.get("members_count")
+                if item.get("members_count") is not None
+                else len(member_names)
+            ),
+            ", ".join(member_names),
+        ]
+        if has_membership:
+            row.append("Yes" if item.get("is_current_user_member") is True else "")
+        if has_canvas_links:
+            row.append(str(item.get("html_url") or ""))
         table.add_row(*row)
     console.print(table)
 
@@ -804,7 +878,10 @@ def handle_course(args: argparse.Namespace) -> int:
     elif args.format:
         print_formatted(value, args.format)
     elif isinstance(value, list):
-        print_content_list(value)
+        if args.resource.casefold() in {"group", "groups"}:
+            print_group_list(value)
+        else:
+            print_content_list(value)
     elif isinstance(value, Mapping):
         if args.resource.casefold() == "home" and value.get("count") == 0:
             print_empty_home(value)

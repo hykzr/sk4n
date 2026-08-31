@@ -48,6 +48,8 @@ RESOURCE_ALIASES = {
     "discussions": "discussions",
     "file": "files",
     "files": "files",
+    "group": "groups",
+    "groups": "groups",
     "home": "home",
     "module": "modules",
     "modules": "modules",

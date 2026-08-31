@@ -99,7 +99,7 @@ class SyncOptions:
     def force_content(self, content_type: str) -> bool:
         if self.refresh_content:
             return True
-        if content_type == "people":
+        if content_type in {"people", "groups"}:
             return self.refresh_people
         if content_type == "announcements":
             return self.refresh_announcements
@@ -122,7 +122,7 @@ class SyncOptions:
             return self.skip_announcements
         if content_type == "discussions":
             return self.skip_discussions
-        if content_type == "people":
+        if content_type in {"people", "groups"}:
             return self.skip_people
         if content_type == "pages":
             return self.skip_pages

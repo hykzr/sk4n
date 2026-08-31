@@ -1,6 +1,6 @@
 ---
 name: nus-canvas
-description: Safely inspect and cache NUS Canvas courses, calendar events, To-Do and upcoming items, home/default views, announcements, assignments, discussions, files, modules, pages, people, quizzes, and syllabi with the local Canvas CLI, and map dates to NUS academic weeks. Use for Canvas course discovery, content refreshes, local cache access, academic-calendar checks, direct Canvas endpoint requests, or authenticated Canvas page, DOM, and network inspection.
+description: Safely inspect and cache NUS Canvas courses, calendar events, To-Do and upcoming items, home/default views, announcements, assignments, discussions, files, groups, modules, pages, people, quizzes, and syllabi with the local Canvas CLI, and map dates to NUS academic weeks. Use for Canvas course discovery, content refreshes, local cache access, academic-calendar checks, direct Canvas endpoint requests, or authenticated Canvas page, DOM, and network inspection.
 ---
 
 # NUS Canvas
@@ -30,7 +30,7 @@ Use the installed `canvas` command for deterministic, authenticated NUS Canvas r
 2. Use `canvas course <course_id>` to inspect a course's name, ID, term, roles, default view, and available sections.
 3. Use `canvas course <course_id> home` to inspect what the course presents as Home. It resolves Canvas's default view to modules, pages, assignments, syllabus, or the activity feed, including a default view whose navigation tab is hidden.
    A course can legitimately have no modules or no published Home content. Human output states that `no content is defined`; JSON/JSONL retain the normal Home object with `"items": []`. Do not treat an empty item list as a fetch failure unless the command also reports an error.
-4. Depending on the task, use `canvas course <course_id> {path|home|announcements|assignments|discussions|files|modules|pages|people|quizzes|syllabus}` for detailed information. Apart from `home` and the default view it resolves, query only sections reported as available by `canvas course <course_id>`.
+4. Depending on the task, use `canvas course <course_id> {path|home|announcements|assignments|discussions|files|groups|modules|pages|people|quizzes|syllabus}` for detailed information. Groups are exposed under an available People section. Apart from `home`, the default view it resolves, and groups under People, query only sections reported as available by `canvas course <course_id>`.
 5. Treat `body`, `content`, `description`, `message`, and similar fields that contain a local path as pointers, not the body text. Read the referenced HTML or JSON artifact before summarizing the item.
 6. When checking schedules or deadlines, inspect relevant downloaded attachments as well as structured Canvas dates. Dates may exist only inside PDF, image, document, or linked content; extract or render that content as appropriate and state any coverage gap.
 7. Treat inaccessible file references returned by `canvas course <course_id> files` as coverage warnings and retain their Canvas links. Explicit file embeds belonging to another Canvas course are intentionally ignored.

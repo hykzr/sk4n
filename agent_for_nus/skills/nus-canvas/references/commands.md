@@ -107,7 +107,7 @@ Usage: `canvas sync [-h] [--max-courses MAX_COURSES] [--course COURSE [COURSE ..
 | `--max-courses MAX_COURSES` | no | no | `—` | — | Optional debugging limit for the number of courses to sync. |
 | `--course COURSE` | no | yes | `[]` | — | Sync only matching course IDs or course codes. Can be repeated. |
 | `--refresh-course` | no | no | `false` | — | Refresh existing course metadata, tabs, cover image, and syllabus. |
-| `--refresh-people` | no | no | `false` | — | Force refresh people. |
+| `--refresh-people` | no | no | `false` | — | Force refresh people and groups. |
 | `--refresh-content` | no | no | `false` | — | Force refresh content. |
 | `--refresh-announcements` | no | no | `false` | — | Force refresh announcements. |
 | `--refresh-discussions` | no | no | `false` | — | Force refresh discussions. |
@@ -118,7 +118,7 @@ Usage: `canvas sync [-h] [--max-courses MAX_COURSES] [--course COURSE [COURSE ..
 | `--refresh-files` | no | no | `false` | — | Force refresh files. |
 | `--skip-announcements` | no | no | `false` | — | Skip syncing announcements. |
 | `--skip-discussions` | no | no | `false` | — | Skip syncing discussions. |
-| `--skip-people` | no | no | `false` | — | Skip syncing people. |
+| `--skip-people` | no | no | `false` | — | Skip syncing people and groups. |
 | `--skip-pages` | no | no | `false` | — | Skip syncing pages. |
 | `--skip-syllabus` | no | no | `false` | — | Skip syncing syllabus. |
 | `--skip-modules` | no | no | `false` | — | Skip syncing modules. |
@@ -208,7 +208,7 @@ Usage: `canvas course [-h] [-s SEM] [--refresh | --no-refresh] [--format {json,j
 | `-h, --help` | no | no | `—` | — | show this help message and exit |
 | `COURSE_CODE` | yes | no | `—` | — | Course code or Canvas course ID. |
 | `-s, --semester SEM` | no | no | `—` | — | Restrict course-code matches to a semester, including Non-Academic. |
-| `[RESOURCE]` | no | no | `—` | — | path, home, announcements, assignments, discussions, files, modules, pages, people, quizzes, or syllabus. |
+| `[RESOURCE]` | no | no | `—` | — | path, home, announcements, assignments, discussions, files, groups, modules, pages, people, quizzes, or syllabus. |
 | `[ITEM]` | no | no | `list` | — | For a resource: list, path, or an item ID. |
 | `--refresh` | no | no | `default` | — | Force refresh the requested remote data and local artifacts. |
 | `--no-refresh` | no | no | `default` | — | Read only from the local cache. |

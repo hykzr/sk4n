@@ -375,6 +375,46 @@ class CanvasClient:
         )
         return [item for item in data if isinstance(item, dict)]
 
+    def user_groups(self) -> list[dict[str, Any]]:
+        data = self.get_paginated(
+            "/api/v1/users/self/groups",
+            params=[
+                ("context_type", "Course"),
+                ("per_page", "100"),
+            ],
+        )
+        return [item for item in data if isinstance(item, dict)]
+
+    def course_groups(self, course_id: str | int) -> list[dict[str, Any]]:
+        data = self.get_paginated(
+            f"/api/v1/courses/{course_id}/groups",
+            params=[
+                ("include[]", "users"),
+                ("include[]", "group_category"),
+                ("include[]", "permissions"),
+                ("include_inactive_users", "true"),
+                ("section_restricted", "true"),
+                ("per_page", "100"),
+            ],
+        )
+        memberships = {
+            str(item.get("id"))
+            for item in self.user_groups()
+            if str(item.get("course_id")) == str(course_id) and item.get("id") is not None
+        }
+        groups: list[dict[str, Any]] = []
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            group = dict(item)
+            group_id = group.get("id")
+            is_member = group_id is not None and str(group_id) in memberships
+            group["is_current_user_member"] = is_member
+            if is_member and not group.get("html_url"):
+                group["html_url"] = f"{self.base_url}/groups/{group_id}"
+            groups.append(group)
+        return groups
+
     def course_page_summaries(self, course_id: str | int) -> list[dict[str, Any]]:
         data = self.get_paginated(
             f"/api/v1/courses/{course_id}/pages",

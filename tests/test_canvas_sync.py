@@ -15,6 +15,7 @@ import canvas_sync.cli as canvas_cli
 from canvas_sync.assignments import sync_assignments
 from canvas_sync.cli import build_parser
 from canvas_sync.client import CanvasAPIError, CanvasAuthError, CanvasClient
+from canvas_sync.content import content_available
 from canvas_sync.fetcher import (
     CanvasFetcher,
     absolutize_local_paths,
@@ -23,6 +24,7 @@ from canvas_sync.fetcher import (
     resolve_semester_filter,
 )
 from canvas_sync.files import collect_referenced_files, sync_files
+from canvas_sync.groups import sync_groups
 from canvas_sync.models import CourseRecord
 from canvas_sync.people import sync_people
 from canvas_sync.utils import read_json, write_json
@@ -119,6 +121,9 @@ def test_cli_exposes_auth_sync_info_activity_and_api_commands() -> None:
     home = parser.parse_args(["course", "CG2028", "home", "--no-refresh"])
     assert (home.resource, home.item) == ("home", "list")
 
+    groups = parser.parse_args(["course", "CG2028", "groups", "215659"])
+    assert (groups.resource, groups.item) == ("groups", "215659")
+
 
 def test_playwright_cli_command_requires_explicit_login(monkeypatch: pytest.MonkeyPatch) -> None:
     opened: list[dict[str, Any]] = []
@@ -213,6 +218,61 @@ def test_canvas_client_activity_endpoints_use_paginated_reads(
     assert calls[2][0] == "/api/v1/users/self/upcoming_events"
 
 
+def test_canvas_client_course_groups_include_members_and_current_membership(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = CanvasClient("https://canvas.nus.edu.sg", "test")
+    calls: list[tuple[str, list[tuple[str, Any]] | None]] = []
+
+    def fake_get_paginated(
+        path: str,
+        params: list[tuple[str, Any]] | None = None,
+        max_pages: int = 50,
+    ) -> list[dict[str, Any]]:
+        del max_pages
+        calls.append((path, params))
+        if path == "/api/v1/courses/93662/groups":
+            return [
+                {"id": 1, "name": "Group 1", "users": [{"id": 10, "name": "One"}]},
+                {"id": 2, "name": "Group 2", "users": [{"id": 20, "name": "Two"}]},
+            ]
+        return [
+            {"id": 2, "course_id": 93662, "name": "Group 2"},
+            {"id": 3, "course_id": 12345, "name": "Another course"},
+        ]
+
+    monkeypatch.setattr(client, "get_paginated", fake_get_paginated)
+
+    groups = client.course_groups("93662")
+
+    assert calls == [
+        (
+            "/api/v1/courses/93662/groups",
+            [
+                ("include[]", "users"),
+                ("include[]", "group_category"),
+                ("include[]", "permissions"),
+                ("include_inactive_users", "true"),
+                ("section_restricted", "true"),
+                ("per_page", "100"),
+            ],
+        ),
+        (
+            "/api/v1/users/self/groups",
+            [("context_type", "Course"), ("per_page", "100")],
+        ),
+    ]
+    assert groups[0]["is_current_user_member"] is False
+    assert groups[0].get("html_url") is None
+    assert groups[1]["is_current_user_member"] is True
+    assert groups[1]["html_url"] == "https://canvas.nus.edu.sg/groups/2"
+
+
+def test_groups_are_available_under_the_people_tab() -> None:
+    assert content_available("groups", {"people"}) is True
+    assert content_available("groups", {"assignments"}) is False
+
+
 def test_semester_filters_are_case_insensitive_and_support_study_years() -> None:
     courses = [
         {"term_folder_name": "2425S1"},
@@ -284,6 +344,41 @@ def test_people_sync_checks_remote_but_does_not_rewrite_unchanged_cache(tmp_path
     assert second["checked"] is True
     assert client.calls == 2
     assert people_path.read_text(encoding="utf-8") == first_text
+
+
+class GroupsClient:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def course_groups(self, _course_id: str) -> list[dict[str, Any]]:
+        self.calls += 1
+        return [{"id": 1, "name": "Project Group 1", "members_count": 2}]
+
+
+def test_groups_sync_checks_remote_but_does_not_rewrite_unchanged_cache(tmp_path: Path) -> None:
+    client = GroupsClient()
+    first = sync_groups(
+        client=client,  # type: ignore[arg-type]
+        course_id="1",
+        course_dir=tmp_path,
+        synced_at="first",
+        force=False,
+    )
+    groups_path = tmp_path / "groups.json"
+    first_text = groups_path.read_text(encoding="utf-8")
+    second = sync_groups(
+        client=client,  # type: ignore[arg-type]
+        course_id="1",
+        course_dir=tmp_path,
+        synced_at="second",
+        force=False,
+    )
+
+    assert first["status"] == "created"
+    assert second["status"] == "unchanged"
+    assert second["checked"] is True
+    assert client.calls == 2
+    assert groups_path.read_text(encoding="utf-8") == first_text
 
 
 def test_concurrent_canvas_cache_writes_use_unique_temporary_files(tmp_path: Path) -> None:
@@ -398,6 +493,82 @@ def test_shared_people_path_is_printed_once_outside_table(monkeypatch: pytest.Mo
     assert rendered.count("/tmp/people.json") == 1
     assert "Local file:" in rendered
     assert "Local path" not in rendered
+
+
+def test_people_human_output_derives_type_from_enrollments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = StringIO()
+    monkeypatch.setattr(
+        canvas_cli,
+        "console",
+        Console(file=output, force_terminal=False, width=160),
+    )
+
+    canvas_cli.print_content_list(
+        [
+            {
+                "id": 1,
+                "name": "Student One",
+                "enrollments": [
+                    {"type": "StudentEnrollment", "role": "Student"},
+                    {"type": "StudentEnrollment", "role": "Student"},
+                ],
+            }
+        ]
+    )
+
+    rendered = output.getvalue()
+    assert "Type" in rendered
+    assert "Student" in rendered
+
+
+def test_human_output_omits_type_column_when_no_type_exists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = StringIO()
+    monkeypatch.setattr(
+        canvas_cli,
+        "console",
+        Console(file=output, force_terminal=False, width=120),
+    )
+
+    canvas_cli.print_content_list([{"id": 1, "name": "Untyped item"}])
+
+    assert "Type" not in output.getvalue()
+
+
+def test_groups_human_output_includes_membership_and_members(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = StringIO()
+    monkeypatch.setattr(
+        canvas_cli,
+        "console",
+        Console(file=output, force_terminal=False, width=220),
+    )
+
+    canvas_cli.print_group_list(
+        [
+            {
+                "id": 215659,
+                "name": "Project Groups 24",
+                "group_category": {"id": 26098, "name": "Project Groups"},
+                "members_count": 2,
+                "users": [{"id": 1, "name": "One"}, {"id": 2, "name": "Two"}],
+                "is_current_user_member": True,
+                "html_url": "https://canvas.nus.edu.sg/groups/215659",
+            }
+        ]
+    )
+
+    rendered = output.getvalue()
+    assert "Group set" in rendered
+    assert "Project Groups 24" in rendered
+    assert "One, Two" in rendered
+    assert "My group" in rendered
+    assert "Yes" in rendered
+    assert "https://canvas.nus.edu.sg/groups/215659" in rendered
 
 
 def test_json_and_jsonl_outputs_remove_internal_canvas_sync_metadata(
