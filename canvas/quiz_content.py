@@ -239,7 +239,7 @@ def submitted_quiz_attempt(response: Any) -> dict[str, Any] | None:
         )
     )
     attempt = copy.deepcopy(attempts[-1])
-    attempt["_canvas_sync_source"] = "canvas_quiz_submissions_self"
+    attempt["_canvas_source"] = "canvas_quiz_submissions_self"
     return attempt
 
 

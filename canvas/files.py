@@ -197,7 +197,7 @@ def sync_files(
         else:
             if reference_urls:
                 detail["reference_urls"] = reference_urls
-                detail["_canvas_sync_reference_urls"] = reference_urls
+                detail["_canvas_reference_urls"] = reference_urls
         discovered[file_id] = detail
 
     if not discovered:
@@ -225,7 +225,7 @@ def sync_files(
         existing_item = existing_by_id.get(file_id)
         signature = file_signature(file_item)
         existing_signature = (
-            existing_item.get("_canvas_sync", {}).get("signature")
+            existing_item.get("_canvas", {}).get("signature")
             if isinstance(existing_item, dict)
             else None
         )
@@ -255,7 +255,7 @@ def sync_files(
             else:
                 record.pop("path", None)
                 record["downloaded"] = False
-            record["_canvas_sync"] = {"signature": signature}
+            record["_canvas"] = {"signature": signature}
             items.append(record)
             if existing_signature != signature or existing_item != record:
                 changed = True
@@ -316,7 +316,7 @@ def sync_files(
             record["download_content_type"] = download_result.get("content_type")
             record["download_url"] = download_result.get("download_url")
             downloaded_files += 1
-        record["_canvas_sync"] = {
+        record["_canvas"] = {
             "signature": signature,
         }
         items.append(record)
@@ -327,7 +327,7 @@ def sync_files(
         [
             {
                 "id": item.get("id"),
-                "signature": item.get("_canvas_sync", {}).get("signature"),
+                "signature": item.get("_canvas", {}).get("signature"),
                 "sha256": item.get("sha256"),
                 "path": item.get("path"),
             }

@@ -11,7 +11,7 @@ import agent_for_nus.cli as management_cli
 import agent_for_nus.doctor as doctor
 import talent_connect.cli as talent_cli
 from agent_for_nus.errors import ExitCode, exit_code_for_error
-from canvas_sync.client import CanvasAuthError, CanvasHTTPError, CanvasTransportError
+from canvas.client import CanvasAuthError, CanvasHTTPError, CanvasTransportError
 from talent_connect.client import KinobiAuthError, KinobiHTTPError, KinobiTransportError
 
 

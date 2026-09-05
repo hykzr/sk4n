@@ -7,12 +7,11 @@ name = "agent-for-nus"
 version = "0.1.0"
 description = "Local command-line tools for NUS Canvas, NUSMods, and TalentConnect"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -29,12 +28,12 @@ dependencies = [
 
 [project.scripts]
 agent-for-nus = "agent_for_nus.cli:main"
-canvas = "canvas_sync.cli:main"
+canvas = "canvas.cli:main"
 nusmods = "nusmods.cli:main"
 talent-connect = "talent_connect.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["agent_for_nus", "canvas_sync", "nusmods", "talent_connect", "tools"]
+packages = ["agent_for_nus", "canvas", "nusmods", "talent_connect", "tools"]
 
 # Markdown and metadata stored below agent_for_nus/skills are package data. The
 # skill directories themselves are introduced in Phase 2.
@@ -46,7 +45,7 @@ dev = ["pytest>=9.1.1"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["F", "E", "W", "I", "B", "UP", "C4", "SIM", "A", "RUF", "PLC0415"]

@@ -7,7 +7,7 @@ keeping useful data available locally.
 
 | Application | Purpose | Documentation |
 | --- | --- | --- |
-| `canvas_sync/` | Query NUS Canvas and incrementally cache courses and accessible content. | [Canvas CLI](canvas_sync/README.md) |
+| `canvas/` | Query NUS Canvas and incrementally cache courses and accessible content. | [Canvas CLI](canvas/README.md) |
 | `nusmods/` | Search public NUSMods course data and manage a share-link-compatible timetable. | [NUSMods CLI](nusmods/README.md) |
 | `talent_connect/` | Search, fetch, and persist NUS TalentConnect jobs and companies from Kinobi. | [TalentConnect CLI](talent_connect/README.md) |
 
@@ -23,6 +23,8 @@ weeks, week ranges, and holidays without requiring Canvas authentication.
 Application-specific code should remain inside its application package.
 
 ## Install
+
+Python 3.11 or newer is required.
 
 Install a stable snapshot from a checkout into an isolated tool environment:
 

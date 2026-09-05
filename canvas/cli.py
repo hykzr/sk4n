@@ -231,7 +231,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Delete the CLI's saved session without signing other browsers out of NUS SSO.",
     )
 
-    sync_parser = commands.add_parser("sync", help="Sync courses using the original bulk options.")
+    sync_parser = commands.add_parser("sync", help="Synchronize multiple Canvas courses.")
     add_sync_arguments(sync_parser)
 
     student_parser = commands.add_parser("student", help="Show the current Canvas student.")
@@ -400,23 +400,23 @@ def _records(value: Any) -> list[Mapping[str, Any]]:
     return [{"value": value}]
 
 
-def _without_canvas_sync_metadata(value: Any) -> Any:
+def _without_canvas_metadata(value: Any) -> Any:
     if isinstance(value, list):
-        return [_without_canvas_sync_metadata(item) for item in value]
+        return [_without_canvas_metadata(item) for item in value]
     if isinstance(value, Mapping):
         return {
-            key: _without_canvas_sync_metadata(item)
+            key: _without_canvas_metadata(item)
             for key, item in value.items()
-            if not str(key).startswith("_canvas_sync")
+            if not str(key).startswith("_canvas")
         }
     return value
 
 
 def print_formatted(value: Any, output_format: str) -> None:
     if output_format == "json":
-        print(_json_text(_without_canvas_sync_metadata(value)))
+        print(_json_text(_without_canvas_metadata(value)))
         return
-    records = _records(_without_canvas_sync_metadata(value) if output_format == "jsonl" else value)
+    records = _records(_without_canvas_metadata(value) if output_format == "jsonl" else value)
     if output_format == "jsonl":
         for record in records:
             print(_json_text(record))

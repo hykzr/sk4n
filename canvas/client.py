@@ -125,7 +125,7 @@ class CanvasClient:
         if "json" not in content_type.lower():
             raise CanvasAPIError(
                 f"Canvas returned non-JSON content for {url}. "
-                "The saved session may be expired; rerun the sync command and log in."
+                "The saved session may be expired; run `canvas auth login` again."
             )
         return response.json()
 
@@ -176,7 +176,7 @@ class CanvasClient:
             if "json" not in content_type.lower():
                 raise CanvasAPIError(
                     f"Canvas returned non-JSON content for {url}. "
-                    "The saved session may be expired; rerun the sync command and log in."
+                    "The saved session may be expired; run `canvas auth login` again."
                 )
             data = response.json()
             if not isinstance(data, list):
@@ -214,8 +214,8 @@ class CanvasClient:
         )
         courses = [item for item in data if is_accessible_course(item)]
         for course in courses:
-            course["_canvas_sync_source"] = "active_course"
-            course["_canvas_sync_enrollment_state"] = "active"
+            course["_canvas_source"] = "active_course"
+            course["_canvas_enrollment_state"] = "active"
         return courses
 
     def course_details(self, course_id: str | int) -> dict[str, Any]:
@@ -255,8 +255,8 @@ class CanvasClient:
                 continue
             if not is_accessible_course(course):
                 continue
-            course["_canvas_sync_source"] = "past_course"
-            course["_canvas_sync_enrollment_state"] = "completed"
+            course["_canvas_source"] = "past_course"
+            course["_canvas_enrollment_state"] = "completed"
             courses.append(course)
         return courses
 
@@ -360,7 +360,7 @@ class CanvasClient:
                 try:
                     view = self.course_discussion_view(course_id, topic_id)
                 except CanvasAPIError as exc:
-                    topic["_canvas_sync_view_error"] = str(exc)
+                    topic["_canvas_view_error"] = str(exc)
                     continue
                 topic["view"] = view
         return topics
@@ -443,7 +443,7 @@ class CanvasClient:
                 detail = self.course_page_detail(course_id, str(page_url))
             except CanvasAPIError as exc:
                 fallback = dict(page)
-                fallback["_canvas_sync_detail_error"] = str(exc)
+                fallback["_canvas_detail_error"] = str(exc)
                 detailed_pages.append(fallback)
                 continue
             detailed_pages.append(detail)

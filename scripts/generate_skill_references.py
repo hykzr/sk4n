@@ -38,7 +38,7 @@ COMMON_SESSIONS = (
 SERVICES = (
     Service(
         skill_name="nus-canvas",
-        module_name="canvas_sync.cli",
+        module_name="canvas.cli",
         environment=(
             COMMON_HOME,
             COMMON_SESSIONS,
@@ -270,7 +270,7 @@ def _render_service(service: Service) -> str:
     prog = parser.prog
     commands = list(_commands(parser, (prog,)))
     structured_output_note = (
-        "- JSON and JSONL omit internal `_canvas_sync*` cache metadata but remaining "
+        "- JSON and JSONL omit internal `_canvas*` cache metadata but remaining "
         "records may still be substantially larger than human output."
         if service.skill_name == "nus-canvas"
         else "- Structured formats preserve full records and may be substantially larger than human output."

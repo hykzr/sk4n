@@ -72,7 +72,7 @@ def sync_pages(
         html_path = json_path.parent / safe_html_filename(page_url, summary.get("title"), "page")
         html_rel = rel_path(json_path, html_path)
         existing_signature = (
-            existing_item.get("_canvas_sync", {}).get("signature")
+            existing_item.get("_canvas", {}).get("signature")
             if isinstance(existing_item, dict)
             else None
         )
@@ -90,7 +90,7 @@ def sync_pages(
                 detail = client.course_page_detail(course_id, page_url)
             except CanvasAPIError as exc:
                 detail = dict(summary)
-                detail["_canvas_sync_detail_error"] = str(exc)
+                detail["_canvas_detail_error"] = str(exc)
         else:
             detail = dict(summary)
         body = detail.get("body") if isinstance(detail.get("body"), str) else ""
@@ -100,7 +100,7 @@ def sync_pages(
             body,
         )
         detail["body"] = html_rel
-        detail["_canvas_sync"] = {
+        detail["_canvas"] = {
             "signature": signature,
         }
         items.append(detail)
@@ -108,7 +108,7 @@ def sync_pages(
         changed_items += 1
 
     fingerprint_value = fingerprint(
-        [item.get("_canvas_sync", {}).get("signature") for item in items]
+        [item.get("_canvas", {}).get("signature") for item in items]
     )
     if existing and existing.get("fingerprint") != fingerprint_value:
         changed = True

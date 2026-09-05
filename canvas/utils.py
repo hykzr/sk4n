@@ -353,7 +353,7 @@ def download_with_fallbacks(
     urls: list[str] = []
     if isinstance(file_item.get("url"), str):
         urls.append(file_item["url"])
-    for url in file_item.get("_canvas_sync_reference_urls") or []:
+    for url in file_item.get("_canvas_reference_urls") or []:
         if isinstance(url, str) and url not in urls:
             urls.append(url)
     last_error: str | None = None

@@ -11,24 +11,24 @@ from typing import Any
 import pytest
 from rich.console import Console
 
-import canvas_sync.cli as canvas_cli
-import canvas_sync.sync as canvas_sync_module
-from canvas_sync.assignments import sync_assignments
-from canvas_sync.cli import build_parser
-from canvas_sync.client import CanvasAPIError, CanvasAuthError, CanvasClient
-from canvas_sync.content import content_available
-from canvas_sync.fetcher import (
+import canvas.cli as canvas_cli
+import canvas.sync as canvas_module
+from canvas.assignments import sync_assignments
+from canvas.cli import build_parser
+from canvas.client import CanvasAPIError, CanvasAuthError, CanvasClient
+from canvas.content import content_available
+from canvas.fetcher import (
     CanvasFetcher,
     absolutize_local_paths,
     canonical_semester,
     infer_enrollment_academic_year,
     resolve_semester_filter,
 )
-from canvas_sync.files import collect_referenced_files, sync_files
-from canvas_sync.groups import sync_groups
-from canvas_sync.models import CourseRecord
-from canvas_sync.people import sync_people
-from canvas_sync.utils import read_json, write_json
+from canvas.files import collect_referenced_files, sync_files
+from canvas.groups import sync_groups
+from canvas.models import CourseRecord
+from canvas.people import sync_people
+from canvas.utils import read_json, write_json
 
 
 def test_cli_exposes_auth_sync_info_activity_and_api_commands() -> None:
@@ -586,10 +586,10 @@ def test_sync_selector_skips_and_preserves_retired_course(
 ) -> None:
     write_retired_course_cache(tmp_path)
     client = RetiredCourseCatalogClient()
-    monkeypatch.setattr(canvas_sync_module, "ensure_canvas_session", lambda **_kwargs: False)
-    monkeypatch.setattr(canvas_sync_module, "CanvasClient", lambda **_kwargs: client)
+    monkeypatch.setattr(canvas_module, "ensure_canvas_session", lambda **_kwargs: False)
+    monkeypatch.setattr(canvas_module, "CanvasClient", lambda **_kwargs: client)
 
-    result = canvas_sync_module.sync_canvas(
+    result = canvas_module.sync_canvas(
         data_path=tmp_path,
         course_selectors=["CG2023"],
     )
@@ -733,14 +733,14 @@ def test_groups_human_output_includes_membership_and_members(
     assert "https://canvas.nus.edu.sg/groups/215659" in rendered
 
 
-def test_json_and_jsonl_outputs_remove_internal_canvas_sync_metadata(
+def test_json_and_jsonl_outputs_remove_internal_canvas_metadata(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     value = [
         {
             "id": 1,
-            "_canvas_sync": {"signature": "large"},
-            "nested": {"_canvas_sync_detail_error": "internal", "name": "visible"},
+            "_canvas": {"signature": "large"},
+            "nested": {"_canvas_detail_error": "internal", "name": "visible"},
         }
     ]
 

@@ -10,7 +10,7 @@ Query and incrementally cache NUS Canvas data.
 - Use `--format json` for one complete JSON document.
 - Use `--format jsonl` for one complete JSON record per line when the command offers it.
 - Use `--format plain` for line-oriented `key: value` records suited to shell filtering when the command offers it.
-- JSON and JSONL omit internal `_canvas_sync*` cache metadata but remaining records may still be substantially larger than human output.
+- JSON and JSONL omit internal `_canvas*` cache metadata but remaining records may still be substantially larger than human output.
 
 ## Environment variables
 
@@ -42,7 +42,7 @@ Global options must appear before the command name.
 - `canvas auth status` — Check the saved login.
 - `canvas auth login` — Open a browser for NUS login.
 - `canvas auth logout` — Delete the CLI's saved session without signing other browsers out of NUS SSO.
-- `canvas sync` — Sync courses using the original bulk options.
+- `canvas sync` — Synchronize multiple Canvas courses.
 - `canvas student` — Show the current Canvas student.
 - `canvas list` — List Canvas courses, including retired courses retained in the cache.
 - `canvas calendar-events` — List the current user's Canvas calendar events.
@@ -97,7 +97,7 @@ Usage: `canvas auth logout [-h]`
 
 ## `canvas sync`
 
-Sync courses using the original bulk options.
+Synchronize multiple Canvas courses.
 
 Usage: `canvas sync [-h] [--max-courses MAX_COURSES] [--course COURSE [COURSE ...]] [--refresh-course] [--refresh-people] [--refresh-content] [--refresh-announcements] [--refresh-discussions] [--refresh-pages] [--refresh-syllabus] [--refresh-modules] [--refresh-assignments] [--refresh-files] [--skip-announcements] [--skip-discussions] [--skip-people] [--skip-pages] [--skip-syllabus] [--skip-modules] [--skip-assignments] [--skip-files] [--login-only]`
 

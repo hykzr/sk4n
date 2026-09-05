@@ -7,8 +7,8 @@ nus-canvas, nus-talent-connect and nusmods skills may have been installed to you
 
 ## Repository map
 
-- `canvas_sync/` provides authenticated, read-only Canvas queries, targeted
-  cache refreshes, a bulk sync compatibility layer, direct authenticated API
+- `canvas/` provides authenticated, read-only Canvas queries, targeted cache
+  refreshes, bulk synchronization, direct authenticated API
   access, and authenticated `@playwright/cli` sessions.
 - `talent_connect/` provides public and authenticated Kinobi job/company
   access, local SQLite persistence, direct authenticated API access, and

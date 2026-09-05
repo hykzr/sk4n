@@ -116,7 +116,7 @@ def sync_topics(
         html_path = html_dir / safe_html_filename(topic_id, topic.get("title"), content_type)
         html_rel = rel_path(json_path, html_path)
         existing_signature = (
-            existing_item.get("_canvas_sync", {}).get("signature")
+            existing_item.get("_canvas", {}).get("signature")
             if isinstance(existing_item, dict)
             else None
         )
@@ -135,7 +135,7 @@ def sync_topics(
             try:
                 view = client.course_discussion_view(course_id, topic["id"])
             except CanvasAPIError as exc:
-                topic_copy["_canvas_sync_view_error"] = str(exc)
+                topic_copy["_canvas_view_error"] = str(exc)
 
         body = (
             discussion_html_body(topic_copy, view)
@@ -154,7 +154,7 @@ def sync_topics(
                 html_rel,
                 with_fragments=True,
             )
-        topic_copy["_canvas_sync"] = {
+        topic_copy["_canvas"] = {
             "signature": signature,
         }
         items.append(topic_copy)
@@ -162,7 +162,7 @@ def sync_topics(
         changed_items += 1
 
     fingerprint_value = fingerprint(
-        [item.get("_canvas_sync", {}).get("signature") for item in items]
+        [item.get("_canvas", {}).get("signature") for item in items]
     )
     if existing and existing.get("fingerprint") != fingerprint_value:
         changed = True

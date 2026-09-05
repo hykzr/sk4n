@@ -9,7 +9,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONSOLE_SCRIPTS = ("agent-for-nus", "canvas", "nusmods", "talent-connect")
-WHEEL_PACKAGES = ("agent_for_nus", "canvas_sync", "nusmods", "talent_connect", "tools")
+WHEEL_PACKAGES = ("agent_for_nus", "canvas", "nusmods", "talent_connect", "tools")
 WHEEL_SKILLS = {
     "nus-canvas": (
         "SKILL.md",
@@ -34,7 +34,6 @@ def run(command: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> 
 def assert_console_scripts(bin_dir: Path, *, cwd: Path, env: dict[str, str]) -> None:
     for script in CONSOLE_SCRIPTS:
         run([str(bin_dir / script), "--help"], cwd=cwd, env=env)
-    assert not (bin_dir / "canvas-sync").exists()
 
 
 def tool_environment(tmp_path: Path, name: str) -> tuple[dict[str, str], Path]:

@@ -7,8 +7,7 @@ cache. Install the project with `uv sync`, then inspect the command surface:
 uv run canvas --help
 ```
 
-`uv run python -m canvas_sync` is an equivalent development entry point. The
-legacy `canvas-sync` console script has been removed.
+`uv run python -m canvas` is an equivalent development entry point.
 
 The cache defaults to the `canvas/` directory below the platform-specific
 Agent for NUS user-data root. Use `--data-path PATH` for a command-specific
@@ -151,7 +150,7 @@ mutations are serialized across CLI processes, and files are published through
 process-unique atomic temporary paths so concurrent reads never observe partial
 JSON, HTML, or downloads.
 
-JSON and JSONL omit internal `_canvas_sync*` cache metadata. File listings can
+JSON and JSONL omit internal `_canvas*` cache metadata. File listings can
 still be large; redirect `--format json` to a file and use `jq` when the complete
 record set would overwhelm the terminal or an agent context.
 
@@ -193,10 +192,10 @@ when finished with `playwright-cli -s=canvas close`. The command fails without
 the separately installed `@playwright/cli` executable, if the browser cannot
 open, or if that session ID is already running.
 
-## Bulk sync compatibility
+## Bulk sync
 
-The original fetch-all behavior is available under `sync`, with its existing
-selection, refresh, skip, debug, and login-only options:
+Use `sync` to fetch multiple courses with selection, refresh, skip, debug, and
+login-only options:
 
 ```bash
 uv run canvas sync
@@ -214,10 +213,11 @@ uv run canvas sync --skip-assignments --skip-files
 
 ## Cache layout
 
-The default cache is `data/canvas/{term}/{course}`. Academic terms such as
-`2025/2026 Semester 2` normalize to `2526S2`; irregular terms such as
-`Non-Academic` retain a filesystem-safe name. The root contains `index.json`
-and the privacy-trimmed `student.json`. Course folders can contain:
+Within the configured Canvas data directory, course data is stored under
+`{term}/{course}`. Academic terms such as `2025/2026 Semester 2` normalize to
+`2526S2`; irregular terms such as `Non-Academic` retain a filesystem-safe name.
+The root contains `index.json` and the privacy-trimmed `student.json`. Course
+folders can contain:
 
 - `course.json` and `cover_image.*`
 - `home.json` when the course uses the activity-feed default view
@@ -255,7 +255,7 @@ so an existing syllabus remains lazy unless forced.
 Targeted fetching is also public as `CanvasFetcher`:
 
 ```python
-from canvas_sync import CanvasFetcher
+from canvas import CanvasFetcher
 
 fetcher = CanvasFetcher()
 student = fetcher.student()
@@ -264,5 +264,5 @@ course = fetcher.course("CS1010", semester="2425S1")
 announcements = fetcher.content("CG2028", "announcements", "list")
 ```
 
-Each method accepts cache/refresh controls appropriate to its scope. The legacy
-`sync_canvas()` API remains exported for bulk synchronization.
+Each method accepts cache/refresh controls appropriate to its scope.
+`sync_canvas()` is also exported for bulk synchronization.

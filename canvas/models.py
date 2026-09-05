@@ -200,8 +200,8 @@ class CourseRecord:
 
     @property
     def enrollment_state(self) -> str | None:
-        if self.course and self.course.get("_canvas_sync_enrollment_state"):
-            return str(self.course["_canvas_sync_enrollment_state"])
+        if self.course and self.course.get("_canvas_enrollment_state"):
+            return str(self.course["_canvas_enrollment_state"])
         return None
 
     @property
@@ -304,7 +304,7 @@ def merge_course_records(
     for item in courses:
         course_id = item.get("id")
         if course_id is not None:
-            source = str(item.get("_canvas_sync_source") or "course")
+            source = str(item.get("_canvas_source") or "course")
             ensure(str(course_id)).add_source(source, item)
 
     for item in favorite_courses:

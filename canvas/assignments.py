@@ -448,7 +448,7 @@ def download_assignment_images(
                 }
             )
             image["src"] = record["path"]
-        record["_canvas_sync"] = {
+        record["_canvas"] = {
             "signature": fingerprint(src),
         }
         images.append(record)
@@ -686,7 +686,7 @@ def rewrite_quiz_artifact_images(
                 "download_url": absolute_src,
                 "downloaded": False,
                 "error": str(exc),
-                "_canvas_sync": {
+                "_canvas": {
                     "signature": fingerprint(absolute_src),
                 },
             }
@@ -700,7 +700,7 @@ def rewrite_quiz_artifact_images(
             "sha256": result["sha256"],
             "bytes_downloaded": result["bytes"],
             "download_content_type": result.get("content_type"),
-            "_canvas_sync": {
+            "_canvas": {
                 "signature": fingerprint(absolute_src),
             },
         }
@@ -1027,7 +1027,7 @@ def download_submitted_files(
     if not isinstance(submission, dict):
         return submission, []
     existing_by_key = {
-        str(item.get("id") or item.get("_canvas_sync", {}).get("attachment_key")): item
+        str(item.get("id") or item.get("_canvas", {}).get("attachment_key")): item
         for item in existing_files
         if isinstance(item, dict)
     }
@@ -1043,7 +1043,7 @@ def download_submitted_files(
         signature = file_signature(attachment)
         existing = existing_by_key.get(attachment_key)
         existing_signature = (
-            existing.get("_canvas_sync", {}).get("signature")
+            existing.get("_canvas", {}).get("signature")
             if isinstance(existing, dict)
             else None
         )
@@ -1094,7 +1094,7 @@ def download_submitted_files(
                     "download_content_type": result.get("content_type"),
                 }
             )
-        record["_canvas_sync"] = {
+        record["_canvas"] = {
             "attachment_key": attachment_key,
             "signature": signature,
         }
@@ -1168,7 +1168,7 @@ def quiz_payload_for_assignment(
     quiz_submission = (
         copy.deepcopy(submission)
         if isinstance(submission, dict)
-        and submission.get("_canvas_sync_source") == "canvas_quiz_submissions_self"
+        and submission.get("_canvas_source") == "canvas_quiz_submissions_self"
         else None
     )
     quiz_images = quiz_image_metadata_summary(quiz_path, image_metadata)
@@ -1344,7 +1344,7 @@ def build_assignment_record(
         detail["submission"] = annotate_submission_attachments(
             detail["submission"],
             {
-                str(item.get("id") or item.get("_canvas_sync", {}).get("attachment_key")): item
+                str(item.get("id") or item.get("_canvas", {}).get("attachment_key")): item
                 for item in submitted_files
             },
         )
@@ -1414,7 +1414,7 @@ def build_assignment_record(
                 "quiz": quiz_info,
             }
         ),
-        "_canvas_sync": {
+        "_canvas": {
             "signature": signature,
         },
     }
@@ -1432,7 +1432,7 @@ def build_assignment_record(
         "quiz_id": quiz_id,
         "submitted_file_count": len(submitted_files),
         "referenced_file_ids": file_ids,
-        "_canvas_sync": {
+        "_canvas": {
             "signature": signature,
         },
     }
@@ -1537,7 +1537,7 @@ def build_standalone_quiz_record(
                 "quiz": quiz_info,
             }
         ),
-        "_canvas_sync": {
+        "_canvas": {
             "signature": signature,
         },
     }
@@ -1554,7 +1554,7 @@ def build_standalone_quiz_record(
         "quiz_id": payload["id"],
         "submitted_file_count": 0,
         "referenced_file_ids": file_ids,
-        "_canvas_sync": {
+        "_canvas": {
             "signature": signature,
         },
     }
@@ -1684,7 +1684,7 @@ def sync_assignments(
         signature = assignment_summary_signature(assignment, quiz_summary)
         existing_item = existing_by_key.get(key)
         existing_signature = (
-            existing_item.get("_canvas_sync", {}).get("signature")
+            existing_item.get("_canvas", {}).get("signature")
             if isinstance(existing_item, dict)
             else None
         )
@@ -1738,7 +1738,7 @@ def sync_assignments(
         signature = quiz_summary_signature(quiz)
         existing_item = existing_by_key.get(key)
         existing_signature = (
-            existing_item.get("_canvas_sync", {}).get("signature")
+            existing_item.get("_canvas", {}).get("signature")
             if isinstance(existing_item, dict)
             else None
         )
@@ -1788,7 +1788,7 @@ def sync_assignments(
             )
 
     fingerprint_value = fingerprint(
-        [item.get("_canvas_sync", {}).get("signature") for item in items]
+        [item.get("_canvas", {}).get("signature") for item in items]
     )
     if existing and existing.get("fingerprint") != fingerprint_value:
         changed = True
