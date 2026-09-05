@@ -7,6 +7,10 @@ name = "sk4n"
 version = "0.1.0"
 description = "Command-line tools and agent skills for NUS services"
 readme = "README.md"
+authors = [{ name = "hykzr" }]
+maintainers = [{ name = "hykzr" }]
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 3 - Alpha",

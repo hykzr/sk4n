@@ -7,6 +7,6 @@ test *flags='-q':
 lint *flags='--fix':
     uvx ruff --config pyproject.toml check . {{flags}}
     uvx pyright
-# Format EPUB sources and tests
+# Format sources and tests
 format *flags:
     uvx ruff format . {{flags}}
