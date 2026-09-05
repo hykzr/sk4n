@@ -1017,9 +1017,7 @@ def download_submitted_files(
         signature = file_signature(attachment)
         existing = existing_by_key.get(attachment_key)
         existing_signature = (
-            existing.get("_canvas", {}).get("signature")
-            if isinstance(existing, dict)
-            else None
+            existing.get("_canvas", {}).get("signature") if isinstance(existing, dict) else None
         )
         existing_path = (
             resolve_relative_path(assignment_json_path, existing.get("path"))
@@ -1761,9 +1759,7 @@ def sync_assignments(
                 1 for image in payload.get("images") or [] if image.get("downloaded")
             )
 
-    fingerprint_value = fingerprint(
-        [item.get("_canvas", {}).get("signature") for item in items]
-    )
+    fingerprint_value = fingerprint([item.get("_canvas", {}).get("signature") for item in items])
     if existing and existing.get("fingerprint") != fingerprint_value:
         changed = True
     payload = {

@@ -44,8 +44,14 @@ SERVICES = (
         environment=(
             COMMON_HOME,
             COMMON_SESSIONS,
-            ("CANVAS_BASE_URL", "Set the Canvas origin used by the global --base-url option."),
-            ("CANVAS_SITE_NAME", "Set the saved-session namespace used by --site-name."),
+            (
+                "CANVAS_BASE_URL",
+                "Set the Canvas origin used by the global --base-url option.",
+            ),
+            (
+                "CANVAS_SITE_NAME",
+                "Set the saved-session namespace used by --site-name.",
+            ),
             ("CANVAS_TIMEOUT", "Set the default HTTP timeout in seconds."),
             (
                 "CANVAS_LOGIN_WAIT_SECONDS",
@@ -100,9 +106,7 @@ SERVICES = (
             ),
             ("TALENT_CONNECT_TIMEOUT", "Set the default HTTP timeout in seconds."),
         ),
-        default_labels={
-            "data_path": "<user-data>/sk4n/talent-connect/talent_connect.sqlite3"
-        },
+        default_labels={"data_path": "<user-data>/sk4n/talent-connect/talent_connect.sqlite3"},
         hidden_help={
             "api_base_url": "Advanced public Kinobi API origin.",
             "app_base_url": "Advanced authenticated TalentConnect application origin.",
@@ -137,7 +141,7 @@ def _without_environment(names: Iterable[str]):
 def _disable_parser_colors(parser: argparse.ArgumentParser) -> None:
     """Make argparse rendering independent of terminal color settings."""
     if hasattr(parser, "color"):
-        parser.color = False
+        parser.color = False  # type: ignore
     for action in parser._actions:
         choices = getattr(action, "choices", None)
         if isinstance(choices, Mapping):
@@ -215,7 +219,11 @@ def _required(action: argparse.Action) -> bool:
 
 
 def _repeatable(action: argparse.Action) -> bool:
-    return action.__class__.__name__ in {"_AppendAction", "_AppendConstAction", "_CountAction"}
+    return action.__class__.__name__ in {
+        "_AppendAction",
+        "_AppendConstAction",
+        "_CountAction",
+    }
 
 
 def _render_default(action: argparse.Action, service: Service) -> str:
@@ -316,7 +324,15 @@ def _render_service(service: Service) -> str:
     )
     lines.extend(["", "## Global options", ""])
     lines.extend(_argument_table(parser, service))
-    lines.extend(["", "Global options must appear before the command name.", "", "## Commands", ""])
+    lines.extend(
+        [
+            "",
+            "Global options must appear before the command name.",
+            "",
+            "## Commands",
+            "",
+        ]
+    )
     lines.extend(
         f"- `{' '.join(path)}` — {_markdown(help_text) or 'No description.'}"
         for path, _child, help_text in commands
@@ -330,7 +346,10 @@ def _render_service(service: Service) -> str:
         usage = " ".join(child.format_usage().removeprefix("usage: ").split())
         lines.extend([f"Usage: `{usage}`", ""])
         lines.extend(_argument_table(child, service))
-        constraints = [*_mutual_exclusions(child), *service.constraints.get(command_name, ())]
+        constraints = [
+            *_mutual_exclusions(child),
+            *service.constraints.get(command_name, ()),
+        ]
         if constraints:
             lines.extend(["", "Constraints:", ""])
             lines.extend(f"- {constraint}" for constraint in constraints)

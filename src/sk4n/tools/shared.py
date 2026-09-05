@@ -5,6 +5,8 @@ import json
 import os
 import re
 import tempfile
+import threading
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from pathlib import Path
@@ -17,6 +19,35 @@ SESSION_DIR = sessions_dir()
 
 _FCNTL: Any | None = importlib.import_module("fcntl") if os.name == "posix" else None
 _MSVCRT: Any | None = importlib.import_module("msvcrt") if os.name == "nt" else None
+_FILE_THREAD_LOCKS = tuple(threading.RLock() for _ in range(64))
+
+
+@contextmanager
+def file_thread_lock(path: Path) -> Iterator[None]:
+    """Serialize in-process access to a path without retaining per-path locks."""
+    normalized_path = os.path.normcase(os.path.abspath(os.fspath(path)))
+    lock = _FILE_THREAD_LOCKS[hash(normalized_path) % len(_FILE_THREAD_LOCKS)]
+    with lock:
+        yield
+
+
+def _publish_temporary_file(temporary_path: Path, path: Path) -> None:
+    """Atomically replace *path*, tolerating transient Windows sharing violations."""
+    if os.name != "nt":
+        os.replace(temporary_path, path)
+        return
+
+    # MoveFileExW can fail with ERROR_ACCESS_DENIED when another process briefly
+    # has the destination open. Local thread access is serialized separately.
+    attempts = 10
+    for attempt in range(attempts):
+        try:
+            os.replace(temporary_path, path)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(min(0.001 * 2**attempt, 0.05))
 
 
 @contextmanager
@@ -33,7 +64,8 @@ def atomic_output_path(path: Path) -> Iterator[Path]:
     temporary_path = Path(temporary_name)
     try:
         yield temporary_path
-        os.replace(temporary_path, path)
+        with file_thread_lock(path):
+            _publish_temporary_file(temporary_path, path)
     finally:
         with suppress(OSError):
             temporary_path.unlink()

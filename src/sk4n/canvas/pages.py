@@ -90,9 +90,7 @@ def sync_pages(
         changed = True
         changed_items += 1
 
-    fingerprint_value = fingerprint(
-        [item.get("_canvas", {}).get("signature") for item in items]
-    )
+    fingerprint_value = fingerprint([item.get("_canvas", {}).get("signature") for item in items])
     if existing and existing.get("fingerprint") != fingerprint_value:
         changed = True
     payload = list_payload(

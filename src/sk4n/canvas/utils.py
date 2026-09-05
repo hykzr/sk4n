@@ -10,7 +10,7 @@ from typing import Any
 from urllib.parse import unquote
 
 from sk4n.paths import canvas_data_dir
-from sk4n.tools.shared import atomic_write_text
+from sk4n.tools.shared import atomic_write_text, file_thread_lock
 
 from .client import CanvasAPIError, CanvasClient
 
@@ -53,10 +53,11 @@ CANVAS_FILE_LINK = re.compile(
 
 
 def read_json(path: Path) -> dict[str, Any] | None:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
+    with file_thread_lock(path):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
     return data if isinstance(data, dict) else None
 
 
@@ -66,14 +67,15 @@ def json_text(data: dict[str, Any]) -> str:
 
 def write_json(path: Path, data: dict[str, Any]) -> bool:
     text = json_text(data)
-    if path.exists():
-        try:
-            if path.read_text(encoding="utf-8") == text:
-                return False
-        except OSError:
-            pass
-    path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_text(path, text)
+    with file_thread_lock(path):
+        if path.exists():
+            try:
+                if path.read_text(encoding="utf-8") == text:
+                    return False
+            except OSError:
+                pass
+        path.parent.mkdir(parents=True, exist_ok=True)
+        atomic_write_text(path, text)
     return True
 
 
@@ -92,14 +94,15 @@ def write_html(path: Path, title: str | None, body: str | None) -> bool:
         "</body>\n"
         "</html>\n"
     )
-    if path.exists():
-        try:
-            if path.read_text(encoding="utf-8") == html_text:
-                return False
-        except OSError:
-            pass
-    path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_text(path, html_text)
+    with file_thread_lock(path):
+        if path.exists():
+            try:
+                if path.read_text(encoding="utf-8") == html_text:
+                    return False
+            except OSError:
+                pass
+        path.parent.mkdir(parents=True, exist_ok=True)
+        atomic_write_text(path, html_text)
     return True
 
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.0] - Unreleased
+## 0.1.0
 
 - Initial public release.
 - Provide Canvas, NUSMods, TalentConnect, and shared `sk4n` command-line tools.

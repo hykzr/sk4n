@@ -1,3 +1,4 @@
+set windows-shell := ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-NoLogo", "-Command"]
 default: 
     just --list
 # Run tests using pytest

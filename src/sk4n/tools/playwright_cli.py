@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -109,18 +110,22 @@ def open_authenticated_session(
             raise PlaywrightCLIError(
                 f"Could not open @playwright/cli session {session_id!r}: {_failure_message(result)}"
             )
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
+        descriptor, state_name = tempfile.mkstemp(
             prefix="sk4n-playwright-state-",
             suffix=".json",
-        ) as state_file:
-            json.dump(state, state_file, ensure_ascii=False)
-            state_file.flush()
+        )
+        state_path = Path(state_name)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as state_file:
+                json.dump(state, state_file, ensure_ascii=False)
+                state_file.flush()
             result = _run(
                 executable,
-                [f"-s={session_id}", "state-load", str(Path(state_file.name).resolve())],
+                [f"-s={session_id}", "state-load", str(state_path.resolve())],
             )
+        finally:
+            with suppress(OSError):
+                state_path.unlink()
         if result.returncode:
             raise PlaywrightCLIError(
                 f"Could not inject authentication into @playwright/cli session "

@@ -174,7 +174,7 @@ sk4n paths
 
 Canvas and TalentConnect save browser session information so you do not need to
 sign in for every command. Treat those session files like login credentials:
-do not share them, upload them.
+do not share or upload them.
 
 To forget a saved login without signing your other browsers out of NUS SSO:
 
