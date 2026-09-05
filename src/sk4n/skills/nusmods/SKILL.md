@@ -11,7 +11,7 @@ Use the installed `nusmods` command for public course reads and local timetable 
 
 1. Verify `nusmods` exists on `PATH`. If it is missing, tell the user to install `sk4n`; do not clone or install software silently.
 2. Before constructing or running any `nusmods` CLI command, read [references/commands.md](references/commands.md), including for seemingly familiar commands. Treat it as the authoritative command grammar; do not infer subcommands, options, argument placement, or defaults.
-3. Distinguish public network reads from local timetable mutations. High-level `nusmods` commands are the preferred interface; use `curl` or `playwright-cli` yourself only when those commands cannot answer a public-data question.
+3. Distinguish public network reads from local timetable mutations. High-level `nusmods` commands are the preferred interface; use `curl` or `playwright-cli` yourself only when those commands cannot answer a public-data question. Consult `playwright-cli --help` first. If the skill for it is ALREADY installed you can refer to that as well.
 4. Use human output for a simple check, `--format json` or `jsonl` for parsing, and `--format plain` for line-oriented shell filtering. Expect JSON formats to contain complete records and potentially be large.
 5. Inspect the current schedule before `schedule import`, `add`, `edit`, or `delete` when the request does not already identify the affected semester, course, or slots.
 6. Treat `schedule import` as replacement of one semester. Surface that effect before executing an ambiguous import request.

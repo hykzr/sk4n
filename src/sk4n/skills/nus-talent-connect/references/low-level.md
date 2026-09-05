@@ -32,7 +32,7 @@ playwright-cli -s=talent-connect-<short-task-id> close
 
 Use `--headed` on the bootstrap command only when visible interaction is necessary. Put the close command in cleanup logic so it runs after success or failure.
 
-For additional live commands, consult `playwright-cli --help` rather than relying on a frozen command list. The upstream skill can be installed with `playwright-cli install --skills`, but that installation may support only Claude and project scope; the CLI help remains authoritative.
+For additional live commands, consult `playwright-cli --help`. If the skill for it is ALREADY installed you can refer to that as well.
 
 ## Troubleshooting
 

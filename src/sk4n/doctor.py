@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import importlib.util
 import json
 import os
@@ -27,8 +26,6 @@ from .paths import (
 from .skill_install import (
     AGENTS,
     NUS_SKILLS,
-    find_project_root,
-    known_skill_roots,
     skill_status_report,
 )
 
@@ -376,20 +373,6 @@ def _playwright_cli_check() -> Check:
     )
 
 
-def directory_hash(path: Path) -> str:
-    digest = hashlib.sha256()
-    for item in sorted(
-        (item for item in path.rglob("*") if item.is_file()), key=lambda p: p.as_posix()
-    ):
-        relative = item.relative_to(path).as_posix().encode()
-        digest.update(len(relative).to_bytes(8, "big"))
-        digest.update(relative)
-        content = item.read_bytes()
-        digest.update(len(content).to_bytes(8, "big"))
-        digest.update(content)
-    return digest.hexdigest()
-
-
 def skills_check() -> Check:
     report = skill_status_report(agents=AGENTS, scope="all")
     known = report["known_installations"]
@@ -415,53 +398,6 @@ def skills_check() -> Check:
         summary,
         report,
         remediation,
-    )
-
-
-def _playwright_skill_check() -> Check:
-    roots = known_skill_roots(project_root=find_project_root())
-    found: list[dict[str, Any]] = []
-    seen: set[Path] = set()
-    for root in roots:
-        root_path = root.root
-        if not root_path.is_dir():
-            continue
-        for path in sorted(root_path.glob("*playwright*")):
-            resolved = path.resolve()
-            if not path.is_dir() or resolved in seen:
-                continue
-            seen.add(resolved)
-            skill_file = path / "SKILL.md"
-            detected_version = None
-            if skill_file.is_file():
-                for line in skill_file.read_text(encoding="utf-8", errors="replace").splitlines()[
-                    :30
-                ]:
-                    if line.lower().startswith("version:"):
-                        detected_version = line.split(":", 1)[1].strip().strip("\"'") or None
-                        break
-            found.append(
-                {
-                    "scope": root.scope,
-                    "agents": list(root.agents),
-                    "path": str(path),
-                    "version": detected_version,
-                    "sha256": directory_hash(path),
-                }
-            )
-    if found:
-        return Check(
-            "playwright_cli_skill",
-            "ok",
-            f"Detected {len(found)} upstream Playwright skill copy/copies.",
-            {"installations": found},
-        )
-    return Check(
-        "playwright_cli_skill",
-        "warning",
-        "No upstream Playwright CLI skill was detected in known skill roots.",
-        {"installations": []},
-        "Optional: run `playwright-cli install --skills`.",
     )
 
 
@@ -543,7 +479,6 @@ def build_doctor_report(*, browser_smoke: bool = False) -> dict[str, Any]:
         _safe_check("node", _node_check),
         _safe_check("playwright_cli", _playwright_cli_check),
         _safe_check("nus_skills", skills_check),
-        _safe_check("playwright_cli_skill", _playwright_skill_check),
     ]
     if browser_smoke:
         checks.append(_safe_check("browser_smoke", browser_smoke_check))

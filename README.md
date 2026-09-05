@@ -60,13 +60,32 @@ it up once after installing:
 sk4n browser install chromium
 ```
 
-sk4n also comes with a `doctor` command to help you check if everything is correctly installed:
+NUSMods does not need this browser or an NUS login.
+
+### One extra setup step for AI assistants
+
+Sometimes an AI assistant needs to look at a Canvas or TalentConnect page that
+the regular commands cannot fully read. For those cases, sk4n uses
+`playwright-cli`, a browser tool made for coding agents.
+
+`playwright-cli` needs Node.js 18 or newer. After
+[installing Node.js](https://nodejs.org/en/download), run:
+
+```bash
+npm install -g @playwright/cli@latest
+playwright-cli install-browser
+```
+
+This is separate from the Chromium setup above: that browser handles your NUS
+login, while this one lets your AI assistant inspect a signed-in page when
+needed.
+
+sk4n also comes with a `doctor` command to help you check if everything is
+correctly installed:
 
 ```bash
 sk4n doctor
 ```
-
-NUSMods does not need this browser or an NUS login.
 
 ## Use it with an AI assistant
 
