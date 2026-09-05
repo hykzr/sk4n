@@ -9,7 +9,7 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
-from agent_for_nus.errors import ExitCode
+from sk4n.errors import ExitCode
 
 from .shared import load_session
 
@@ -112,7 +112,7 @@ def open_authenticated_session(
         with tempfile.NamedTemporaryFile(
             mode="w",
             encoding="utf-8",
-            prefix="agent-for-nus-playwright-state-",
+            prefix="sk4n-playwright-state-",
             suffix=".json",
         ) as state_file:
             json.dump(state, state_file, ensure_ascii=False)

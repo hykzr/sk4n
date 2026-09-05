@@ -10,7 +10,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from agent_for_nus.errors import ExitCode
+from sk4n.errors import ExitCode
 
 DEFAULT_API_BASE_URL = "https://nus-talentconnect.server.kinobi.asia"
 DEFAULT_APP_BASE_URL = "https://nus-talentconnect.app.kinobi.asia"

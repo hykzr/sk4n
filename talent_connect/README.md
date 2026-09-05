@@ -17,8 +17,8 @@ uv run python -m talent_connect --help
 ```
 
 The default SQLite database is `talent-connect/talent_connect.sqlite3` below
-the platform-specific Agent for NUS user-data root. Use `--data-path PATH` for
-a command-specific override or `AGENT_FOR_NUS_HOME` to relocate all persistent
+the platform-specific SkillKit for NUS user-data root. Use `--data-path PATH` for
+a command-specific override or `SK4N_HOME` to relocate all persistent
 application data.
 
 ## Authentication

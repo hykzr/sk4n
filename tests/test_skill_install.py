@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from agent_for_nus.skill_install import (
+from sk4n.skill_install import (
     MANIFEST_NAME,
     NUS_SKILLS,
     bundled_skill_files,

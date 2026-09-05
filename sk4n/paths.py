@@ -6,9 +6,9 @@ from pathlib import Path
 
 from platformdirs import user_data_path
 
-APP_NAME = "agent-for-nus"
-HOME_ENV_VAR = "AGENT_FOR_NUS_HOME"
-SESSION_DIR_ENV_VAR = "AGENT_FOR_NUS_SESSION_DIR"
+APP_NAME = "sk4n"
+HOME_ENV_VAR = "SK4N_HOME"
+SESSION_DIR_ENV_VAR = "SK4N_SESSION_DIR"
 
 
 def configured_path(env_var: str) -> Path | None:

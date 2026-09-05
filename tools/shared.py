@@ -10,7 +10,7 @@ from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import Any
 
-from agent_for_nus.paths import ensure_private_directory, sessions_dir
+from sk4n.paths import ensure_private_directory, sessions_dir
 
 SESSION_DIR = sessions_dir()
 """Default directory for persisted session data (cookies, localStorage, etc.)."""

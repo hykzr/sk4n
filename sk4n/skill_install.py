@@ -15,8 +15,8 @@ from typing import Any
 NUS_SKILLS = ("nus-canvas", "nusmods", "nus-talent-connect")
 AGENTS = ("codex", "copilot", "claude", "antigravity")
 SCOPES = ("user", "project")
-MANIFEST_NAME = ".agent-for-nus-managed.json"
-MANIFEST_MANAGER = "agent-for-nus"
+MANIFEST_NAME = ".sk4n-managed.json"
+MANIFEST_MANAGER = "sk4n"
 MANIFEST_SCHEMA_VERSION = 1
 
 
@@ -29,7 +29,7 @@ class SkillTarget:
 
 def package_version() -> str:
     try:
-        return version("agent-for-nus")
+        return version("sk4n")
     except PackageNotFoundError:
         return "unknown"
 
@@ -160,7 +160,7 @@ def _walk_resource(node: Any, prefix: PurePosixPath | None = None) -> Iterable[t
 def bundled_skill_files(skill: str) -> dict[str, bytes]:
     if skill not in NUS_SKILLS:
         raise ValueError(f"Unknown bundled skill: {skill}")
-    root = resources.files("agent_for_nus").joinpath("skills").joinpath(skill)
+    root = resources.files("sk4n").joinpath("skills").joinpath(skill)
     if not root.is_dir():
         raise FileNotFoundError(f"Bundled skill resource is missing: {skill}")
     files = dict(_walk_resource(root))
@@ -230,7 +230,7 @@ def installation_status(
     base = {
         "skill": skill,
         "path": str(destination),
-        "source": f"package:agent_for_nus/skills/{skill}",
+        "source": f"package:sk4n/skills/{skill}",
         "source_sha256": source_hash,
     }
     if destination.is_symlink() or not destination.is_dir():
@@ -396,7 +396,7 @@ def _install_one(
             **common,
             "action": "error",
             "changed": False,
-            "error": "Destination exists but is not managed by agent-for-nus; rerun with --force to take it over.",
+            "error": "Destination exists but is not managed by sk4n; rerun with --force to take it over.",
         }
     action = {
         "missing": "create",
@@ -463,7 +463,7 @@ def _uninstall_one(target: SkillTarget, skill: str, *, dry_run: bool) -> dict[st
             **common,
             "action": "error",
             "changed": False,
-            "error": "Destination is not managed by agent-for-nus and was not removed.",
+            "error": "Destination is not managed by sk4n and was not removed.",
         }
     if dry_run:
         return {**common, "action": "remove-managed-files", "changed": False}

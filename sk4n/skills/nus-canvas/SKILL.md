@@ -9,9 +9,9 @@ Use the installed `canvas` command for deterministic, authenticated NUS Canvas r
 
 ## Workflow
 
-1. Verify `canvas` and `agent-for-nus` exist on `PATH`. If either is missing, tell the user to install `agent-for-nus`; do not clone or install software silently.
+1. Verify `canvas` and `sk4n` exist on `PATH`. If either is missing, tell the user to install `sk4n`; do not clone or install software silently.
 2. Before constructing or running any `canvas` CLI command, read [references/commands.md](references/commands.md), including for seemingly familiar commands. Treat it as the authoritative command grammar; do not infer subcommands, options, argument placement, or defaults.
-3. Run `canvas auth status` before any network-backed Canvas request. If authentication is required, ask before running `canvas auth login`, because login opens an interactive NUS SSO browser. `agent-for-nus calendar` uses public NUSMods data and does not require Canvas authentication.
+3. Run `canvas auth status` before any network-backed Canvas request. If authentication is required, ask before running `canvas auth login`, because login opens an interactive NUS SSO browser. `sk4n calendar` uses public NUSMods data and does not require Canvas authentication.
 4. Prefer the narrowest high-level command. Refresh one course or content area instead of running bulk `canvas sync` unless the user asks for a full sync.
 5. Use human output for a simple check, `--format json` or `jsonl` for parsing, and `--format plain` for line-oriented shell filtering. JSON and JSONL omit internal `_canvas*` metadata but can still be large. For a large result, redirect JSON to a file and inspect only the required fields with `jq` instead of loading the entire response into context.
 6. Use `canvas api` only when a high-level command is insufficient. Require explicit approval immediately before any request that can change remote state.
@@ -21,7 +21,7 @@ Use the installed `canvas` command for deterministic, authenticated NUS Canvas r
 ### Current activity tasks
 
 1. Use `canvas calendar-events` for Canvas calendar entries, `canvas todo` for the current user's To-Do items, and `canvas upcoming` for upcoming Canvas events before considering `canvas api`. Note that those events are managed by canvas and do not include all the accurate timings. Course schedules, exams are usually not included in the Canvas calendar, To-Do, or upcoming events. Deadlines embedded in course announcements or files are also not included. Therefore, always cross-check against the course announcements and files for accurate deadlines.
-2. Use `agent-for-nus calendar --date YYYY-MM-DD` to map a date to its NUS semester, instructional week or non-instructional status, and public-holiday status. This command reuses the public NUSMods academic calendar and accepts `--no-refresh` for cached/offline lookup.
+2. Use `sk4n calendar --date YYYY-MM-DD` to map a date to its NUS semester, instructional week or non-instructional status, and public-holiday status. This command reuses the public NUSMods academic calendar and accepts `--no-refresh` for cached/offline lookup.
 3. Cross-check structured dates against the course term and the shared academic calendar. Treat dates outside the active term, inconsistent week labels, and copied old-semester content as possible staff/content-entry errors; state the discrepancy and do not silently promote it to a current deadline.
 
 ### Course related tasks

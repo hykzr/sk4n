@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from agent_for_nus.paths import talent_connect_data_dir, talent_connect_database_path
+from sk4n.paths import talent_connect_data_dir, talent_connect_database_path
 
 from .client import utc_timestamp
 

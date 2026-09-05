@@ -14,8 +14,8 @@ from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from agent_for_nus.academic_calendar import normalize_academic_year
-from agent_for_nus.paths import nusmods_data_dir
+from sk4n.academic_calendar import normalize_academic_year
+from sk4n.paths import nusmods_data_dir
 
 DEFAULT_API_BASE_URL = "https://api.nusmods.com/v2"
 DEFAULT_DISQUS_URL = "https://disqus.com/embed/comments/"
@@ -63,7 +63,7 @@ class NUSModsClient:
         self.session = session or requests.Session()
         self.session.headers.setdefault(
             "User-Agent",
-            "agent-for-nus-nusmods-cli/1.0 (+https://nusmods.com)",
+            "sk4n-nusmods-cli/1.0 (+https://nusmods.com)",
         )
         self.session.headers.setdefault("Accept", "application/json, text/html;q=0.9")
         retry = Retry(

@@ -16,7 +16,7 @@ Search public NUSMods course data and manage a local timetable.
 
 | Variable | Effect |
 | --- | --- |
-| `AGENT_FOR_NUS_HOME` | Override the stable data root used to derive the service's default data path. |
+| `SK4N_HOME` | Override the stable data root used to derive the service's default data path. |
 | `NUSMODS_ACADEMIC_YEAR` | Set the default course-data academic year. |
 | `NUSMODS_API_BASE_URL` | Set the public NUSMods API origin. |
 | `NUSMODS_TIMEOUT` | Set the default HTTP timeout in seconds. |
@@ -27,7 +27,7 @@ Search public NUSMods course data and manage a local timetable.
 | Argument | Required | Repeatable | Default | Choices | Description |
 | --- | --- | --- | --- | --- | --- |
 | `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `--data-path DATA_PATH` | no | no | `<user-data>/agent-for-nus/nusmods` | — | Schedule and API cache directory. Default: <user-data>/agent-for-nus/nusmods |
+| `--data-path DATA_PATH` | no | no | `<user-data>/sk4n/nusmods` | — | Schedule and API cache directory. Default: <user-data>/sk4n/nusmods |
 | `--academic-year YYYY/YYYY` | no | no | `current NUSMods academic year` | — | Course-data academic year. Default: current NUSMods year. |
 | `--api-base-url API_BASE_URL` | no | no | `https://api.nusmods.com/v2` | — | Advanced public NUSMods API origin. |
 | `--timeout TIMEOUT` | no | no | `30.0` | — | HTTP timeout in seconds. Default: 30. |

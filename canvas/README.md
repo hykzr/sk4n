@@ -10,8 +10,8 @@ uv run canvas --help
 `uv run python -m canvas` is an equivalent development entry point.
 
 The cache defaults to the `canvas/` directory below the platform-specific
-Agent for NUS user-data root. Use `--data-path PATH` for a command-specific
-override or `AGENT_FOR_NUS_HOME` to relocate all persistent application data.
+SkillKit for NUS user-data root. Use `--data-path PATH` for a command-specific
+override or `SK4N_HOME` to relocate all persistent application data.
 
 ## Authentication
 
@@ -37,7 +37,7 @@ uv run canvas list -s 2526S1
 uv run canvas list -s ay2526s1
 uv run canvas list -s Y3S1
 uv run canvas list -s Non-Academic
-uv run agent-for-nus calendar --date 2026-08-14
+uv run sk4n calendar --date 2026-08-14
 uv run canvas course CG2028
 uv run canvas course CS1010 -s 2425S1
 uv run canvas course CG2028 home
@@ -48,7 +48,7 @@ Course listings include an availability status. Courses that disappear from the 
 Canvas catalog are retained as `retired`; sync skips them, and course commands use their archived
 cache without attempting to fetch inaccessible content.
 
-`agent-for-nus calendar` is a shared command rather than a Canvas command. It
+`sk4n calendar` is a shared command rather than a Canvas command. It
 maps a Singapore date to its NUS academic year, semester, teaching week, week
 range, and public-holiday status using the public NUSMods academic calendar. It
 does not require Canvas authentication. Use `--refresh` to bypass the NUSMods
@@ -86,7 +86,7 @@ uv run canvas upcoming
 ```
 
 All three support `--format json|jsonl|plain`. Use `calendar-events` for the
-Canvas calendar; use the separate shared `agent-for-nus calendar` command for
+Canvas calendar; use the separate shared `sk4n calendar` command for
 NUS instructional-week and holiday mapping.
 
 ## Course content

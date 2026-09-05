@@ -8,8 +8,8 @@ import zipfile
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CONSOLE_SCRIPTS = ("agent-for-nus", "canvas", "nusmods", "talent-connect")
-WHEEL_PACKAGES = ("agent_for_nus", "canvas", "nusmods", "talent_connect", "tools")
+CONSOLE_SCRIPTS = ("sk4n", "canvas", "nusmods", "talent-connect")
+WHEEL_PACKAGES = ("sk4n", "canvas", "nusmods", "talent_connect", "tools")
 WHEEL_SKILLS = {
     "nus-canvas": (
         "SKILL.md",
@@ -41,7 +41,7 @@ def tool_environment(tmp_path: Path, name: str) -> tuple[dict[str, str], Path]:
     env = os.environ.copy()
     env["UV_TOOL_DIR"] = str(tmp_path / name / "tools")
     env["UV_TOOL_BIN_DIR"] = str(bin_dir)
-    env["AGENT_FOR_NUS_HOME"] = str(tmp_path / "user-data")
+    env["SK4N_HOME"] = str(tmp_path / "user-data")
     return env, bin_dir
 
 
@@ -53,8 +53,8 @@ def test_wheel_and_source_tool_installs_run_outside_checkout(tmp_path: Path) -> 
         ["uv", "build", "--wheel", "--sdist", "--out-dir", str(wheel_dir)],
         cwd=PROJECT_ROOT,
     )
-    wheel = next(wheel_dir.glob("agent_for_nus-*.whl"))
-    source_archive = next(wheel_dir.glob("agent_for_nus-*.tar.gz"))
+    wheel = next(wheel_dir.glob("sk4n-*.whl"))
+    source_archive = next(wheel_dir.glob("sk4n-*.tar.gz"))
 
     with zipfile.ZipFile(wheel) as archive:
         members = archive.namelist()
@@ -62,7 +62,7 @@ def test_wheel_and_source_tool_installs_run_outside_checkout(tmp_path: Path) -> 
         assert any(member.startswith(f"{package}/") for member in members)
     for skill, files in WHEEL_SKILLS.items():
         for filename in files:
-            assert f"agent_for_nus/skills/{skill}/{filename}" in members
+            assert f"sk4n/skills/{skill}/{filename}" in members
     assert not any(member.startswith(("data/", "sessions/")) for member in members)
 
     git_extract_dir = tmp_path / "git-source"
@@ -97,7 +97,7 @@ def test_wheel_and_source_tool_installs_run_outside_checkout(tmp_path: Path) -> 
         ("wheel", [str(wheel)]),
         ("snapshot", [str(PROJECT_ROOT)]),
         ("editable", ["--editable", str(PROJECT_ROOT)]),
-        ("git", [f"agent-for-nus @ git+file://{git_source}@{commit}"]),
+        ("git", [f"sk4n @ git+file://{git_source}@{commit}"]),
     )
     for name, source_arguments in installs:
         env, bin_dir = tool_environment(tmp_path, name)
@@ -110,7 +110,7 @@ def test_wheel_and_source_tool_installs_run_outside_checkout(tmp_path: Path) -> 
     (skill_project / ".git").mkdir()
     run(
         [
-            str(wheel_bin / "agent-for-nus"),
+            str(wheel_bin / "sk4n"),
             "skills",
             "install",
             "--agents",
@@ -125,7 +125,7 @@ def test_wheel_and_source_tool_installs_run_outside_checkout(tmp_path: Path) -> 
     )
     status = subprocess.run(
         [
-            str(wheel_bin / "agent-for-nus"),
+            str(wheel_bin / "sk4n"),
             "skills",
             "status",
             "--agents",
@@ -150,7 +150,7 @@ def test_wheel_and_source_tool_installs_run_outside_checkout(tmp_path: Path) -> 
         assert (skill_project / ".agents" / "skills" / skill / "SKILL.md").is_file()
     run(
         [
-            str(wheel_bin / "agent-for-nus"),
+            str(wheel_bin / "sk4n"),
             "skills",
             "uninstall",
             "--agents",

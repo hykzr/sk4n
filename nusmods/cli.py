@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from agent_for_nus.paths import nusmods_data_dir
+from sk4n.paths import nusmods_data_dir
 
 from .client import (
     DEFAULT_API_BASE_URL,

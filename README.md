@@ -1,7 +1,7 @@
-# Agent for NUS
+# SkillKit for NUS
 
-A collection of small, deterministic tools for accessing NUS services and
-keeping useful data available locally.
+SkillKit for NUS bundles deterministic command-line tools and reusable agent
+skills for accessing NUS services and keeping useful data available locally.
 
 ## Applications
 
@@ -12,15 +12,11 @@ keeping useful data available locally.
 | `talent_connect/` | Search, fetch, and persist NUS TalentConnect jobs and companies from Kinobi. | [TalentConnect CLI](talent_connect/README.md) |
 
 Shared browser, request, and session helpers live under `tools/`. Shared NUS
-academic-calendar logic lives under `agent_for_nus/` and is exposed as:
+academic-calendar logic lives under `sk4n/` and is exposed as:
 
 ```bash
-agent-for-nus calendar --date 2026-08-14
+sk4n calendar
 ```
-
-This public NUSMods-backed command maps dates to academic years, instructional
-weeks, week ranges, and holidays without requiring Canvas authentication.
-Application-specific code should remain inside its application package.
 
 ## Install
 
@@ -42,7 +38,7 @@ uv tool install --editable .
 After installation, all commands work from any directory without the checkout:
 
 ```bash
-agent-for-nus --help
+sk4n --help
 canvas --help
 nusmods --help
 talent-connect --help
@@ -60,9 +56,9 @@ The package bundles skills for Canvas, NUSMods, and TalentConnect. Install,
 inspect, or remove the managed copies with:
 
 ```bash
-agent-for-nus skills install --agents all --scope user
-agent-for-nus skills status --agents all --scope all
-agent-for-nus skills uninstall --agents antigravity --scope user
+sk4n skills install --agents all --scope user
+sk4n skills status --agents all --scope all
+sk4n skills uninstall --agents antigravity --scope user
 ```
 
 Supported agents are Codex, GitHub Copilot, Claude, and Google Antigravity.
@@ -73,18 +69,18 @@ target only Antigravity, or combine agent names in a comma-separated list.
 ## Data locations
 
 Mutable data is stored in the operating system's user-data directory under
-`agent-for-nus/`, never in the checkout or installed package:
+`sk4n/`, never in the checkout or installed package:
 
 ```text
-agent-for-nus/
+sk4n/
 ├── sessions/          # Canvas and TalentConnect browser state
 ├── canvas/            # Canvas cache and downloaded content
 ├── nusmods/           # timetable and API cache
 └── talent-connect/    # SQLite database
 ```
 
-Set `AGENT_FOR_NUS_HOME` to override the entire root. Set
-`AGENT_FOR_NUS_SESSION_DIR` only when tests or account recovery need a separate
+Set `SK4N_HOME` to override the entire root. Set
+`SK4N_SESSION_DIR` only when tests or account recovery need a separate
 session location. The session directory and files contain authentication
 material and are restricted to the current user where the OS supports POSIX
 permissions.

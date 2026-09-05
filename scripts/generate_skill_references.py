@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import cast
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-SKILLS_ROOT = PROJECT_ROOT / "agent_for_nus" / "skills"
+SKILLS_ROOT = PROJECT_ROOT / "sk4n" / "skills"
 
 
 @dataclass(frozen=True)
@@ -27,11 +27,11 @@ class Service:
 
 
 COMMON_HOME = (
-    "AGENT_FOR_NUS_HOME",
+    "SK4N_HOME",
     "Override the stable data root used to derive the service's default data path.",
 )
 COMMON_SESSIONS = (
-    "AGENT_FOR_NUS_SESSION_DIR",
+    "SK4N_SESSION_DIR",
     "Override the private directory containing saved browser authentication state.",
 )
 
@@ -50,7 +50,7 @@ SERVICES = (
                 "Set the default maximum wait for interactive login detection.",
             ),
         ),
-        default_labels={"data_path": "<user-data>/agent-for-nus/canvas"},
+        default_labels={"data_path": "<user-data>/sk4n/canvas"},
         hidden_help={
             "site_name": "Advanced saved-session namespace.",
             "login_wait_seconds": "Advanced default login-detection timeout in seconds.",
@@ -73,7 +73,7 @@ SERVICES = (
             ("NUSMODS_CACHE_TTL", "Set the default API cache lifetime in seconds."),
         ),
         default_labels={
-            "data_path": "<user-data>/agent-for-nus/nusmods",
+            "data_path": "<user-data>/sk4n/nusmods",
             "academic_year": "current NUSMods academic year",
         },
         hidden_help={"api_base_url": "Advanced public NUSMods API origin."},
@@ -99,7 +99,7 @@ SERVICES = (
             ("TALENT_CONNECT_TIMEOUT", "Set the default HTTP timeout in seconds."),
         ),
         default_labels={
-            "data_path": "<user-data>/agent-for-nus/talent-connect/talent_connect.sqlite3"
+            "data_path": "<user-data>/sk4n/talent-connect/talent_connect.sqlite3"
         },
         hidden_help={
             "api_base_url": "Advanced public Kinobi API origin.",

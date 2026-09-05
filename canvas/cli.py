@@ -14,8 +14,8 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from agent_for_nus.errors import exit_code_for_error
-from agent_for_nus.paths import canvas_data_dir
+from sk4n.errors import exit_code_for_error
+from sk4n.paths import canvas_data_dir
 from tools.playwright_cli import (
     ensure_session_available,
     open_authenticated_session,

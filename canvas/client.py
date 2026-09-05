@@ -11,7 +11,7 @@ from urllib.parse import quote, urljoin, urlsplit
 
 import requests
 
-from agent_for_nus.errors import ExitCode
+from sk4n.errors import ExitCode
 from tools import RequestTools
 from tools.shared import atomic_output_path
 

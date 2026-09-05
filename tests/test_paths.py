@@ -10,7 +10,7 @@ import pytest
 import canvas.cli as canvas_cli
 import nusmods.cli as nusmods_cli
 import talent_connect.cli as talent_connect_cli
-from agent_for_nus import paths
+from sk4n import paths
 from tools import shared
 
 

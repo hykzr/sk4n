@@ -9,7 +9,7 @@ Use the installed `talent-connect` command for NUS TalentConnect/Kinobi reads an
 
 ## Workflow
 
-1. Verify `talent-connect` exists on `PATH`. If it is missing, tell the user to install `agent-for-nus`; do not clone or install software silently.
+1. Verify `talent-connect` exists on `PATH`. If it is missing, tell the user to install `sk4n`; do not clone or install software silently.
 2. Before constructing or running any `talent-connect` CLI command, read [references/commands.md](references/commands.md), including for seemingly familiar commands. Treat it as the authoritative command grammar; do not infer subcommands, options, argument placement, filters, or defaults.
 3. For personalized filters or authenticated data, run `talent-connect auth status` first. Ask before `talent-connect auth login`, because login opens an interactive NUS SSO browser. Use `--no-login` only for explicitly public searches.
 4. Prefer high-level `fetch`, `search`, `job`, and `company` commands. Use `--cached` or `--no-refresh` when the user explicitly requests local/offline results, or in subsequent and repeated queries.

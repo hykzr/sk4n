@@ -16,8 +16,8 @@ Fetch and persist NUS TalentConnect jobs from Kinobi.
 
 | Variable | Effect |
 | --- | --- |
-| `AGENT_FOR_NUS_HOME` | Override the stable data root used to derive the service's default data path. |
-| `AGENT_FOR_NUS_SESSION_DIR` | Override the private directory containing saved browser authentication state. |
+| `SK4N_HOME` | Override the stable data root used to derive the service's default data path. |
+| `SK4N_SESSION_DIR` | Override the private directory containing saved browser authentication state. |
 | `TALENT_CONNECT_API_BASE_URL` | Set the public Kinobi API origin used by --api-base-url. |
 | `TALENT_CONNECT_APP_BASE_URL` | Set the authenticated TalentConnect application origin used by --app-base-url. |
 | `TALENT_CONNECT_SITE_NAME` | Set the saved-session namespace used by --site-name. |
@@ -28,7 +28,7 @@ Fetch and persist NUS TalentConnect jobs from Kinobi.
 | Argument | Required | Repeatable | Default | Choices | Description |
 | --- | --- | --- | --- | --- | --- |
 | `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `--data-path DATA_PATH` | no | no | `<user-data>/agent-for-nus/talent-connect/talent_connect.sqlite3` | — | SQLite file or containing directory. Default: <user-data>/agent-for-nus/talent-connect/talent_connect.sqlite3 |
+| `--data-path DATA_PATH` | no | no | `<user-data>/sk4n/talent-connect/talent_connect.sqlite3` | — | SQLite file or containing directory. Default: <user-data>/sk4n/talent-connect/talent_connect.sqlite3 |
 | `--api-base-url API_BASE_URL` | no | no | `https://nus-talentconnect.server.kinobi.asia` | — | Advanced public Kinobi API origin. |
 | `--app-base-url APP_BASE_URL` | no | no | `https://nus-talentconnect.app.kinobi.asia` | — | Advanced authenticated TalentConnect application origin. |
 | `--site-name SITE_NAME` | no | no | `nus_talent_connect` | — | Advanced saved-session namespace. |

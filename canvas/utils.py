@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
 
-from agent_for_nus.paths import canvas_data_dir
+from sk4n.paths import canvas_data_dir
 from tools.shared import atomic_write_text
 
 try:

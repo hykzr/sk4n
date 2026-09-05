@@ -88,8 +88,8 @@ def _add_project_root_argument(parser: argparse.ArgumentParser) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="agent-for-nus",
-        description="Manage the local Agent for NUS command-line tools.",
+        prog="sk4n",
+        description="Manage SkillKit for NUS tools and agent skills.",
     )
     parser.add_argument(
         "--version", "-v", action="version", version=f"%(prog)s {package_version()}"
@@ -183,7 +183,7 @@ def build_parser() -> argparse.ArgumentParser:
     skill_status_parser.add_argument("--format", choices=OUTPUT_FORMATS, default="human")
 
     skill_uninstall_parser = skills_commands.add_parser(
-        "uninstall", help="Remove only files managed by agent-for-nus."
+        "uninstall", help="Remove only files managed by sk4n."
     )
     _add_agent_argument(skill_uninstall_parser)
     _add_skill_argument(skill_uninstall_parser)

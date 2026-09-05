@@ -7,11 +7,11 @@ from types import SimpleNamespace
 
 import pytest
 
-import agent_for_nus.cli as management_cli
-import agent_for_nus.doctor as doctor
+import sk4n.cli as management_cli
+import sk4n.doctor as doctor
 import talent_connect.cli as talent_cli
-from agent_for_nus.errors import ExitCode, exit_code_for_error
 from canvas.client import CanvasAuthError, CanvasHTTPError, CanvasTransportError
+from sk4n.errors import ExitCode, exit_code_for_error
 from talent_connect.client import KinobiAuthError, KinobiHTTPError, KinobiTransportError
 
 

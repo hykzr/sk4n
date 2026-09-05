@@ -1,5 +1,5 @@
 def main():
-    print("Hello from agent-for-nus!")
+    print("SkillKit for NUS")
 
 
 if __name__ == "__main__":

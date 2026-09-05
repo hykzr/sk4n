@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agent-for-nus"
+name = "sk4n"
 version = "0.1.0"
-description = "Local command-line tools for NUS Canvas, NUSMods, and TalentConnect"
+description = "Command-line tools and agent skills for NUS services"
 readme = "README.md"
 requires-python = ">=3.11"
 classifiers = [
@@ -27,18 +27,18 @@ dependencies = [
 ]
 
 [project.scripts]
-agent-for-nus = "agent_for_nus.cli:main"
+sk4n = "sk4n.cli:main"
 canvas = "canvas.cli:main"
 nusmods = "nusmods.cli:main"
 talent-connect = "talent_connect.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["agent_for_nus", "canvas", "nusmods", "talent_connect", "tools"]
+packages = ["sk4n", "canvas", "nusmods", "talent_connect", "tools"]
 
-# Markdown and metadata stored below agent_for_nus/skills are package data. The
+# Markdown and metadata stored below sk4n/skills are package data. The
 # skill directories themselves are introduced in Phase 2.
 [tool.hatch.build]
-artifacts = ["/agent_for_nus/skills/**"]
+artifacts = ["/sk4n/skills/**"]
 
 [dependency-groups]
 dev = ["pytest>=9.1.1"]

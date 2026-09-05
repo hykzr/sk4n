@@ -16,8 +16,8 @@ Query and incrementally cache NUS Canvas data.
 
 | Variable | Effect |
 | --- | --- |
-| `AGENT_FOR_NUS_HOME` | Override the stable data root used to derive the service's default data path. |
-| `AGENT_FOR_NUS_SESSION_DIR` | Override the private directory containing saved browser authentication state. |
+| `SK4N_HOME` | Override the stable data root used to derive the service's default data path. |
+| `SK4N_SESSION_DIR` | Override the private directory containing saved browser authentication state. |
 | `CANVAS_BASE_URL` | Set the Canvas origin used by the global --base-url option. |
 | `CANVAS_SITE_NAME` | Set the saved-session namespace used by --site-name. |
 | `CANVAS_TIMEOUT` | Set the default HTTP timeout in seconds. |
@@ -30,7 +30,7 @@ Query and incrementally cache NUS Canvas data.
 | `-h, --help` | no | no | `—` | — | show this help message and exit |
 | `--base-url BASE_URL` | no | no | `https://canvas.nus.edu.sg` | — | Canvas base URL. Default: https://canvas.nus.edu.sg |
 | `--site-name SITE_NAME` | no | no | `nus_canvas` | — | Advanced saved-session namespace. |
-| `--data-path DATA_PATH` | no | no | `<user-data>/agent-for-nus/canvas` | — | Cache folder. Default: <user-data>/agent-for-nus/canvas |
+| `--data-path DATA_PATH` | no | no | `<user-data>/sk4n/canvas` | — | Cache folder. Default: <user-data>/sk4n/canvas |
 | `--timeout TIMEOUT` | no | no | `30` | — | HTTP timeout in seconds. Default: 30. |
 | `--login-wait-seconds LOGIN_WAIT_SECONDS` | no | no | `300` | — | Advanced default login-detection timeout in seconds. |
 

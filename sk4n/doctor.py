@@ -32,7 +32,7 @@ from .skill_install import (
     skill_status_report,
 )
 
-CONSOLE_SCRIPTS = ("agent-for-nus", "canvas", "nusmods", "talent-connect")
+CONSOLE_SCRIPTS = ("sk4n", "canvas", "nusmods", "talent-connect")
 MINIMUM_NODE_MAJOR = 18
 
 
@@ -47,7 +47,7 @@ class Check:
 
 def package_version() -> str:
     try:
-        return version("agent-for-nus")
+        return version("sk4n")
     except PackageNotFoundError:
         return "unknown"
 
@@ -127,7 +127,7 @@ def _console_script_check() -> Check:
             "error",
             f"Console scripts use another Python installation: {', '.join(incompatible)}",
             {"scripts": scripts},
-            "Remove stale scripts from PATH, then reinstall agent-for-nus.",
+            "Remove stale scripts from PATH, then reinstall sk4n.",
         )
     return Check(
         "console_scripts", "ok", "All console scripts resolve on PATH.", {"scripts": scripts}
@@ -181,7 +181,7 @@ def _data_directory_check() -> Check:
             "error",
             "One or more application directories are not writable.",
             {"paths": details, "unwritable": unwritable},
-            "Fix ownership/permissions or set AGENT_FOR_NUS_HOME to a writable directory.",
+            "Fix ownership/permissions or set SK4N_HOME to a writable directory.",
         )
     if insecure:
         return Check(
@@ -232,7 +232,7 @@ def python_playwright_check() -> Check:
             "python_playwright",
             "error",
             "Python Playwright cannot be imported.",
-            remediation="Reinstall agent-for-nus so its Python dependencies are restored.",
+            remediation="Reinstall sk4n so its Python dependencies are restored.",
         )
     command = [sys.executable, "-m", "playwright", "install", "--dry-run", "chromium"]
     try:
@@ -243,7 +243,7 @@ def python_playwright_check() -> Check:
             "error",
             "Python Playwright could not report its expected Chromium installation.",
             {"importable": True, "error": str(exc)},
-            "Reinstall agent-for-nus so its Python dependencies are restored.",
+            "Reinstall sk4n so its Python dependencies are restored.",
         )
     details: dict[str, Any] = {
         "importable": True,
@@ -257,7 +257,7 @@ def python_playwright_check() -> Check:
             "error",
             "Python Playwright could not report its expected Chromium installation.",
             details,
-            "Reinstall agent-for-nus so its Python dependencies are restored.",
+            "Reinstall sk4n so its Python dependencies are restored.",
         )
     install_location = _chromium_install_location(result.stdout)
     if install_location is None:
@@ -267,7 +267,7 @@ def python_playwright_check() -> Check:
             "error",
             "Python Playwright returned an unrecognized browser-installation report.",
             details,
-            "Run `agent-for-nus browser install chromium`, then retry doctor.",
+            "Run `sk4n browser install chromium`, then retry doctor.",
         )
     executable = _chromium_executable(install_location)
     details["chromium_install_location"] = str(install_location)
@@ -284,7 +284,7 @@ def python_playwright_check() -> Check:
         "error",
         "Python Playwright is installed, but its Chromium executable is missing.",
         details,
-        "Run `agent-for-nus browser install chromium`.",
+        "Run `sk4n browser install chromium`.",
     )
 
 
@@ -400,11 +400,11 @@ def skills_check() -> Check:
     if missing_skills:
         status = "warning"
         summary = f"No current installed copy was found for: {', '.join(missing_skills)}."
-        remediation = "Run `agent-for-nus skills install --agents all --scope user`."
+        remediation = "Run `sk4n skills install --agents all --scope user`."
     elif problem_count or report["duplicates"]:
         status = "warning"
         summary = f"Found {current_count} current NUS skill copy/copies, with stale, unmanaged, or duplicate copies."
-        remediation = "Run `agent-for-nus skills status`, then update or remove duplicate copies."
+        remediation = "Run `sk4n skills status`, then update or remove duplicate copies."
     else:
         status = "ok"
         summary = f"Found {current_count} current installed NUS skill copy/copies."
@@ -473,7 +473,7 @@ def browser_smoke_check() -> Check:
             "error",
             "Browser smoke test could not start because playwright-cli is missing.",
         )
-    session = f"agent-for-nus-doctor-{uuid.uuid4().hex[:12]}"
+    session = f"sk4n-doctor-{uuid.uuid4().hex[:12]}"
     details: dict[str, Any] = {"session": session}
     failure: str | None = None
     try:
@@ -530,7 +530,7 @@ def build_doctor_report(*, browser_smoke: bool = False) -> dict[str, Any]:
         Check(
             "runtime",
             "ok",
-            f"agent-for-nus {package_version()} on Python {sys.version.split()[0]}.",
+            f"sk4n {package_version()} on Python {sys.version.split()[0]}.",
             {
                 "package_version": package_version(),
                 "python_version": sys.version.split()[0],

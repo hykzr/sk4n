@@ -9,7 +9,7 @@ Use the installed `nusmods` command for public course reads and local timetable 
 
 ## Workflow
 
-1. Verify `nusmods` exists on `PATH`. If it is missing, tell the user to install `agent-for-nus`; do not clone or install software silently.
+1. Verify `nusmods` exists on `PATH`. If it is missing, tell the user to install `sk4n`; do not clone or install software silently.
 2. Before constructing or running any `nusmods` CLI command, read [references/commands.md](references/commands.md), including for seemingly familiar commands. Treat it as the authoritative command grammar; do not infer subcommands, options, argument placement, or defaults.
 3. Distinguish public network reads from local timetable mutations. High-level `nusmods` commands are the preferred interface; use `curl` or `playwright-cli` yourself only when those commands cannot answer a public-data question.
 4. Use human output for a simple check, `--format json` or `jsonl` for parsing, and `--format plain` for line-oriented shell filtering. Expect JSON formats to contain complete records and potentially be large.
