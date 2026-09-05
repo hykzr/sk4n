@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import cast
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-SKILLS_ROOT = PROJECT_ROOT / "sk4n" / "skills"
+SKILLS_ROOT = PROJECT_ROOT / "src" / "sk4n" / "skills"
 
 
 @dataclass(frozen=True)
@@ -38,7 +38,7 @@ COMMON_SESSIONS = (
 SERVICES = (
     Service(
         skill_name="nus-canvas",
-        module_name="canvas.cli",
+        module_name="sk4n.canvas.cli",
         environment=(
             COMMON_HOME,
             COMMON_SESSIONS,
@@ -64,7 +64,7 @@ SERVICES = (
     ),
     Service(
         skill_name="nusmods",
-        module_name="nusmods.cli",
+        module_name="sk4n.nusmods.cli",
         environment=(
             COMMON_HOME,
             ("NUSMODS_ACADEMIC_YEAR", "Set the default course-data academic year."),
@@ -80,7 +80,7 @@ SERVICES = (
     ),
     Service(
         skill_name="nus-talent-connect",
-        module_name="talent_connect.cli",
+        module_name="sk4n.talent_connect.cli",
         environment=(
             COMMON_HOME,
             COMMON_SESSIONS,

@@ -24,7 +24,7 @@ from rich.table import Table
 
 from sk4n.errors import exit_code_for_error
 from sk4n.paths import talent_connect_database_path
-from tools.playwright_cli import (
+from sk4n.tools.playwright_cli import (
     ensure_session_available,
     open_authenticated_session,
     playwright_cli_executable,

@@ -7,16 +7,16 @@ nus-canvas, nus-talent-connect and nusmods skills may have been installed to you
 
 ## Repository map
 
-- `canvas/` provides authenticated, read-only Canvas queries, targeted cache
+- `src/sk4n/canvas/` provides authenticated, read-only Canvas queries, targeted cache
   refreshes, bulk synchronization, direct authenticated API
   access, and authenticated `@playwright/cli` sessions.
-- `talent_connect/` provides public and authenticated Kinobi job/company
+- `src/sk4n/talent_connect/` provides public and authenticated Kinobi job/company
   access, local SQLite persistence, direct authenticated API access, and
   authenticated `@playwright/cli` sessions.
-- `nusmods/` uses public NUSMods APIs and does not need an authentication flow.
-- `tools/` contains shared request, saved-session, and browser-session helpers.
+- `src/sk4n/nusmods/` uses public NUSMods APIs and does not need an authentication flow.
+- `src/sk4n/tools/` contains shared request, saved-session, and browser-session helpers.
 - `tests/` contains the unit suite. Keep application-specific behavior in its
-  package and put genuinely shared behavior in `tools/`.
+  package and put genuinely shared behavior in `src/sk4n/tools/`.
 
 Use `uv` from the repository root. The normal local checks are:
 

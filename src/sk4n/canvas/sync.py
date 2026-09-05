@@ -15,54 +15,29 @@ from rich.progress import (
 )
 from rich.table import Table
 
-try:
-    from .auth import DEFAULT_LOGIN_WAIT_SECONDS, ensure_canvas_session
-    from .client import CanvasAPIError, CanvasClient
-    from .content import sync_course_content
-    from .models import (
-        CourseRecord,
-        merge_course_records,
-        now_utc_iso,
-        path_for_course,
-        student_record,
-        unique_course_folder_names_by_term,
-    )
-    from .utils import (
-        COURSE_METADATA_FILE,
-        DEFAULT_BASE_URL,
-        DEFAULT_DATA_PATH,
-        DEFAULT_SITE_NAME,
-        INDEX_FILE,
-        STUDENT_FILE,
-        normalize_existing_path,
-        read_json,
-        rel_path,
-        write_json,
-    )
-except ImportError:
-    from auth import DEFAULT_LOGIN_WAIT_SECONDS, ensure_canvas_session
-    from client import CanvasAPIError, CanvasClient
-    from content import sync_course_content
-    from models import (
-        CourseRecord,
-        merge_course_records,
-        now_utc_iso,
-        path_for_course,
-        student_record,
-        unique_course_folder_names_by_term,
-    )
-    from utils import (
-        COURSE_METADATA_FILE,
-        DEFAULT_BASE_URL,
-        DEFAULT_DATA_PATH,
-        DEFAULT_SITE_NAME,
-        INDEX_FILE,
-        STUDENT_FILE,
-        normalize_existing_path,
-        read_json,
-        rel_path,
-        write_json,
-    )
+from .auth import DEFAULT_LOGIN_WAIT_SECONDS, ensure_canvas_session
+from .client import CanvasAPIError, CanvasClient
+from .content import sync_course_content
+from .models import (
+    CourseRecord,
+    merge_course_records,
+    now_utc_iso,
+    path_for_course,
+    student_record,
+    unique_course_folder_names_by_term,
+)
+from .utils import (
+    COURSE_METADATA_FILE,
+    DEFAULT_BASE_URL,
+    DEFAULT_DATA_PATH,
+    DEFAULT_SITE_NAME,
+    INDEX_FILE,
+    STUDENT_FILE,
+    normalize_existing_path,
+    read_json,
+    rel_path,
+    write_json,
+)
 
 
 @dataclass(frozen=True)

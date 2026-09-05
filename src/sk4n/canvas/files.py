@@ -5,48 +5,26 @@ import json
 from pathlib import Path
 from typing import Any
 
-try:
-    from .client import CanvasAPIError, CanvasClient
-    from .utils import (
-        COURSE_METADATA_FILE,
-        content_file_path,
-        download_with_fallbacks,
-        existing_items_by_key,
-        extract_file_references_from_json_value,
-        extract_file_references_from_text,
-        file_signature,
-        fingerprint,
-        normalize_existing_path,
-        open_tab_ids,
-        path_is_relative_to,
-        read_json,
-        rel_path,
-        resolve_relative_path,
-        safe_path_segment,
-        unique_download_path,
-        write_json,
-    )
-except ImportError:
-    from client import CanvasAPIError, CanvasClient
-    from utils import (
-        COURSE_METADATA_FILE,
-        content_file_path,
-        download_with_fallbacks,
-        existing_items_by_key,
-        extract_file_references_from_json_value,
-        extract_file_references_from_text,
-        file_signature,
-        fingerprint,
-        normalize_existing_path,
-        open_tab_ids,
-        path_is_relative_to,
-        read_json,
-        rel_path,
-        resolve_relative_path,
-        safe_path_segment,
-        unique_download_path,
-        write_json,
-    )
+from .client import CanvasAPIError, CanvasClient
+from .utils import (
+    COURSE_METADATA_FILE,
+    content_file_path,
+    download_with_fallbacks,
+    existing_items_by_key,
+    extract_file_references_from_json_value,
+    extract_file_references_from_text,
+    file_signature,
+    fingerprint,
+    normalize_existing_path,
+    open_tab_ids,
+    path_is_relative_to,
+    read_json,
+    rel_path,
+    resolve_relative_path,
+    safe_path_segment,
+    unique_download_path,
+    write_json,
+)
 
 
 def folder_relative_path(folder: dict[str, Any] | None) -> Path:

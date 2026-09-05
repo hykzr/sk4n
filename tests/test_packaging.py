@@ -3,13 +3,14 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import tarfile
 import zipfile
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONSOLE_SCRIPTS = ("sk4n", "canvas", "nusmods", "talent-connect")
-WHEEL_PACKAGES = ("sk4n", "canvas", "nusmods", "talent_connect", "tools")
+FORBIDDEN_TOP_LEVEL_PACKAGES = ("canvas", "nusmods", "talent_connect", "tools")
 WHEEL_SKILLS = {
     "nus-canvas": (
         "SKILL.md",
@@ -33,24 +34,26 @@ def run(command: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> 
 
 def assert_console_scripts(bin_dir: Path, *, cwd: Path, env: dict[str, str]) -> None:
     for script in CONSOLE_SCRIPTS:
-        run([str(bin_dir / script), "--help"], cwd=cwd, env=env)
+        executable = bin_dir / (f"{script}.exe" if os.name == "nt" else script)
+        run([str(executable), "--help"], cwd=cwd, env=env)
 
 
-def tool_environment(tmp_path: Path, name: str) -> tuple[dict[str, str], Path]:
-    bin_dir = tmp_path / name / "bin"
+def venv_environment(tmp_path: Path, name: str) -> tuple[dict[str, str], Path, Path]:
+    venv_dir = tmp_path / name
+    run([sys.executable, "-m", "venv", str(venv_dir)], cwd=PROJECT_ROOT)
+    bin_dir = venv_dir / ("Scripts" if os.name == "nt" else "bin")
+    python = bin_dir / ("python.exe" if os.name == "nt" else "python")
     env = os.environ.copy()
-    env["UV_TOOL_DIR"] = str(tmp_path / name / "tools")
-    env["UV_TOOL_BIN_DIR"] = str(bin_dir)
     env["SK4N_HOME"] = str(tmp_path / "user-data")
-    return env, bin_dir
+    return env, bin_dir, python
 
 
-def test_wheel_and_source_tool_installs_run_outside_checkout(tmp_path: Path) -> None:
+def test_wheel_and_source_pip_installs_run_outside_checkout(tmp_path: Path) -> None:
     outside = tmp_path / "unrelated-working-directory"
     outside.mkdir()
     wheel_dir = tmp_path / "dist"
     run(
-        ["uv", "build", "--wheel", "--sdist", "--out-dir", str(wheel_dir)],
+        [sys.executable, "-m", "build", "--wheel", "--sdist", "--outdir", str(wheel_dir)],
         cwd=PROJECT_ROOT,
     )
     wheel = next(wheel_dir.glob("sk4n-*.whl"))
@@ -58,8 +61,11 @@ def test_wheel_and_source_tool_installs_run_outside_checkout(tmp_path: Path) -> 
 
     with zipfile.ZipFile(wheel) as archive:
         members = archive.namelist()
-    for package in WHEEL_PACKAGES:
-        assert any(member.startswith(f"{package}/") for member in members)
+    assert any(member.startswith("sk4n/") for member in members)
+    assert not any(
+        member.startswith(tuple(f"{package}/" for package in FORBIDDEN_TOP_LEVEL_PACKAGES))
+        for member in members
+    )
     for skill, files in WHEEL_SKILLS.items():
         for filename in files:
             assert f"sk4n/skills/{skill}/{filename}" in members
@@ -99,12 +105,14 @@ def test_wheel_and_source_tool_installs_run_outside_checkout(tmp_path: Path) -> 
         ("editable", ["--editable", str(PROJECT_ROOT)]),
         ("git", [f"sk4n @ git+file://{git_source}@{commit}"]),
     )
+    installed_environments: dict[str, tuple[dict[str, str], Path, Path]] = {}
     for name, source_arguments in installs:
-        env, bin_dir = tool_environment(tmp_path, name)
-        run(["uv", "tool", "install", *source_arguments], cwd=outside, env=env)
+        env, bin_dir, python = venv_environment(tmp_path, name)
+        run([str(python), "-m", "pip", "install", *source_arguments], cwd=outside, env=env)
         assert_console_scripts(bin_dir, cwd=outside, env=env)
+        installed_environments[name] = (env, bin_dir, python)
 
-    wheel_env, wheel_bin = tool_environment(tmp_path, "wheel")
+    wheel_env, wheel_bin, wheel_python = installed_environments["wheel"]
     skill_project = tmp_path / "codex-skill-project"
     skill_project.mkdir()
     (skill_project / ".git").mkdir()
@@ -172,7 +180,7 @@ def test_wheel_and_source_tool_installs_run_outside_checkout(tmp_path: Path) -> 
     sentinel.parent.mkdir(parents=True, exist_ok=True)
     sentinel.write_text("persistent", encoding="utf-8")
     run(
-        ["uv", "tool", "install", "--force", str(wheel)],
+        [str(wheel_python), "-m", "pip", "install", "--force-reinstall", "--no-deps", str(wheel)],
         cwd=outside,
         env=wheel_env,
     )

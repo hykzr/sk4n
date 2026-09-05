@@ -7,11 +7,11 @@ from pathlib import Path
 
 import pytest
 
-import canvas.cli as canvas_cli
-import nusmods.cli as nusmods_cli
-import talent_connect.cli as talent_connect_cli
+import sk4n.canvas.cli as canvas_cli
+import sk4n.nusmods.cli as nusmods_cli
+import sk4n.talent_connect.cli as talent_connect_cli
 from sk4n import paths
-from tools import shared
+from sk4n.tools import shared
 
 
 def test_application_home_controls_all_default_paths(

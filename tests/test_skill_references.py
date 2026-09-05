@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-SKILLS_ROOT = PROJECT_ROOT / "sk4n" / "skills"
+SKILLS_ROOT = PROJECT_ROOT / "src" / "sk4n" / "skills"
 SKILLS = {
     "nus-canvas": ("commands.md", "low-level.md"),
     "nusmods": ("commands.md",),

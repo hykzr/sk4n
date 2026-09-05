@@ -8,8 +8,8 @@ from urllib.parse import urljoin, urlparse
 import requests
 from playwright.async_api import async_playwright
 
-from tools import RequestTools
-from tools.shared import delete_session, load_session, save_session
+from sk4n.tools import RequestTools
+from sk4n.tools.shared import delete_session, load_session, save_session
 
 from .client import CanvasAuthError
 

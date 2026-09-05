@@ -6,7 +6,7 @@ from typing import Any
 
 from playwright.async_api import async_playwright
 
-from tools.shared import delete_session, load_session, save_session
+from sk4n.tools.shared import delete_session, load_session, save_session
 
 from .client import DEFAULT_APP_BASE_URL
 

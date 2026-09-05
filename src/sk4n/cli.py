@@ -8,8 +8,6 @@ from collections.abc import Sequence
 from datetime import date, datetime
 from pathlib import Path
 
-from nusmods.client import NUSModsAPIError, NUSModsClient
-
 from .academic_calendar import (
     SINGAPORE_TZ,
     academic_calendar_record,
@@ -17,6 +15,7 @@ from .academic_calendar import (
     normalize_academic_year,
 )
 from .doctor import build_doctor_report, package_version, path_report, print_doctor_report
+from .nusmods.client import NUSModsAPIError, NUSModsClient
 from .paths import nusmods_data_dir
 from .skill_install import (
     AGENTS,

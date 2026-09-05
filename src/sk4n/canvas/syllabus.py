@@ -4,28 +4,16 @@ import copy
 from pathlib import Path
 from typing import Any
 
-try:
-    from .client import CanvasClient
-    from .utils import (
-        COURSE_METADATA_FILE,
-        content_file_path,
-        fingerprint,
-        read_json,
-        rel_path,
-        write_html,
-        write_json,
-    )
-except ImportError:
-    from client import CanvasClient
-    from utils import (
-        COURSE_METADATA_FILE,
-        content_file_path,
-        fingerprint,
-        read_json,
-        rel_path,
-        write_html,
-        write_json,
-    )
+from .client import CanvasClient
+from .utils import (
+    COURSE_METADATA_FILE,
+    content_file_path,
+    fingerprint,
+    read_json,
+    rel_path,
+    write_html,
+    write_json,
+)
 
 
 def sync_syllabus(

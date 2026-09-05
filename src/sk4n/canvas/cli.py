@@ -16,12 +16,12 @@ from rich.table import Table
 
 from sk4n.errors import exit_code_for_error
 from sk4n.paths import canvas_data_dir
-from tools.playwright_cli import (
+from sk4n.tools.playwright_cli import (
     ensure_session_available,
     open_authenticated_session,
     playwright_cli_executable,
 )
-from tools.shared import exclusive_file_lock
+from sk4n.tools.shared import exclusive_file_lock
 
 from .auth import (
     DEFAULT_LOGIN_WAIT_SECONDS,

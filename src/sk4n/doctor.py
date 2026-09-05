@@ -119,7 +119,7 @@ def _console_script_check() -> Check:
             "error",
             f"Missing console scripts on PATH: {', '.join(missing)}",
             {"scripts": scripts},
-            "Reinstall with `uv tool install --force .` (or the private Git URL).",
+            "Reinstall with `python -m pip install --force-reinstall sk4n`.",
         )
     if incompatible:
         return Check(

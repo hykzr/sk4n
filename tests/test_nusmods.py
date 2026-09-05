@@ -9,9 +9,10 @@ from typing import Any
 
 import pytest
 
-from nusmods.cli import build_parser, module_matches_filters
-from nusmods.client import NUSModsAPIError, NUSModsClient, normalize_academic_year
-from nusmods.schedule import (
+from sk4n.academic_calendar import academic_calendar_record
+from sk4n.nusmods.cli import build_parser, module_matches_filters
+from sk4n.nusmods.client import NUSModsAPIError, NUSModsClient, normalize_academic_year
+from sk4n.nusmods.schedule import (
     SINGAPORE_TZ,
     apply_selection_edits,
     available_slots,
@@ -26,7 +27,6 @@ from nusmods.schedule import (
     student_to_ta,
     ta_to_student,
 )
-from sk4n.academic_calendar import academic_calendar_record
 
 
 def lesson(

@@ -12,8 +12,8 @@ from urllib.parse import quote, urljoin, urlsplit
 import requests
 
 from sk4n.errors import ExitCode
-from tools import RequestTools
-from tools.shared import atomic_output_path
+from sk4n.tools import RequestTools
+from sk4n.tools.shared import atomic_output_path
 
 
 class CanvasAPIError(RuntimeError):

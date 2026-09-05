@@ -9,59 +9,33 @@ from urllib.parse import unquote, urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
+from .client import CanvasAPIError, CanvasClient, image_extension
+from .quiz_content import (
+    fetch_quiz_content,
+    is_new_quiz_submission,
+    submitted_quiz_attempt,
+)
+from .utils import (
+    COURSE_METADATA_FILE,
+    content_file_path,
+    download_with_fallbacks,
+    existing_items_by_key,
+    extract_file_ids_from_text,
+    file_signature,
+    fingerprint,
+    normalize_existing_path,
+    open_tab_ids,
+    read_json,
+    rel_path,
+    resolve_relative_path,
+    safe_path_segment,
+    unique_download_path,
+    write_html,
+    write_json,
+)
+
 QUIZ_IMAGE_DIR = "quiz_images"
 QUIZ_IMAGE_METADATA_FILE = "quiz_images.json"
-
-try:
-    from .client import CanvasAPIError, CanvasClient, image_extension
-    from .quiz_content import (
-        fetch_quiz_content,
-        is_new_quiz_submission,
-        submitted_quiz_attempt,
-    )
-    from .utils import (
-        COURSE_METADATA_FILE,
-        content_file_path,
-        download_with_fallbacks,
-        existing_items_by_key,
-        extract_file_ids_from_text,
-        file_signature,
-        fingerprint,
-        normalize_existing_path,
-        open_tab_ids,
-        read_json,
-        rel_path,
-        resolve_relative_path,
-        safe_path_segment,
-        unique_download_path,
-        write_html,
-        write_json,
-    )
-except ImportError:
-    from client import CanvasAPIError, CanvasClient, image_extension
-    from quiz_content import (
-        fetch_quiz_content,
-        is_new_quiz_submission,
-        submitted_quiz_attempt,
-    )
-    from utils import (
-        COURSE_METADATA_FILE,
-        content_file_path,
-        download_with_fallbacks,
-        existing_items_by_key,
-        extract_file_ids_from_text,
-        file_signature,
-        fingerprint,
-        normalize_existing_path,
-        open_tab_ids,
-        read_json,
-        rel_path,
-        resolve_relative_path,
-        safe_path_segment,
-        unique_download_path,
-        write_html,
-        write_json,
-    )
 
 
 def assignment_item_key(kind: str, item_id: Any) -> str:

@@ -1,101 +1,202 @@
 # SkillKit for NUS
 
-SkillKit for NUS bundles deterministic command-line tools and reusable agent
-skills for accessing NUS services and keeping useful data available locally.
+SkillKit for NUS (`sk4n`) is a small toolkit for everyday NUS student tasks.
+It can help you look through Canvas, search NUSMods, browse TalentConnect jobs, 
+and give supported AI assistants a reliable way to use the same tools.
 
-## Applications
+## What can it do?
 
-| Application | Purpose | Documentation |
-| --- | --- | --- |
-| `canvas/` | Query NUS Canvas and incrementally cache courses and accessible content. | [Canvas CLI](canvas/README.md) |
-| `nusmods/` | Search public NUSMods course data and manage a share-link-compatible timetable. | [NUSMods CLI](nusmods/README.md) |
-| `talent_connect/` | Search, fetch, and persist NUS TalentConnect jobs and companies from Kinobi. | [TalentConnect CLI](talent_connect/README.md) |
+- **Canvas:** sign in with NUS SSO; ckeck courses, read assignments, upcoming
+  items, files, announcements, modules, pages, people, and groups.
+- **NUSMods:** search courses, view course details and comments, and keep a
+  local timetable using NUSMods share links. No login is needed.
+- **TalentConnect:** search jobs and companies, including information available
+  after signing in with NUS SSO.
+- **Agent skills:** install ready-made skills for ChatGPT Work / Codex, GitHub
+  Copilot, Claude Code, and Google Antigravity.
 
-Shared browser, request, and session helpers live under `tools/`. Shared NUS
-academic-calendar logic lives under `sk4n/` and is exposed as:
+## Before you use it
 
-```bash
-sk4n calendar
-```
+This is an unofficial, independent project. It is not affiliated with,
+endorsed by, or supported by the National University of Singapore (NUS),
+Instructure/Canvas, NUSMods, Kinobi/TalentConnect, or any supported AI
+platform.
+
+It is intended as a personal study and workflow aid. Follow NUS policies and
+the terms, rules, and acceptable-use requirements of every platform you access.
+AI and CLI output can be incomplete or wrong, so check important information
+against the original source. The software comes with no warranty of accuracy,
+reliability, or fitness for a particular purpose; see the
+[MIT License](https://github.com/hykzr/sk4n/blob/main/LICENSE).
 
 ## Install
 
-Python 3.11 or newer is required.
+**Not computing major or don't want to struggle with installation? You can try to ask your agent `help me install https://github.com/hykzr/sk4n/` and let it do everything in this step for you**
 
-Install a stable snapshot from a checkout into an isolated tool environment:
-
-```bash
-uv tool install .
-```
-
-For development, an editable tool install reflects source changes without a
-reinstall:
+You need to install Python 3.11 or newer with pip first.
 
 ```bash
-uv tool install --editable .
+pip install sk4n
 ```
 
-After installation, all commands work from any directory without the checkout:
+On MacOS or Linux, if you get `command not found: pip`, try
 
 ```bash
-sk4n --help
-canvas --help
-nusmods --help
-talent-connect --help
+pip3 install sk4n
 ```
 
-`pipx` is the fallback isolated installer:
+The one `sk4n` installation gives you four commands:
+
+```text
+sk4n
+canvas
+nusmods
+talent-connect
+```
+
+### One extra setup step for Canvas and TalentConnect
+
+Canvas and TalentConnect use a small automated browser (chromium) to handle NUS SSO. Set
+it up once after installing:
 
 ```bash
-pipx install .
+sk4n browser install chromium
 ```
 
-## Agent skills
+sk4n also comes with a `doctor` command to help you check if everything is correctly installed:
 
-The package bundles skills for Canvas, NUSMods, and TalentConnect. Install,
-inspect, or remove the managed copies with:
+```bash
+sk4n doctor
+```
+
+NUSMods does not need this browser or an NUS login.
+
+## Use it with an AI assistant
+
+The package includes optional agent skills for Canvas, NUSMods, and
+TalentConnect. To install them for all supported assistants on your computer:
 
 ```bash
 sk4n skills install --agents all --scope user
 sk4n skills status --agents all --scope all
-sk4n skills uninstall --agents antigravity --scope user
 ```
 
-Supported agents are Codex, GitHub Copilot, Claude, and Google Antigravity.
-Antigravity skills use `~/.gemini/config/skills` at user scope and the shared
-`.agents/skills` directory at project scope. Use `--agents antigravity` to
-target only Antigravity, or combine agent names in a comma-separated list.
+You can choose one assistant instead, for example `--agents codex`. Installing
+a skill helps the assistant call the CLI consistently, but it does not make AI
+answers automatically correct. Check important dates, requirements, course
+information, and job details against the original platform.
 
-## Data locations
+## CLI examples
 
-Mutable data is stored in the operating system's user-data directory under
-`sk4n/`, never in the checkout or installed package:
+### Find courses with NUSMods
 
-```text
-sk4n/
-├── sessions/          # Canvas and TalentConnect browser state
-├── canvas/            # Canvas cache and downloaded content
-├── nusmods/           # timetable and API cache
-└── talent-connect/    # SQLite database
+```bash
+nusmods search "machine learning"
+nusmods course CS1010
 ```
 
-Set `SK4N_HOME` to override the entire root. Set
-`SK4N_SESSION_DIR` only when tests or account recovery need a separate
-session location. The session directory and files contain authentication
-material and are restricted to the current user where the OS supports POSIX
-permissions.
+You can also import an existing timetable share link:
 
-Each service's `--data-path PATH` option overrides its default directly. The
-former `CANVAS_DATA_PATH`, `NUSMODS_DATA_PATH`, and
-`TALENT_CONNECT_DATA_PATH` environment variables are no longer supported.
+```bash
+nusmods schedule import 'https://nusmods.com/timetable/sem-1/share?...'
+```
 
-## Develop
+[More NUSMods examples](https://github.com/hykzr/sk4n/blob/main/src/sk4n/nusmods/README.md)
 
-The repository uses `uv`:
+### Check Canvas
+
+The first login opens a browser window for NUS SSO:
+
+```bash
+canvas auth login
+canvas list
+canvas todo
+canvas upcoming
+```
+
+Once a course has been synced, you can inspect its saved content:
+
+```bash
+canvas course CS1010 assignments list
+canvas course CS1010 announcements list
+```
+
+[More Canvas examples](https://github.com/hykzr/sk4n/blob/main/src/sk4n/canvas/README.md)
+
+### Search TalentConnect
+
+```bash
+talent-connect auth login
+talent-connect fetch --query engineer --max-jobs 20
+talent-connect fetch --saved
+```
+
+For a public search that does not open the NUS login:
+
+```bash
+talent-connect fetch --no-login --query engineer --max-jobs 20
+```
+
+[More TalentConnect examples](https://github.com/hykzr/sk4n/blob/main/src/sk4n/talent_connect/README.md)
+
+### Check the NUS academic week
+
+```bash
+sk4n calendar
+sk4n calendar --date 2026-08-14
+```
+
+This uses public NUSMods calendar data and does not need an NUS login.
+
+## Where is my data?
+
+Run this to see the exact folders used on your computer:
+
+```bash
+sk4n paths
+```
+
+Canvas and TalentConnect save browser session information so you do not need to
+sign in for every command. Treat those session files like login credentials:
+do not share them, upload them.
+
+To forget a saved login without signing your other browsers out of NUS SSO:
+
+```bash
+canvas auth logout
+talent-connect auth logout
+```
+
+## If the command is not found
+
+First, close and reopen your terminal after installing. If the command is still
+missing, Python's Scripts folder may not be on your `PATH`. 
+
+## Contribute
+
+This section is for contributors working from a repository clone. Ordinary
+users do not need any of these tools.
+
+### `uv` workflow
+
+This repo uses `uv` to manage venv. see [uv install](https://docs.astral.sh/uv/getting-started/installation/)
 
 ```bash
 uv sync
-uv run canvas --help
-uv run nusmods --help
-uv run talent-connect --help
+uv run pytest -q
+uvx ruff --config pyproject.toml check .
+uvx pyright
 ```
+
+### Optional `just` shortcuts
+
+If [`just`](https://github.com/casey/just#installation) is installed, these
+shortcuts are available:
+
+```bash
+just test
+just lint
+just format
+```
+
+Neither `just` nor `uv` is needed by people who install `sk4n` from PyPI.

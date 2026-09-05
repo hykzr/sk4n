@@ -9,14 +9,14 @@ from typing import Any
 import pytest
 import requests
 
-import talent_connect.cli as talent_cli
-from talent_connect.authenticated_client import (
+import sk4n.talent_connect.cli as talent_cli
+from sk4n.talent_connect.authenticated_client import (
     AuthenticatedKinobiClient,
     workflow_record_to_job,
 )
-from talent_connect.cli import build_parser, filters_from_args, handle_api
-from talent_connect.client import KinobiAPIError, KinobiClient
-from talent_connect.storage import TalentConnectStore, job_matches_filters, summarize_job
+from sk4n.talent_connect.cli import build_parser, filters_from_args, handle_api
+from sk4n.talent_connect.client import KinobiAPIError, KinobiClient
+from sk4n.talent_connect.storage import TalentConnectStore, job_matches_filters, summarize_job
 
 
 class FakeResponse:

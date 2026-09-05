@@ -10,12 +10,9 @@ from typing import Any
 from urllib.parse import unquote
 
 from sk4n.paths import canvas_data_dir
-from tools.shared import atomic_write_text
+from sk4n.tools.shared import atomic_write_text
 
-try:
-    from .client import CanvasAPIError, CanvasClient
-except ImportError:
-    from client import CanvasAPIError, CanvasClient
+from .client import CanvasAPIError, CanvasClient
 
 DEFAULT_BASE_URL = "https://canvas.nus.edu.sg"
 DEFAULT_SITE_NAME = "nus_canvas"

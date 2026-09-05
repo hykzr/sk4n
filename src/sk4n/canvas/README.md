@@ -1,13 +1,11 @@
 # Canvas CLI
 
 `canvas` is an authenticated, read-only NUS Canvas CLI with an incremental local
-cache. Install the project with `uv sync`, then inspect the command surface:
+cache. Install `sk4n` with pip, then inspect the command surface:
 
 ```bash
-uv run canvas --help
+canvas --help
 ```
-
-`uv run python -m canvas` is an equivalent development entry point.
 
 The cache defaults to the `canvas/` directory below the platform-specific
 SkillKit for NUS user-data root. Use `--data-path PATH` for a command-specific
@@ -16,10 +14,10 @@ override or `SK4N_HOME` to relocate all persistent application data.
 ## Authentication
 
 ```bash
-uv run canvas auth status
-uv run canvas auth login
-uv run canvas auth login --refresh
-uv run canvas auth logout
+canvas auth status
+canvas auth login
+canvas auth login --refresh
+canvas auth logout
 ```
 
 Login opens a browser only when the saved `nus_canvas` session is missing,
@@ -30,18 +28,18 @@ it does not sign other browsers out of NUS SSO. `auth status` also supports
 ## Student and courses
 
 ```bash
-uv run canvas student
-uv run canvas list
-uv run canvas list --semester latest
-uv run canvas list -s 2526S1
-uv run canvas list -s ay2526s1
-uv run canvas list -s Y3S1
-uv run canvas list -s Non-Academic
-uv run sk4n calendar --date 2026-08-14
-uv run canvas course CG2028
-uv run canvas course CS1010 -s 2425S1
-uv run canvas course CG2028 home
-uv run canvas course CG2028 path
+canvas student
+canvas list
+canvas list --semester latest
+canvas list -s 2526S1
+canvas list -s ay2526s1
+canvas list -s Y3S1
+canvas list -s Non-Academic
+sk4n calendar --date 2026-08-14
+canvas course CG2028
+canvas course CS1010 -s 2425S1
+canvas course CG2028 home
+canvas course CG2028 path
 ```
 
 Course listings include an availability status. Courses that disappear from the authenticated
@@ -78,11 +76,11 @@ These live, read-only commands query the current user's Canvas activity without
 writing it to the course cache:
 
 ```bash
-uv run canvas calendar-events
-uv run canvas calendar-events --start 2026-08-10 --end 2026-11-15
-uv run canvas calendar-events --type assignment
-uv run canvas todo
-uv run canvas upcoming
+canvas calendar-events
+canvas calendar-events --start 2026-08-10 --end 2026-11-15
+canvas calendar-events --type assignment
+canvas todo
+canvas upcoming
 ```
 
 All three support `--format json|jsonl|plain`. Use `calendar-events` for the
@@ -108,14 +106,14 @@ have been defined. JSON and JSONL retain the stable Home object and
 `"items": []` so parsers do not need a special case.
 
 ```bash
-uv run canvas course CG2028 announcements list
-uv run canvas course CG2028 announcements 12345
-uv run canvas course CG2028 assignments path
-uv run canvas course 62224 assignments 118925
-uv run canvas course CG2028 quizzes list
-uv run canvas course CG2028 people list
-uv run canvas course CG2028 groups list
-uv run canvas course CG2028 groups 215659
+canvas course CG2028 announcements list
+canvas course CG2028 announcements 12345
+canvas course CG2028 assignments path
+canvas course 62224 assignments 118925
+canvas course CG2028 quizzes list
+canvas course CG2028 people list
+canvas course CG2028 groups list
+canvas course CG2028 groups 215659
 ```
 
 `list` returns compact cached item records. An item ID returns its detailed
@@ -160,11 +158,11 @@ record set would overwhelm the terminal or an agent context.
 text responses:
 
 ```bash
-uv run canvas api /api/v1/users/self/profile
-uv run canvas api '/api/v1/courses?enrollment_state=active'
-uv run canvas api /api/v1/courses/93662/tabs --param 'include[]=external'
-uv run canvas api /api/example -X POST --data '{"key":"value"}'
-uv run canvas api /api/example -H 'Accept:application/json'
+canvas api /api/v1/users/self/profile
+canvas api '/api/v1/courses?enrollment_state=active'
+canvas api /api/v1/courses/93662/tabs --param 'include[]=external'
+canvas api /api/example -X POST --data '{"key":"value"}'
+canvas api /api/example -H 'Accept:application/json'
 ```
 
 The direct `requests` transport is used first; the command does not launch a
@@ -176,9 +174,9 @@ Use `playwright-cli` when an API request is not enough to inspect or extend the
 Canvas integration:
 
 ```bash
-uv run canvas playwright-cli
-uv run canvas playwright-cli --url 'https://canvas.nus.edu.sg/courses/12345'
-uv run canvas playwright-cli --headed --session canvas-debug
+canvas playwright-cli
+canvas playwright-cli --url 'https://canvas.nus.edu.sg/courses/12345'
+canvas playwright-cli --headed --session canvas-debug
 ```
 
 The command checks the saved login, opens the normal interactive login flow if
@@ -198,17 +196,17 @@ Use `sync` to fetch multiple courses with selection, refresh, skip, debug, and
 login-only options:
 
 ```bash
-uv run canvas sync
-uv run canvas sync --login-only
-uv run canvas sync --course CG2028 --course 85096
-uv run canvas sync --refresh-course
-uv run canvas sync --refresh-people  # refreshes the People roster and groups
-uv run canvas sync --refresh-pages --refresh-discussions
-uv run canvas sync --refresh-assignments
-uv run canvas sync --refresh-files
-uv run canvas sync --refresh-content
-uv run canvas sync --skip-files
-uv run canvas sync --skip-assignments --skip-files
+canvas sync
+canvas sync --login-only
+canvas sync --course CG2028 --course 85096
+canvas sync --refresh-course
+canvas sync --refresh-people  # refreshes the People roster and groups
+canvas sync --refresh-pages --refresh-discussions
+canvas sync --refresh-assignments
+canvas sync --refresh-files
+canvas sync --refresh-content
+canvas sync --skip-files
+canvas sync --skip-assignments --skip-files
 ```
 
 ## Cache layout
@@ -255,7 +253,7 @@ so an existing syllabus remains lazy unless forced.
 Targeted fetching is also public as `CanvasFetcher`:
 
 ```python
-from canvas import CanvasFetcher
+from sk4n.canvas import CanvasFetcher
 
 fetcher = CanvasFetcher()
 student = fetcher.student()

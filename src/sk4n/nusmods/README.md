@@ -4,8 +4,7 @@ Search NUSMods' public course API and manage a local timetable that imports
 and exports native NUSMods share URLs. No NUS login is required.
 
 ```bash
-uv run nusmods --help
-uv run python -m nusmods --help
+nusmods --help
 ```
 
 The default schedule and one-day API/review cache are stored in the `nusmods/`
@@ -21,11 +20,11 @@ data:
 
 ```bash
 # Ignore cached reads, fetch now, and replace the affected cache entries
-uv run nusmods course CG2028 --comments --refresh
+nusmods course CG2028 --comments --refresh
 
 # Accept cached entries of any age and never contact NUSMods or Disqus
-uv run nusmods search security --no-refresh
-uv run nusmods schedule today --no-refresh
+nusmods search security --no-refresh
+nusmods schedule today --no-refresh
 ```
 
 With neither flag, fresh entries are used for `--cache-ttl` seconds. Expired
@@ -36,13 +35,13 @@ required resource has never been cached.
 ## Search courses
 
 ```bash
-uv run nusmods search "machine learning"
-uv run nusmods search circuits --sem s1 --level 2000 --min-units 4
-uv run nusmods search programming --faculty Computing --department Computer
-uv run nusmods search design --grading graded --attribute su
-uv run nusmods search data --no-exam
-uv run nusmods search algorithms --no-exam-clash s1
-uv run nusmods search security --format json
+nusmods search "machine learning"
+nusmods search circuits --sem s1 --level 2000 --min-units 4
+nusmods search programming --faculty Computing --department Computer
+nusmods search design --grading graded --attribute su
+nusmods search data --no-exam
+nusmods search algorithms --no-exam-clash s1
+nusmods search security --format json
 ```
 
 The filters cover the NUSMods course finder's Web UI facets:
@@ -63,10 +62,10 @@ case-insensitive substrings, so the exact dropdown label is not required.
 ## Course details and reviews
 
 ```bash
-uv run nusmods course CG2028
-uv run nusmods course CG2028 --sem s1
-uv run nusmods course CG2028 --comments
-uv run nusmods course CG2028 --comments --format json
+nusmods course CG2028
+nusmods course CG2028 --sem s1
+nusmods course CG2028 --comments
+nusmods course CG2028 --comments --format json
 ```
 
 Course output includes requisites, workload, grading, exam data, and every
@@ -81,19 +80,19 @@ large thread, JSON output marks `hasMore: true`.
 
 ```bash
 # Import/export the exact share-link representation
-uv run nusmods schedule import 'https://nusmods.com/timetable/sem-1/share?...'
-uv run nusmods schedule export --sem s1
+nusmods schedule import 'https://nusmods.com/timetable/sem-1/share?...'
+nusmods schedule export --sem s1
 
 # Add, view, and remove
-uv run nusmods schedule add CG2028
-uv run nusmods schedule add EG2401A --ta --sem s1
-uv run nusmods schedule --sem s1
-uv run nusmods schedule delete CG2028 --sem s1
+nusmods schedule add CG2028
+nusmods schedule add EG2401A --ta --sem s1
+nusmods schedule --sem s1
+nusmods schedule delete CG2028 --sem s1
 
 # Daily and summary views
-uv run nusmods schedule today
-uv run nusmods schedule today --date 2026-08-11
-uv run nusmods schedule status
+nusmods schedule today
+nusmods schedule today --date 2026-08-11
+nusmods schedule status
 ```
 
 `schedule add` selects the first available class group for each lesson type.
@@ -112,29 +111,29 @@ Run edit without mutations to list stable `TYPE@N` selectors and current
 selections:
 
 ```bash
-uv run nusmods schedule edit CG2028 --sem s1
+nusmods schedule edit CG2028 --sem s1
 ```
 
 Student courses select one class group for every lesson type:
 
 ```bash
-uv run nusmods schedule edit CG2028 --set LAB=02 --set TUT=01
+nusmods schedule edit CG2028 --set LAB=02 --set TUT=01
 ```
 
 TA courses can select zero through all individual lessons for each type:
 
 ```bash
 # Convert the current student groups to TA slots
-uv run nusmods schedule edit CG2028 --ta
+nusmods schedule edit CG2028 --ta
 
 # Replace, add, remove, select all, or select none
-uv run nusmods schedule edit CG2028 --set LAB=@1,@3
-uv run nusmods schedule edit CG2028 --add-slot LEC=@2
-uv run nusmods schedule edit CG2028 --remove-slot LEC=@1
-uv run nusmods schedule edit CG2028 --set TUT=all
-uv run nusmods schedule edit CG2028 --set LAB=none
+nusmods schedule edit CG2028 --set LAB=@1,@3
+nusmods schedule edit CG2028 --add-slot LEC=@2
+nusmods schedule edit CG2028 --remove-slot LEC=@1
+nusmods schedule edit CG2028 --set TUT=all
+nusmods schedule edit CG2028 --set LAB=none
 # Equivalent zero-selection spelling
-uv run nusmods schedule edit CG2028 --clear LAB
+nusmods schedule edit CG2028 --clear LAB
 ```
 
 A class number can be used instead of `@N`; in TA mode it expands to every
@@ -142,10 +141,10 @@ individual meeting in that class group. Full NUSMods lesson IDs are also
 accepted for lossless automation.
 
 ```bash
-uv run nusmods schedule edit CG2028 --student
-uv run nusmods schedule edit CG2028 --move-to s2
-uv run nusmods schedule edit CG2028 --hidden
-uv run nusmods schedule edit CG2028 --visible --list-slots
+nusmods schedule edit CG2028 --student
+nusmods schedule edit CG2028 --move-to s2
+nusmods schedule edit CG2028 --hidden
+nusmods schedule edit CG2028 --visible --list-slots
 ```
 
 Converting TA to student mode chooses the class group containing the most

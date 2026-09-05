@@ -3,45 +3,24 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-try:
-    from .assignments import sync_assignments
-    from .client import CanvasAPIError, CanvasClient
-    from .files import sync_files
-    from .groups import sync_groups
-    from .modules import sync_modules
-    from .pages import sync_pages
-    from .people import sync_people
-    from .syllabus import sync_syllabus
-    from .topics import sync_topics
-    from .utils import (
-        CONTENT_TAB_IDS,
-        CONTENT_TYPES,
-        COURSE_METADATA_FILE,
-        content_file_path,
-        open_tab_ids,
-        read_json,
-        rel_path,
-    )
-except ImportError:
-    from assignments import sync_assignments
-    from client import CanvasAPIError, CanvasClient
-    from files import sync_files
-    from groups import sync_groups
-    from modules import sync_modules
-    from pages import sync_pages
-    from people import sync_people
-    from syllabus import sync_syllabus
-    from topics import sync_topics
-    from utils import (
-        CONTENT_TAB_IDS,
-        CONTENT_TYPES,
-        COURSE_METADATA_FILE,
-        content_file_path,
-        open_tab_ids,
-        read_json,
-        rel_path,
-    )
-
+from .assignments import sync_assignments
+from .client import CanvasAPIError, CanvasClient
+from .files import sync_files
+from .groups import sync_groups
+from .modules import sync_modules
+from .pages import sync_pages
+from .people import sync_people
+from .syllabus import sync_syllabus
+from .topics import sync_topics
+from .utils import (
+    CONTENT_TAB_IDS,
+    CONTENT_TYPES,
+    COURSE_METADATA_FILE,
+    content_file_path,
+    open_tab_ids,
+    read_json,
+    rel_path,
+)
 
 DEFAULT_VIEW_CONTENT_TYPES = {
     "assignments": "assignments",

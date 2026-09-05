@@ -9,10 +9,10 @@ import pytest
 
 import sk4n.cli as management_cli
 import sk4n.doctor as doctor
-import talent_connect.cli as talent_cli
-from canvas.client import CanvasAuthError, CanvasHTTPError, CanvasTransportError
+import sk4n.talent_connect.cli as talent_cli
+from sk4n.canvas.client import CanvasAuthError, CanvasHTTPError, CanvasTransportError
 from sk4n.errors import ExitCode, exit_code_for_error
-from talent_connect.client import KinobiAuthError, KinobiHTTPError, KinobiTransportError
+from sk4n.talent_connect.client import KinobiAuthError, KinobiHTTPError, KinobiTransportError
 
 
 def test_management_parser_exposes_phase_one_commands() -> None:

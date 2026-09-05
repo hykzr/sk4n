@@ -10,13 +10,9 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup, Tag
 from playwright.async_api import async_playwright
 
-from tools.shared import load_session
+from sk4n.tools.shared import load_session
 
-try:
-    from .client import CanvasAPIError, CanvasClient
-except ImportError:
-    from client import CanvasAPIError, CanvasClient
-
+from .client import CanvasAPIError, CanvasClient
 
 QUIZ_TAKE_PATH = re.compile(r"/quizzes/\d+/(?:take|take_questions)(?:/|$)")
 QUESTION_ID = re.compile(r"question_(\d+)")

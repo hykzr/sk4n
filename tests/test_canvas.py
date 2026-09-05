@@ -11,24 +11,24 @@ from typing import Any
 import pytest
 from rich.console import Console
 
-import canvas.cli as canvas_cli
-import canvas.sync as canvas_module
-from canvas.assignments import sync_assignments
-from canvas.cli import build_parser
-from canvas.client import CanvasAPIError, CanvasAuthError, CanvasClient
-from canvas.content import content_available
-from canvas.fetcher import (
+import sk4n.canvas.cli as canvas_cli
+import sk4n.canvas.sync as canvas_module
+from sk4n.canvas.assignments import sync_assignments
+from sk4n.canvas.cli import build_parser
+from sk4n.canvas.client import CanvasAPIError, CanvasAuthError, CanvasClient
+from sk4n.canvas.content import content_available
+from sk4n.canvas.fetcher import (
     CanvasFetcher,
     absolutize_local_paths,
     canonical_semester,
     infer_enrollment_academic_year,
     resolve_semester_filter,
 )
-from canvas.files import collect_referenced_files, sync_files
-from canvas.groups import sync_groups
-from canvas.models import CourseRecord
-from canvas.people import sync_people
-from canvas.utils import read_json, write_json
+from sk4n.canvas.files import collect_referenced_files, sync_files
+from sk4n.canvas.groups import sync_groups
+from sk4n.canvas.models import CourseRecord
+from sk4n.canvas.people import sync_people
+from sk4n.canvas.utils import read_json, write_json
 
 
 def test_cli_exposes_auth_sync_info_activity_and_api_commands() -> None:

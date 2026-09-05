@@ -3,38 +3,21 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-try:
-    from .client import CanvasAPIError, CanvasClient
-    from .utils import (
-        COURSE_METADATA_FILE,
-        content_file_path,
-        existing_items_by_key,
-        fingerprint,
-        item_has_html,
-        item_signature,
-        list_payload,
-        read_json,
-        rel_path,
-        safe_html_filename,
-        write_html,
-        write_json,
-    )
-except ImportError:
-    from client import CanvasAPIError, CanvasClient
-    from utils import (
-        COURSE_METADATA_FILE,
-        content_file_path,
-        existing_items_by_key,
-        fingerprint,
-        item_has_html,
-        item_signature,
-        list_payload,
-        read_json,
-        rel_path,
-        safe_html_filename,
-        write_html,
-        write_json,
-    )
+from .client import CanvasAPIError, CanvasClient
+from .utils import (
+    COURSE_METADATA_FILE,
+    content_file_path,
+    existing_items_by_key,
+    fingerprint,
+    item_has_html,
+    item_signature,
+    list_payload,
+    read_json,
+    rel_path,
+    safe_html_filename,
+    write_html,
+    write_json,
+)
 
 
 def sync_pages(

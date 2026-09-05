@@ -8,12 +8,10 @@ keeps a local copy current, and makes that data easy to query.
 
 ## Run it
 
-From the repository root:
+After installing `sk4n` with pip:
 
 ```bash
-uv run talent-connect --help
-# or
-uv run python -m talent_connect --help
+talent-connect --help
 ```
 
 The default SQLite database is `talent-connect/talent_connect.sqlite3` below
@@ -24,10 +22,10 @@ application data.
 ## Authentication
 
 ```bash
-uv run talent-connect auth status
-uv run talent-connect auth login
-uv run talent-connect auth login --refresh
-uv run talent-connect auth logout
+talent-connect auth status
+talent-connect auth login
+talent-connect auth login --refresh
+talent-connect auth logout
 ```
 
 `auth login` opens a visible browser and detects a completed NUS SSO login
@@ -54,11 +52,11 @@ in-page Axios client:
 
 ```bash
 # GET is the default
-uv run talent-connect api '/api/auth/'
-uv run talent-connect api '/api/job?entries_per_page=1'
+talent-connect api '/api/auth/'
+talent-connect api '/api/job?entries_per_page=1'
 
 # Send a JSON body with any HTTP method
-uv run talent-connect api '/api/example' -X POST -d '{"key":"value"}'
+talent-connect api '/api/example' -X POST -d '{"key":"value"}'
 ```
 
 The path must begin with `/api/`; full URLs are rejected so Kinobi
@@ -74,9 +72,9 @@ Use `playwright-cli` to inspect application behavior that is not exposed clearly
 through the known Kinobi API calls:
 
 ```bash
-uv run talent-connect playwright-cli
-uv run talent-connect playwright-cli --url 'https://nus-talentconnect.app.kinobi.asia/jobs'
-uv run talent-connect playwright-cli --headed --session talent-connect-debug
+talent-connect playwright-cli
+talent-connect playwright-cli --url 'https://nus-talentconnect.app.kinobi.asia/jobs'
+talent-connect playwright-cli --headed --session talent-connect-debug
 ```
 
 The command checks the saved login, opens the normal interactive login flow if
@@ -94,33 +92,33 @@ the browser cannot open, or if that session ID is already running.
 
 ```bash
 # Fetch every current job, upsert changed records, and print all matches
-uv run talent-connect fetch
+talent-connect fetch
 
 # Common filters
-uv run talent-connect fetch --query engineer --employment-type internship
-uv run talent-connect fetch --company "Google"
-uv run talent-connect fetch --country SG --work-arrangement "work from office"
-uv run talent-connect fetch --applied --include-expired-if-applied
-uv run talent-connect fetch --qualified --posted-after 2026-07-01
-uv run talent-connect fetch --application-type "easy apply"
-uv run talent-connect fetch --saved --special-needs
-uv run talent-connect fetch --status interviewing
-uv run talent-connect fetch --status declined --status declined-offer
-uv run talent-connect fetch --max-jobs 50
+talent-connect fetch --query engineer --employment-type internship
+talent-connect fetch --company "Google"
+talent-connect fetch --country SG --work-arrangement "work from office"
+talent-connect fetch --applied --include-expired-if-applied
+talent-connect fetch --qualified --posted-after 2026-07-01
+talent-connect fetch --application-type "easy apply"
+talent-connect fetch --saved --special-needs
+talent-connect fetch --status interviewing
+talent-connect fetch --status declined --status declined-offer
+talent-connect fetch --max-jobs 50
 
 # Public records only; do not validate or open a login
-uv run talent-connect fetch --no-login --query engineer
+talent-connect fetch --no-login --query engineer
 
 # Still upsert every match, but print only new or changed jobs
-uv run talent-connect fetch --updated-only
+talent-connect fetch --updated-only
 
 # Query only stored data
-uv run talent-connect fetch --cached --query python
+talent-connect fetch --cached --query python
 
 # Structured and agent-friendly output
-uv run talent-connect fetch --max-jobs 10 --format json
-uv run talent-connect fetch --max-jobs 10 --format jsonl
-uv run talent-connect fetch --max-jobs 10 --format plain
+talent-connect fetch --max-jobs 10 --format json
+talent-connect fetch --max-jobs 10 --format jsonl
+talent-connect fetch --max-jobs 10 --format plain
 ```
 
 Repeat a filter flag to send multiple values. Supported filters are:
@@ -216,13 +214,13 @@ with `--cached`.
 
 ```bash
 # _id or slug; remote refresh is the default
-uv run talent-connect job 6a228d6d028283001dd60467
-uv run talent-connect job JOB_SLUG --no-refresh
+talent-connect job 6a228d6d028283001dd60467
+talent-connect job JOB_SLUG --no-refresh
 
 # _id, company_id, or slug; also fetches and upserts current jobs
-uv run talent-connect company "google"
-uv run talent-connect company COMPANY_ID --max-jobs 20
-uv run talent-connect company COMPANY_SLUG --no-refresh
+talent-connect company "google"
+talent-connect company COMPANY_ID --max-jobs 20
+talent-connect company COMPANY_SLUG --no-refresh
 ```
 
 `job --no-refresh` and `company --no-refresh` are strictly offline and fail
@@ -231,10 +229,10 @@ clearly when the requested record has not been stored.
 ## Lightweight ID search
 
 ```bash
-uv run talent-connect search job "machine learning"
-uv run talent-connect search job internship --employment-type internship
-uv run talent-connect search company "Google"
-uv run talent-connect search company "Example Corp" --cached
+talent-connect search job "machine learning"
+talent-connect search job internship --employment-type internship
+talent-connect search company "Google"
+talent-connect search company "Example Corp" --cached
 ```
 
 Search prints Kinobi IDs and slugs. The job API inevitably returns full list

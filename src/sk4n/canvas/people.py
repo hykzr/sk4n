@@ -3,28 +3,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-try:
-    from .client import CanvasClient
-    from .utils import (
-        COURSE_METADATA_FILE,
-        content_file_path,
-        fingerprint,
-        list_payload,
-        read_json,
-        rel_path,
-        write_json,
-    )
-except ImportError:
-    from client import CanvasClient
-    from utils import (
-        COURSE_METADATA_FILE,
-        content_file_path,
-        fingerprint,
-        list_payload,
-        read_json,
-        rel_path,
-        write_json,
-    )
+from .client import CanvasClient
+from .utils import (
+    COURSE_METADATA_FILE,
+    content_file_path,
+    fingerprint,
+    list_payload,
+    read_json,
+    rel_path,
+    write_json,
+)
 
 
 def sync_people(

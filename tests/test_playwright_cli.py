@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-import tools.playwright_cli as playwright_cli
-from tools.playwright_cli import PlaywrightCLIError
+import sk4n.tools.playwright_cli as playwright_cli
+from sk4n.tools.playwright_cli import PlaywrightCLIError
 
 
 def completed(

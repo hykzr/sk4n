@@ -10,7 +10,7 @@ from urllib.parse import urlencode
 
 from playwright.async_api import async_playwright
 
-from tools.shared import load_session
+from sk4n.tools.shared import load_session
 
 from .auth import DEFAULT_SITE_NAME
 from .client import (
