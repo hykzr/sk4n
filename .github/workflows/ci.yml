@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_NO_PROGRESS: "1"
+
+jobs:
+  tests:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: "3.11"
+          - os: ubuntu-latest
+            python-version: "3.12"
+          - os: ubuntu-latest
+            python-version: "3.13"
+          - os: ubuntu-latest
+            python-version: "3.14"
+          - os: macos-latest
+            python-version: "3.14"
+          - os: windows-latest
+            python-version: "3.14"
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.11.17"
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Install the locked project and development dependencies
+        run: uv sync --locked --all-groups
+
+      - name: Run unit tests
+        run: uv run --locked pytest -q
+
+  source-checks:
+    name: Source checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.11.17"
+          python-version: "3.14"
+          enable-cache: true
+
+      - name: Install the locked project and development dependencies
+        run: uv sync --locked --all-groups
+
+      - name: Run Ruff
+        run: uv run --locked ruff --config pyproject.toml check .
+
+      - name: Run Pyright
+        run: uv run --locked pyright
+
+      - name: Check generated CLI references
+        run: uv run --locked python scripts/generate_skill_references.py --check
+
+  package:
+    name: Package artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install uv and the minimum supported Python
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.11.17"
+          python-version: "3.11"
+          enable-cache: true
+
+      - name: Install the locked project and development dependencies
+        run: uv sync --locked --all-groups
+
+      - name: Build wheel and source distribution
+        run: uv run --locked python -m build
+
+      - name: Check package metadata
+        run: uv run --locked twine check --strict dist/*
+
+      - name: Inspect and clean-install both artifacts with pip
+        run: uv run --locked python scripts/validate_package.py dist
