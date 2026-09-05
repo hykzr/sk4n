@@ -36,14 +36,11 @@ reliability, or fitness for a particular purpose; see the
 You need to install Python 3.11 or newer with pip first.
 
 ```bash
-pip install sk4n
+python -m pip install sk4n
 ```
 
-On MacOS or Linux, if you get `command not found: pip`, try
-
-```bash
-pip3 install sk4n
-```
+If this command fail because the system cannot find `python` command,
+try replacing `python` with `py` (for Windows), or `python3` (on MacOS or Linux)
 
 The one `sk4n` installation gives you four commands:
 
@@ -184,8 +181,10 @@ This repo uses `uv` to manage venv. see [uv install](https://docs.astral.sh/uv/g
 ```bash
 uv sync
 uv run pytest -q
-uvx ruff --config pyproject.toml check .
-uvx pyright
+uv run ruff --config pyproject.toml check .
+uv run pyright
+uv run python scripts/generate_skill_references.py --check
+uv run pip-audit --strict --progress-spinner off .
 ```
 
 ### Optional `just` shortcuts
@@ -197,6 +196,10 @@ shortcuts are available:
 just test
 just lint
 just format
+just references
+just audit
+just build
+just package-check
 ```
 
 Neither `just` nor `uv` is needed by people who install `sk4n` from PyPI.

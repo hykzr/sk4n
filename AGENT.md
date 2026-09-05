@@ -18,13 +18,8 @@ nus-canvas, nus-talent-connect and nusmods skills may have been installed to you
 - `tests/` contains the unit suite. Keep application-specific behavior in its
   package and put genuinely shared behavior in `src/sk4n/tools/`.
 
-Use `uv` from the repository root. The normal local checks are:
-
-```bash
-uv run pytest -q
-uvx ruff --config pyproject.toml check .
-uvx pyright
-```
+For check / build / test, refer to the justfile under repo root.
+Prefer running the just commands like `just check` as is.
 
 ## Authentication comes first
 

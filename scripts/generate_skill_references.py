@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import os
+import re
 import sys
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -14,6 +15,7 @@ from typing import cast
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_ROOT = PROJECT_ROOT / "src" / "sk4n" / "skills"
+ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
 @dataclass(frozen=True)
@@ -132,11 +134,25 @@ def _without_environment(names: Iterable[str]):
     return EnvironmentGuard()
 
 
+def _disable_parser_colors(parser: argparse.ArgumentParser) -> None:
+    """Make argparse rendering independent of terminal color settings."""
+    if hasattr(parser, "color"):
+        parser.color = False
+    for action in parser._actions:
+        choices = getattr(action, "choices", None)
+        if isinstance(choices, Mapping):
+            for child in choices.values():
+                if isinstance(child, argparse.ArgumentParser):
+                    _disable_parser_colors(child)
+
+
 def _build_parser(service: Service) -> argparse.ArgumentParser:
     environment_names = {name for spec in SERVICES for name, _description in spec.environment}
     with _without_environment(environment_names):
         module = importlib.import_module(service.module_name)
-        return module.build_parser()
+        parser = module.build_parser()
+    _disable_parser_colors(parser)
+    return parser
 
 
 def _subparser_action(parser: argparse.ArgumentParser) -> argparse.Action | None:
@@ -320,7 +336,10 @@ def _render_service(service: Service) -> str:
             lines.extend(f"- {constraint}" for constraint in constraints)
         if child.epilog:
             lines.extend(["", "Notes:", "", _markdown(child.epilog)])
-    return "\n".join(lines).rstrip() + "\n"
+    # Python 3.14 argparse can color ``format_usage()`` based on the caller's
+    # terminal and PYTHON_COLORS setting. Generated Markdown must be identical
+    # in interactive terminals, redirected commands, and CI.
+    return ANSI_ESCAPE_RE.sub("", "\n".join(lines)).rstrip() + "\n"
 
 
 def generate_documents() -> dict[Path, str]:
