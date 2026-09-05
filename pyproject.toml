@@ -29,6 +29,12 @@ dependencies = [
     "urllib3>=2.7.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/hykzr/sk4n"
+Repository = "https://github.com/hykzr/sk4n"
+Issues = "https://github.com/hykzr/sk4n/issues"
+Changelog = "https://github.com/hykzr/sk4n/blob/main/CHANGELOG.md"
+
 [project.scripts]
 sk4n = "sk4n.cli:main"
 canvas = "sk4n.canvas.cli:main"

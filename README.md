@@ -193,13 +193,9 @@ If [`just`](https://github.com/casey/just#installation) is installed, these
 shortcuts are available:
 
 ```bash
-just test
-just lint
 just format
-just references
-just audit
+just check # same as test + lint + check references
 just build
-just package-check
 ```
 
 Neither `just` nor `uv` is needed by people who install `sk4n` from PyPI.
