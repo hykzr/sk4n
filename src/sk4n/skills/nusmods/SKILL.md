@@ -20,6 +20,8 @@ Use the installed `nusmods` command for public course reads and local timetable 
 
 ## Cache and mutation rules
 
+- Treat no refresh flag as the normal freshness mode. missing or expired entries are fetched and replaced automatically, and a stale entry remains available as fallback if normal network request fails.
+- Explicit `--refresh` is a force option: it ignores even fresh cached entries for the request, fetches every required remote resource, and replaces the affected entries after successful responses. Do not use it unless explicitly asked or when a cached entry is known to be invalid or incomplete.
 - Use `--no-refresh` only for an explicitly offline/cache-only request or a repetitive read whose required data is already cached. Do not use it on the first call by default.
 - Preserve the default data location so cached API data and the local timetable remain incremental. Do not choose a temporary data path or clear the cache unless the user asks.
 - A schedule mutation changes only the local timetable, not NUSMods or NUS registration records. Execute a clear user-requested local edit, but clarify ambiguous replacements or deletions first.

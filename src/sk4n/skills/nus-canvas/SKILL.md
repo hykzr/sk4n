@@ -36,9 +36,11 @@ Use the installed `canvas` command for deterministic, authenticated NUS Canvas r
 7. Treat inaccessible file references returned by `canvas course <course_id> files` as coverage warnings and retain their Canvas links. Explicit file embeds belonging to another Canvas course are intentionally ignored.
 8. External-tool navigation entries are currently discoverable as Canvas sections but their embedded third-party contents are not exposed by the high-level CLI. State this limitation explicitly. If the task requires those details, follow the low-level authenticated browser workflow, inspect only the required page, and close the session.
 
-## Cache and safety rules
+## Cache, refresh, and safety rules
 
-- Omit refresh flags normally. The default performs incremental remote checks and reuses unchanged cache artifacts; explicit `--refresh` forces the requested scope and is rarely necessary. Use `--no-refresh` only for an explicitly offline/cache-only request or a repetitive read whose required data is already cached.
+- Treat no refresh flag as the normal freshness mode. all commands contact Canvas by default, run the incremental update the relevant catalog or metadata and reuse unchanged expensive bodies and downloads.
+- Never add `--refresh` merely to get current data, or do ordinary first read. It bypasses artifact reuse or change detection and re-fetches the requested course/resource. Use it only when the user explicitly asks to force/bypass the cache, a relevant artifact is invalid or incomplete
+- Use `--no-refresh` only for an explicitly offline/cache-only request or a repetitive read whose required data is already cached.
 - Preserve the default data location so incremental refreshes keep working. Do not clear caches or sessions, choose a temporary data path, log out, or delete artifacts unless the user asks.
 - Do not open an unstarted quiz or assignment merely to inspect it.
 - A retired course has disappeared from the authenticated Canvas catalog. Sync preserves and skips it, while course commands read its archived cache and print a retirement notice to stderr. Do not interpret that notice as a fetch failure.
