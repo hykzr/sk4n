@@ -39,6 +39,27 @@ COMMON_SESSIONS = (
 
 SERVICES = (
     Service(
+        skill_name="nus-outlook",
+        module_name="sk4n.outlook.cli",
+        environment=(
+            COMMON_HOME,
+            COMMON_SESSIONS,
+            ("OUTLOOK_BASE_URL", "Set the Microsoft Outlook mailbox URL used by --base-url."),
+            ("OUTLOOK_SITE_NAME", "Set the saved-session namespace used by --site-name."),
+            ("OUTLOOK_TIMEOUT", "Set the request and silent login-renewal timeout in seconds."),
+        ),
+        hidden_help={
+            "base_url": "Advanced HTTPS mailbox URL on a supported Microsoft Outlook host.",
+            "site_name": "Advanced saved-session namespace.",
+        },
+        constraints={
+            "nus-outlook api": (
+                "Only /owa/service.svc with a supported read action, POST /searchservice/api/v2/query (mail), or POST /search/api/v2/query (people) is accepted; state-changing actions are rejected.",
+                "Never use low-level APIs for writes, even with an explicit user request or approval. Use the browser UI for authorized writes.",
+            ),
+        },
+    ),
+    Service(
         skill_name="nus-canvas",
         module_name="sk4n.canvas.cli",
         environment=(

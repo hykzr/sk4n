@@ -1,0 +1,4 @@
+interface:
+  display_name: "NUS Outlook"
+  short_description: "Read NUS mail and find people's email addresses"
+  default_prompt: "Use $nus-outlook to check my unread NUS email and summarize what needs attention."

@@ -29,7 +29,7 @@ from .skill_install import (
     skill_status_report,
 )
 
-CONSOLE_SCRIPTS = ("sk4n", "canvas", "nusmods", "talent-connect")
+CONSOLE_SCRIPTS = ("sk4n", "canvas", "nusmods", "talent-connect", "nus-outlook")
 MINIMUM_NODE_MAJOR = 18
 
 
