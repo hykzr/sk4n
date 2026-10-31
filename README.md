@@ -1,7 +1,7 @@
 # SkillKit for NUS
 
 SkillKit for NUS (`sk4n`) is a small toolkit for everyday NUS student tasks.
-It can help you look through Canvas, search NUSMods, browse TalentConnect jobs, 
+It can help you look through Canvas, search NUSMods, browse TalentConnect jobs, read NUS Outlook mail,
 and give supported AI assistants a reliable way to use the same tools.
 
 ## What can it do?
@@ -12,6 +12,10 @@ and give supported AI assistants a reliable way to use the same tools.
   local timetable using NUSMods share links. No login is needed.
 - **TalentConnect:** search jobs and companies, including information available
   after signing in with NUS SSO.
+- **NUS Outlook:** sign in with NUS SSO and MFA, list folders, search mail, and
+  read messages without marking them as read; look up people's email addresses
+  by name in the NUS directory. Saved browser state renews tokens
+  silently when Microsoft permits it.
 - **Agent skills:** install ready-made skills for ChatGPT Work / Codex, GitHub
   Copilot, Claude Code, and Google Antigravity.
 
@@ -19,7 +23,7 @@ and give supported AI assistants a reliable way to use the same tools.
 
 This is an unofficial, independent project. It is not affiliated with,
 endorsed by, or supported by the National University of Singapore (NUS),
-Instructure/Canvas, NUSMods, Kinobi/TalentConnect, or any supported AI
+Instructure/Canvas, NUSMods, Kinobi/TalentConnect, Microsoft/Outlook, or any supported AI
 platform.
 
 It is intended as a personal study and workflow aid. Follow NUS policies and
@@ -42,18 +46,19 @@ python -m pip install sk4n
 If this command fail because the system cannot find `python` command,
 try replacing `python` with `py` (for Windows), or `python3` (on MacOS or Linux)
 
-The one `sk4n` installation gives you four commands:
+The one `sk4n` installation gives you five commands:
 
 ```text
 sk4n
 canvas
 nusmods
 talent-connect
+nus-outlook
 ```
 
-### One extra setup step for Canvas and TalentConnect
+### One extra setup step for Canvas, TalentConnect, and Outlook
 
-Canvas and TalentConnect use a small automated browser (chromium) to handle NUS SSO. Set
+Canvas, TalentConnect, and Outlook use a small automated browser (chromium) to handle NUS SSO. Set
 it up once after installing:
 
 ```bash
@@ -64,7 +69,7 @@ NUSMods does not need this browser or an NUS login.
 
 ### One extra setup step for AI assistants
 
-Sometimes an AI assistant needs to look at a Canvas or TalentConnect page that
+Sometimes an AI assistant needs to look at a Canvas, TalentConnect, or Outlook page that
 the regular commands cannot fully read. For those cases, sk4n uses
 `playwright-cli`, a browser tool made for coding agents.
 
@@ -89,8 +94,8 @@ sk4n doctor
 
 ## Use it with an AI assistant
 
-The package includes optional agent skills for Canvas, NUSMods, and
-TalentConnect. To install them for all supported assistants on your computer:
+The package includes optional agent skills for Canvas, NUSMods,
+TalentConnect, and NUS Outlook. To install them for all supported assistants on your computer:
 
 ```bash
 sk4n skills install --agents all --scope user
@@ -155,6 +160,26 @@ talent-connect fetch --no-login --query engineer --max-jobs 20
 
 [More TalentConnect examples](https://github.com/hykzr/sk4n/blob/main/src/sk4n/talent_connect/README.md)
 
+### Read NUS Outlook mail
+
+```bash
+nus-outlook auth login
+nus-outlook auth status --format json
+nus-outlook folders
+nus-outlook messages --unread --limit 10
+nus-outlook search 'subject:internship' --format json
+nus-outlook message 'MESSAGE_ID' --format json
+nus-outlook people 'INSTRUCTOR NAME' --limit 10 --format json
+```
+
+If Microsoft account discovery needs help, use
+`nus-outlook auth login --login-hint NUS-ID@u.nus.edu` for students, or use
+`NUS-ID@nus.edu.sg` for staff. The saved login is
+reused across commands; a headless browser silently renews expired tokens when
+possible. NUS/Microsoft can still require fresh interactive sign-in or MFA.
+
+[More Outlook examples](https://github.com/hykzr/sk4n/blob/main/src/sk4n/outlook/README.md)
+
 ### Check the NUS academic week
 
 ```bash
@@ -172,7 +197,7 @@ Run this to see the exact folders used on your computer:
 sk4n paths
 ```
 
-Canvas and TalentConnect save browser session information so you do not need to
+Canvas, TalentConnect, and Outlook save browser session information so you do not need to
 sign in for every command. Treat those session files like login credentials:
 do not share or upload them.
 
@@ -181,6 +206,7 @@ To forget a saved login without signing your other browsers out of NUS SSO:
 ```bash
 canvas auth logout
 talent-connect auth logout
+nus-outlook auth logout
 ```
 
 ## If the command is not found

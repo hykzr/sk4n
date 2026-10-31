@@ -3,7 +3,7 @@
 This file is guidance for agents maintaining this repository. It is not the
 operating prompt for an end-user-facing NUS assistant.
 
-nus-canvas, nus-talent-connect and nusmods skills may have been installed to you, those are for end-user-facing NUS assistant. 
+nus-canvas, nus-talent-connect, nus-outlook and nusmods skills may have been installed to you, those are for end-user-facing NUS assistant. 
 
 ## Repository map
 
@@ -14,6 +14,9 @@ nus-canvas, nus-talent-connect and nusmods skills may have been installed to you
   access, local SQLite persistence, direct authenticated API access, and
   authenticated `@playwright/cli` sessions.
 - `src/sk4n/nusmods/` uses public NUSMods APIs and does not need an authentication flow.
+- `src/sk4n/outlook/` provides NUS SSO/MFA login, durable browser state with
+  silent token renewal, read-only Outlook mail and NUS directory (people) search, and authenticated
+  `@playwright/cli` inspection. Its web endpoints are private and may change.
 - `src/sk4n/tools/` contains shared request, saved-session, and browser-session helpers.
 - `tests/` contains the unit suite. Keep application-specific behavior in its
   package and put genuinely shared behavior in `src/sk4n/tools/`.
@@ -23,12 +26,13 @@ Prefer running the just commands like `just check` as is.
 
 ## Authentication comes first
 
-Before any Canvas or TalentConnect task that may contact the real service,
+Before any Canvas, TalentConnect, or Outlook task that may contact the real service,
 always check authentication status first:
 
 ```bash
 uv run canvas auth status
 uv run talent-connect auth status
+uv run nus-outlook auth status
 ```
 
 If the relevant command reports unauthenticated and the task needs actual
@@ -39,6 +43,7 @@ browser window:
 ```bash
 uv run canvas auth login
 uv run talent-connect auth login
+uv run nus-outlook auth login
 ```
 
 Do not require authentication for NUSMods: its APIs are public, so use direct
@@ -59,6 +64,9 @@ uv run canvas playwright-cli --session canvas
 
 uv run talent-connect api /api/auth/
 uv run talent-connect playwright-cli --session talent-connect
+
+uv run nus-outlook api '/owa/service.svc?action=GetOwaUserConfiguration' -X POST
+uv run nus-outlook playwright-cli --session nus-outlook
 ```
 
 The browser-opening commands leave their sessions running. Continue with, for
@@ -67,8 +75,8 @@ when the task is finished.
 
 ## Updating a remote integration
 
-Remote interfaces change. When adding support for a new or updated Canvas or
-TalentConnect page, field, endpoint, filter, or workflow:
+Remote interfaces change. When adding support for a new or updated Canvas,
+TalentConnect, or Outlook page, field, endpoint, filter, or workflow:
 
 1. Check auth status before beginning remote investigation.
 2. Inspect the smallest useful read-only API call first with the app's `api`

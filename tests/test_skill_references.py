@@ -4,6 +4,7 @@ from pathlib import Path
 
 SKILLS_ROOT = Path(__file__).resolve().parent.parent / "src" / "sk4n" / "skills"
 SKILLS = {
+    "nus-outlook": ("commands.md", "low-level.md"),
     "nus-canvas": ("commands.md", "low-level.md"),
     "nusmods": ("commands.md",),
     "nus-talent-connect": ("commands.md", "low-level.md"),
