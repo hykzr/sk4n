@@ -25,6 +25,7 @@ READ_ACTIONS = frozenset(
         "GetFolder",
         "FindItem",
         "GetItem",
+        "GetAttachment",
         "FindConversation",
         "GetConversationItems",
         "GetCalendarFoldersV2",
@@ -53,6 +54,10 @@ DISTINGUISHED_FOLDERS = frozenset(
 class OutlookError(RuntimeError):
     exit_code = ExitCode.REMOTE
 
+    def __init__(self, message: str, *, response_code: str | None = None):
+        super().__init__(message)
+        self.response_code = response_code
+
 
 class OutlookAuthError(OutlookError):
     exit_code = ExitCode.AUTH
@@ -70,14 +75,13 @@ def envelope(action: str, body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def folder_id(value: str) -> dict[str, str]:
+def folder_id(value: str, *, distinguished: bool = True) -> dict[str, str]:
     if not value:
         raise ValueError("Folder must not be empty.")
+    known = distinguished and value.lower() in DISTINGUISHED_FOLDERS
     return {
-        "__type": "DistinguishedFolderId:#Exchange"
-        if value.lower() in DISTINGUISHED_FOLDERS
-        else "FolderId:#Exchange",
-        "Id": value.lower() if value.lower() in DISTINGUISHED_FOLDERS else value,
+        "__type": "DistinguishedFolderId:#Exchange" if known else "FolderId:#Exchange",
+        "Id": value.lower() if known else value,
     }
 
 
@@ -88,7 +92,10 @@ def properties(*names: str) -> list[dict[str, str]]:
 def response_messages(payload: dict[str, Any]) -> list[dict[str, Any]]:
     body = payload.get("Body", {})
     if body.get("ErrorCode") or body.get("FaultMessage"):
-        raise OutlookError(str(body.get("FaultMessage") or body["ErrorCode"]))
+        raise OutlookError(
+            str(body.get("FaultMessage") or body["ErrorCode"]),
+            response_code=str(body.get("ErrorCode") or ""),
+        )
     messages = body.get("ResponseMessages", {}).get("Items")
     if not isinstance(messages, list) or not messages:
         raise OutlookError("Outlook returned no response messages.")
@@ -102,7 +109,8 @@ def response_messages(payload: dict[str, Any]) -> list[dict[str, Any]]:
                     message.get("MessageText")
                     or message.get("ResponseCode")
                     or "Outlook request failed."
-                )
+                ),
+                response_code=message.get("ResponseCode"),
             )
     return messages
 
@@ -232,7 +240,10 @@ class OutlookClient:
                     "Saved Outlook login has expired. Run `nus-outlook auth login`."
                 )
             if not response.ok or response.is_redirect:
-                raise OutlookError(f"Outlook returned HTTP {response.status_code} for {label}.")
+                raise OutlookError(
+                    f"Outlook returned HTTP {response.status_code} for {label}.",
+                    response_code=f"HTTP{response.status_code}",
+                )
             try:
                 result = response.json()
             except ValueError as exc:
@@ -296,6 +307,7 @@ class OutlookClient:
         self,
         *,
         folder: str = "inbox",
+        folder_is_id: bool = False,
         limit: int = 20,
         offset: int = 0,
         unread: bool = False,
@@ -309,14 +321,18 @@ class OutlookClient:
             search_query = (
                 f"({query}) AND isread:no" if unread and query else (query or "isread:no")
             )
-            return self.search(search_query, folder=folder, limit=limit, offset=offset)
+            return self.search(
+                search_query, folder=folder, folder_is_id=folder_is_id, limit=limit, offset=offset
+            )
         body: dict[str, Any] = {
             "ItemShape": {
                 "__type": "ItemResponseShape:#Exchange",
                 "BaseShape": "Default",
-                "AdditionalProperties": properties("DateTimeReceived"),
+                "AdditionalProperties": properties(
+                    "DateTimeReceived", "ConversationId", "InternetMessageId"
+                ),
             },
-            "ParentFolderIds": [folder_id(folder)],
+            "ParentFolderIds": [folder_id(folder, distinguished=not folder_is_id)],
             "Traversal": "Shallow",
             "Paging": {
                 "__type": "IndexedPageView:#Exchange",
@@ -335,14 +351,33 @@ class OutlookClient:
         payload = self.action("FindItem", body)
         return response_messages(payload)[0].get("RootFolder", {}).get("Items", [])
 
+    def folder_metadata(self, identifier: str) -> dict[str, Any]:
+        payload = self.action(
+            "GetFolder",
+            {
+                "FolderIds": [folder_id(identifier)],
+                "FolderShape": {"__type": "FolderResponseShape:#Exchange", "BaseShape": "IdOnly"},
+            },
+        )
+        folders = response_messages(payload)[0].get("Folders", [])
+        if not folders:
+            raise OutlookError("Outlook returned no folder for that ID.")
+        return folders[0]
+
     def search(
-        self, query: str, *, folder: str = "inbox", limit: int = 20, offset: int = 0
+        self,
+        query: str,
+        *,
+        folder: str = "inbox",
+        folder_is_id: bool = False,
+        limit: int = 20,
+        offset: int = 0,
     ) -> list[dict[str, Any]]:
         if not query.strip() or limit < 1 or offset < 0:
             raise ValueError(
                 "Search needs a nonempty query, positive limit, and nonnegative offset."
             )
-        selected = folder_id(folder)
+        selected = folder_id(folder, distinguished=not folder_is_id)
         scope = (
             "DistinguishedFolderName"
             if selected["__type"] == "DistinguishedFolderId:#Exchange"
@@ -437,3 +472,31 @@ class OutlookClient:
         if not items:
             raise OutlookError("Outlook returned no message for that ID.")
         return items[0]
+
+    def message_metadata(self, message_id: str) -> dict[str, Any]:
+        """Read the current ChangeKey without downloading the message body."""
+        if not message_id:
+            raise ValueError("Message ID must not be empty.")
+        payload = self.action(
+            "GetItem",
+            {
+                "ItemIds": [{"__type": "ItemId:#Exchange", "Id": message_id}],
+                "ItemShape": {"__type": "ItemResponseShape:#Exchange", "BaseShape": "IdOnly"},
+            },
+        )
+        items = response_messages(payload)[0].get("Items", [])
+        if not items:
+            raise OutlookError("Outlook returned no message for that ID.")
+        return items[0]
+
+    def attachment(self, attachment_id: str) -> dict[str, Any]:
+        if not attachment_id:
+            raise ValueError("Attachment ID must not be empty.")
+        payload = self.action(
+            "GetAttachment",
+            {"AttachmentIds": [{"__type": "AttachmentId:#Exchange", "Id": attachment_id}]},
+        )
+        attachments = response_messages(payload)[0].get("Attachments", [])
+        if not attachments:
+            raise OutlookError("Outlook returned no attachment for that ID.")
+        return attachments[0]

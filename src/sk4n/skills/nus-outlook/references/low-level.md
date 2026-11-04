@@ -2,7 +2,60 @@
 
 Run `nus-outlook auth status` first. When needed, the user completes NUS SSO and MFA via `nus-outlook auth login`; existing authorization to sign in remains valid.
 
-Prefer `nus-outlook api '/owa/service.svc?action=GetOwaUserConfiguration' -X POST` for endpoint checks. Supported actions are `GetOwaUserConfiguration`, `FindFolder`, `GetFolder`, `FindItem`, `GetItem`, `FindConversation`, `GetConversationItems`, `GetCalendarFoldersV2`, and `GetCalendarView`. POST carries the Outlook JSON read request, using the `Header`/`Body` envelope; it does not imply a mailbox write. Request types must match the selected action.
+Prefer `nus-outlook api '/owa/service.svc?action=GetOwaUserConfiguration' -X POST` for endpoint checks. Supported actions are `GetOwaUserConfiguration`, `FindFolder`, `GetFolder`, `FindItem`, `GetItem`, `GetAttachment`, `FindConversation`, `GetConversationItems`, `GetCalendarFoldersV2`, and `GetCalendarView`. POST carries the Outlook JSON read request, using the `Header`/`Body` envelope; it does not imply a mailbox write. Request types must match the selected action.
+
+The following contracts were checked with read-only requests on 2026-11-03:
+
+- `FindItem` returns `ItemId.Id` and `ItemId.ChangeKey`. `GetItem` with
+  `ItemShape.BaseShape: IdOnly` also returns that revision without the body.
+  `AllProperties`, `BodyType: Text`, and `BlockExternalImages: true` return the
+  full text body, `LastModifiedTime`, attachment metadata, and reply/conversation
+  fields. Request item IDs as `{"__type": "ItemId:#Exchange", "Id": ID}`;
+  search's complete ID object is not a valid request ID shape.
+- Search exposes `DateTimeLastModified` with fractional seconds while full
+  `GetItem` may round `LastModifiedTime` to whole seconds. Its `ItemId` may lack a
+  change key. Use the lightweight revision check before reusing full content.
+  Attempts to request `LastModifiedTime` or `DateTimeLastModified` as ordinary
+  `PropertyUri` fields failed; they are not used by incremental checks.
+- Full messages expose `Attachments[]` with `AttachmentId.Id`, `Name`, `Size`,
+  `ContentType`, `LastModifiedTime`, and `__type` when available. `GetAttachment`
+  takes `Body.AttachmentIds: [{"__type": "AttachmentId:#Exchange", "Id": ID}]`
+  and returns `Body.ResponseMessages.Items[].Attachments[]` with base64 `Content`
+  for files. Omit `AttachmentShape`: the tested shape variants returned HTTP
+  400. Metadata and downloaded response fields are retained in the cache,
+  storing decoded bytes separately from JSON. File downloads were checked live;
+  item/MIME and reference handling also have deterministic unit coverage.
+- A missing/malformed folder can produce an Exchange `ResponseCode` such as
+  `ErrorFolderNotFound` or `ErrorInvalidIdMalformed`. Search can wrap it in HTTP
+  400; `GetFolder` with `BaseShape: IdOnly` distinguishes a stale folder mapping
+  from other search failures before retrying. Retries refresh the mapping once.
+
+Read-only checks on 2026-11-04 confirmed that a single `FindItem` page returns
+metadata without `Body`, while a single search returns metadata and `Preview`
+without `Body`. Default high-level lists/searches cache those returned records
+without any per-result `GetItem` calls. Only `message ID`, `--body`, or
+`--attachments` opts into detail requests and body-revision validation.
+The cache stores emails by ID rather than query strings or result snapshots.
+Offline text searches use local JSON with `jq`/`grep`; `messages --no-refresh`
+can filter and page cached metadata without a matching prior query.
+
+Link contracts checked on 2026-11-05:
+
+- Full `GetItem` includes `WebClientReadFormQueryString`, an Outlook web URL.
+  Lists/searches do not need another request to generate their normalized
+  message `url`: `/mail/deeplink/read/{encoded-message-id}`. IDs are encoded as
+  individual path segments, including `/`, `+`, and `=` characters.
+- `GetAttachment` returned an empty `AttachmentOriginalUrl` for the file checked.
+  Outlook's loaded `previewAttachmentInPopOut` implementation constructs
+  `/mail/deeplink/attachment/{encoded-message-id}/{encoded-attachment-id}/false/`.
+  This authenticated viewer route opened the correct attachment in a live
+  browser check. Message deep links were also checked, preserving read state.
+  These viewer links carry IDs rather than expiring download credentials.
+- High-level records save mail `url`, `Attachments[].url`, and downloaded-file
+  manifest `url` fields. `_outlook.attachments[]` exposes `url` together with
+  `path` and download status, including metadata-only attachments. Normal reads
+  enrich older cached records locally; cache-only reads derive links without
+  writing. Agent replies cite mail URLs and attachment URL/local-file pairs.
 
 Mailbox search and unread filtering use `POST /searchservice/api/v2/query`,
 with `EntityRequests[].EntityType` set to `Message`, `Query.QueryString`, and

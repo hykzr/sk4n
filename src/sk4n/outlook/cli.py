@@ -5,22 +5,27 @@ import json
 import os
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
 import requests
 from playwright.async_api import Error as PlaywrightError
 
 from sk4n.errors import exit_code_for_error
+from sk4n.paths import ensure_private_directory, outlook_data_dir
 from sk4n.tools.playwright_cli import (
     PlaywrightCLIError,
     ensure_session_available,
     open_authenticated_session,
     playwright_cli_executable,
 )
+from sk4n.tools.shared import exclusive_file_lock
 
 from .auth import DEFAULT_LOGIN_WAIT_SECONDS, check_auth_status, login, logout
 from .browser import validate_base_url
 from .client import DEFAULT_BASE_URL, DEFAULT_SITE_NAME, OutlookClient, OutlookError
+from .fetcher import OutlookFetcher
+from .storage import OutlookStore
 
 
 def positive_int(value: str) -> int:
@@ -46,14 +51,59 @@ def add_format_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def add_refresh_arguments(parser: argparse.ArgumentParser, *, attachments: bool = False) -> None:
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--refresh",
+        action="store_const",
+        const="force",
+        dest="refresh_mode",
+        help="Force refresh the requested data and local artifacts.",
+    )
+    group.add_argument(
+        "--no-refresh",
+        action="store_const",
+        const="none",
+        dest="refresh_mode",
+        help="Read only from the local cache; fail if the requested data is missing.",
+    )
+    parser.set_defaults(refresh_mode="default")
+    if attachments:
+        parser.add_argument(
+            "--attachments",
+            action="store_true",
+            help="Download and cache file/item attachments, fetching message details as needed.",
+        )
+
+
+def add_folder_arguments(parser: argparse.ArgumentParser) -> None:
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--folder",
+        default=None,
+        help="Folder display name/path or distinguished name. Default: inbox when neither folder option is given.",
+    )
+    group.add_argument(
+        "--folder-id",
+        default=None,
+        help="Exact Outlook folder ID; bypass folder-name lookup.",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="nus-outlook",
-        description="Read NUS Outlook mail and look up people using a saved NUS SSO browser login.",
+        description="Read and incrementally cache NUS Outlook mail and look up people using a saved NUS SSO browser login.",
         epilog=(
             "Exit codes: 0 success, 1 unauthenticated status, 2 validation, "
             "3 authentication, 4 transport, 5 remote HTTP/response failure."
         ),
+    )
+    parser.add_argument(
+        "--data-path",
+        type=Path,
+        default=outlook_data_dir(),
+        help="Local Outlook cache directory. Default: %(default)s.",
     )
     parser.add_argument(
         "--base-url",
@@ -104,6 +154,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     folders = commands.add_parser("folders", help="List mailbox folders.")
+    add_refresh_arguments(folders)
     add_format_argument(folders)
     people = commands.add_parser(
         "people", help="Find people's email addresses in the NUS directory."
@@ -115,30 +166,47 @@ def build_parser() -> argparse.ArgumentParser:
         "--limit", type=positive_int, default=20, help="Maximum matches. Default: 20."
     )
     add_format_argument(people)
-    messages = commands.add_parser("messages", help="List messages without marking them read.")
-    messages.add_argument(
-        "--folder", default="inbox", help="Distinguished folder name or folder ID. Default: inbox."
+    messages = commands.add_parser(
+        "messages",
+        help="List messages without marking them read.",
+        epilog="Default: one list request, metadata only. --body and --attachments opt into message detail requests. Offline listing filters cached records.",
     )
+    add_folder_arguments(messages)
     messages.add_argument(
         "--limit", type=positive_int, default=20, help="Maximum results. Default: 20."
     )
     messages.add_argument("--offset", type=int, default=0, help="Result offset. Default: 0.")
     messages.add_argument("--unread", action="store_true", help="Only unread messages.")
-    add_format_argument(messages)
-    search = commands.add_parser("search", help="Search mailbox messages.")
-    search.add_argument("query", help="Outlook search query, for example 'subject:internship'.")
-    search.add_argument(
-        "--folder", default="inbox", help="Distinguished folder name or folder ID. Default: inbox."
+    messages.add_argument(
+        "--body",
+        action="store_true",
+        help="Also fetch full bodies. Default: use only the list response without per-message requests.",
     )
+    add_refresh_arguments(messages, attachments=True)
+    add_format_argument(messages)
+    search = commands.add_parser(
+        "search",
+        help="Search mailbox messages.",
+        epilog="Default: one search request, without per-message fetching. Queries are not cached. Offline search is unsupported; use messages --no-refresh --format json with jq or grep.",
+    )
+    search.add_argument("query", help="Outlook search query, for example 'subject:internship'.")
+    add_folder_arguments(search)
     search.add_argument(
         "--limit", type=positive_int, default=20, help="Maximum results. Default: 20."
     )
     search.add_argument("--offset", type=int, default=0, help="Result offset. Default: 0.")
+    search.add_argument(
+        "--body",
+        action="store_true",
+        help="Also fetch full bodies. Default: use only the search response without per-message requests.",
+    )
+    add_refresh_arguments(search, attachments=True)
     add_format_argument(search)
     message = commands.add_parser(
         "message", help="Read one message without changing its read state."
     )
     message.add_argument("message_id", help="Message ID returned by messages or search.")
+    add_refresh_arguments(message, attachments=True)
     add_format_argument(message)
 
     api = commands.add_parser(
@@ -234,11 +302,19 @@ def human_record(record: dict[str, Any]) -> dict[str, Any]:
     body = record.get("Body")
     return {
         "Subject": record.get("Subject"),
+        "URL": record.get("url"),
         "ID": record["ItemId"].get("Id"),
         "From": f"{name} <{email}>" if name and email else (name or email or None),
         "Received": record.get("DateTimeReceived"),
         "Read": record.get("IsRead"),
         "Attachments": record.get("HasAttachments"),
+        "Attachment links": [
+            {"name": a.get("name"), "url": a.get("url"), "local": a.get("path")}
+            for a in record.get("_outlook", {}).get("attachments", [])
+        ]
+        or None,
+        "Cache": record.get("_outlook", {}).get("path"),
+        "Body cached": record.get("_outlook", {}).get("body_downloaded"),
         "Body": body.get("Value") if isinstance(body, dict) else (body or record.get("Preview")),
     }
 
@@ -291,20 +367,10 @@ def run(args: argparse.Namespace) -> int:
     if getattr(args, "offset", 0) < 0:
         raise ValueError("--offset must be zero or greater")
     client = OutlookClient(**options)
-    if args.command == "folders":
-        value = client.folders()
+    if args.command in {"folders", "messages", "search", "message"}:
+        value = cached_read(args, client)
     elif args.command == "people":
         value = client.people(args.query, limit=args.limit)
-    elif args.command in {"messages", "search"}:
-        value = client.messages(
-            folder=args.folder,
-            limit=args.limit,
-            offset=args.offset,
-            unread=getattr(args, "unread", False),
-            query=getattr(args, "query", None),
-        )
-    elif args.command == "message":
-        value = client.message(args.message_id)
     elif args.command == "api":
         value = client.request(args.method, args.path, args.data)
     else:
@@ -313,6 +379,36 @@ def run(args: argparse.Namespace) -> int:
         value, getattr(args, "format", None) or ("json" if args.command == "api" else None)
     )
     return 0
+
+
+def cached_read(args: argparse.Namespace, client: OutlookClient) -> Any:
+    store = OutlookStore(args.data_path)
+    fetcher = OutlookFetcher(client, store)
+
+    def read() -> Any:
+        if args.command == "folders":
+            return fetcher.folders(refresh_mode=args.refresh_mode)
+        if args.command == "message":
+            return fetcher.message(
+                args.message_id, refresh_mode=args.refresh_mode, attachments=args.attachments
+            )
+        return fetcher.messages(
+            folder=args.folder,
+            folder_id=args.folder_id,
+            limit=args.limit,
+            offset=args.offset,
+            unread=getattr(args, "unread", False),
+            query=getattr(args, "query", None),
+            refresh_mode=args.refresh_mode,
+            body=args.body,
+            attachments=args.attachments,
+        )
+
+    if args.refresh_mode == "none":
+        return read()
+    ensure_private_directory(store.root)
+    with exclusive_file_lock(store.root / ".cache.lock"):
+        return read()
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -169,6 +169,10 @@ nus-outlook folders
 nus-outlook messages --unread --limit 10
 nus-outlook search 'subject:internship' --format json
 nus-outlook message 'MESSAGE_ID' --format json
+nus-outlook message 'MESSAGE_ID' --attachments
+nus-outlook messages --folder 'Sent Items' --limit 10
+nus-outlook messages --folder-id 'FOLDER_ID' --limit 10
+nus-outlook messages --limit 10 --no-refresh
 nus-outlook people 'INSTRUCTOR NAME' --limit 10 --format json
 ```
 

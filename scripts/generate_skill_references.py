@@ -52,6 +52,7 @@ SERVICES = (
             "base_url": "Advanced HTTPS mailbox URL on a supported Microsoft Outlook host.",
             "site_name": "Advanced saved-session namespace.",
         },
+        default_labels={"data_path": "<user-data>/sk4n/outlook"},
         constraints={
             "nus-outlook api": (
                 "Only /owa/service.svc with a supported read action, POST /searchservice/api/v2/query (mail), or POST /search/api/v2/query (people) is accepted; state-changing actions are rejected.",

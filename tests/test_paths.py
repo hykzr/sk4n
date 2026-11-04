@@ -9,6 +9,7 @@ import pytest
 
 import sk4n.canvas.cli as canvas_cli
 import sk4n.nusmods.cli as nusmods_cli
+import sk4n.outlook.cli as outlook_cli
 import sk4n.talent_connect.cli as talent_connect_cli
 from sk4n import paths
 from sk4n.tools import shared
@@ -25,6 +26,7 @@ def test_application_home_controls_all_default_paths(
     assert paths.sessions_dir() == home / "sessions"
     assert paths.canvas_data_dir() == home / "canvas"
     assert paths.nusmods_data_dir() == home / "nusmods"
+    assert paths.outlook_data_dir() == home / "outlook"
     assert paths.talent_connect_data_dir() == home / "talent-connect"
     assert paths.talent_connect_database_path() == (
         home / "talent-connect" / "talent_connect.sqlite3"
@@ -44,11 +46,16 @@ def test_service_cli_flags_override_home_and_legacy_environments_are_ignored(
     canvas_parser = canvas_cli.build_parser()
     nusmods_parser = nusmods_cli.build_parser()
     talent_parser = talent_connect_cli.build_parser()
+    outlook_parser = outlook_cli.build_parser()
 
     assert canvas_parser.get_default("data_path") == home / "canvas"
     assert nusmods_parser.get_default("data_path") == home / "nusmods"
+    assert outlook_parser.get_default("data_path") == home / "outlook"
     assert talent_parser.get_default("data_path") == (
         home / "talent-connect" / "talent_connect.sqlite3"
+    )
+    assert (
+        outlook_parser.parse_args(["--data-path", str(explicit), "folders"]).data_path == explicit
     )
     assert (
         canvas_parser.parse_args(["--data-path", str(explicit), "auth", "status"]).data_path

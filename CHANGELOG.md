@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Incrementally cache Outlook folder mappings and returned mail metadata, with
+  on-demand bodies and attachments, single-request default lists/searches,
+  folder-name filters, and consistent `--refresh` /
+  `--no-refresh` modes.
 - Add `nus-outlook` mail commands and an installable NUS Outlook agent skill.
 - Persist Outlook browser authentication, including IndexedDB, with silent
   token renewal and explicit NUS SSO/MFA login.

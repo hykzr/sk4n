@@ -224,6 +224,72 @@ def test_message_read_uses_only_get_item(monkeypatch: pytest.MonkeyPatch) -> Non
     assert seen[0][1]["ItemShape"]["BodyType"] == "Text"
 
 
+def test_attachment_and_lightweight_metadata_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    c = client.OutlookClient()
+    seen: list[Any] = []
+
+    def action(name: str, body: dict[str, Any]) -> dict[str, Any]:
+        seen.append((name, body))
+        records = (
+            {"Items": [{"ItemId": {"Id": "one", "ChangeKey": "v1"}}]}
+            if name == "GetItem"
+            else {"Attachments": [{"Content": "aGVsbG8=", "UnknownField": "keep"}]}
+        )
+        return {"Body": {"ResponseMessages": {"Items": [{"ResponseCode": "NoError", **records}]}}}
+
+    monkeypatch.setattr(c, "action", action)
+    assert c.message_metadata("one")["ItemId"]["ChangeKey"] == "v1"
+    assert seen[0][1]["ItemShape"] == {
+        "__type": "ItemResponseShape:#Exchange",
+        "BaseShape": "IdOnly",
+    }
+    assert c.attachment("attachment-id")["UnknownField"] == "keep"
+    assert seen[1] == (
+        "GetAttachment",
+        {"AttachmentIds": [{"__type": "AttachmentId:#Exchange", "Id": "attachment-id"}]},
+    )
+    for method in [c.attachment, c.message_metadata]:
+        with pytest.raises(ValueError):
+            method("")
+
+
+def test_folder_response_code_is_preserved() -> None:
+    with pytest.raises(client.OutlookError) as exc:
+        client.response_messages(
+            {
+                "Body": {
+                    "ResponseMessages": {
+                        "Items": [
+                            {
+                                "ResponseCode": "ErrorFolderNotFound",
+                                "MessageText": "Folder missing",
+                                "ResponseClass": "Error",
+                            }
+                        ]
+                    }
+                }
+            }
+        )
+    assert exc.value.response_code == "ErrorFolderNotFound"
+
+
+def test_get_attachment_is_allowed_read_api(
+    monkeypatch: pytest.MonkeyPatch, saved: dict[str, Any]
+) -> None:
+    seen: list[Any] = []
+
+    def request(_self: Any, _method: str, url: str, **kwargs: Any) -> requests.Response:
+        seen.append((url, kwargs["json"]))
+        return response(
+            {"Body": {"ResponseMessages": {"Items": [{"Attachments": [{"Content": ""}]}]}}}
+        )
+
+    monkeypatch.setattr(requests.Session, "request", request)
+    assert client.OutlookClient().attachment("aid") == {"Content": ""}
+    assert seen[0][0].endswith("/owa/service.svc?action=GetAttachment")
+    assert seen[0][1]["__type"] == "GetAttachmentJsonRequest:#Exchange"
+
+
 def test_search_and_unread_use_folder_scoped_search(monkeypatch: pytest.MonkeyPatch) -> None:
     c = client.OutlookClient()
     seen: list[Any] = []
@@ -269,6 +335,29 @@ def test_search_error_does_not_look_like_empty_results(monkeypatch: pytest.Monke
     monkeypatch.setattr(c, "request", lambda *_a: {"Error": "changed schema"})
     with pytest.raises(client.OutlookError, match="search result"):
         c.messages(query="deadline")
+
+
+def test_explicit_folder_id_does_not_become_a_distinguished_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    c = client.OutlookClient()
+    requests_seen = []
+
+    def request(method: str, path: str, data: Any = None) -> dict[str, Any]:
+        requests_seen.append(data)
+        return (
+            {"EntitySets": [{"ResultSets": [{"Results": []}]}]}
+            if "searchservice" in path
+            else exchange_response({"Items": []})
+        )
+
+    monkeypatch.setattr(c, "request", request)
+    c.messages(folder="inbox", folder_is_id=True)
+    assert requests_seen[-1]["Body"]["ParentFolderIds"] == [
+        {"__type": "FolderId:#Exchange", "Id": "inbox"}
+    ]
+    c.messages(folder="inbox", folder_is_id=True, query="term")
+    assert requests_seen[-1]["EntityRequests"][0]["Filter"] == {"Term": {"FolderId": "inbox"}}
 
 
 def test_people_lookup_preserves_ambiguous_matches_and_directory_fields(
