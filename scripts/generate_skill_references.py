@@ -56,7 +56,7 @@ SERVICES = (
         constraints={
             "nus-outlook api": (
                 "Only /owa/service.svc with a supported read action, POST /searchservice/api/v2/query (mail), or POST /search/api/v2/query (people) is accepted; state-changing actions are rejected.",
-                "Never use low-level APIs for writes, even with an explicit user request or approval. Use the browser UI for authorized writes.",
+                "Use the named high-level commands for authorized mail changes. The low-level api command remains read-only; sending is unsupported.",
             ),
         },
     ),

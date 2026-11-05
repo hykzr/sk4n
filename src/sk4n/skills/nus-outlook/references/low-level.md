@@ -60,7 +60,9 @@ Link contracts checked on 2026-11-05:
 Mailbox search and unread filtering use `POST /searchservice/api/v2/query`,
 with `EntityRequests[].EntityType` set to `Message`, `Query.QueryString`, and
 `Filter.Term.DistinguishedFolderName` or `Filter.Term.FolderId`. Results retain
-the original `Source` record, including `ItemId.Id`. The older `FindItem`
+the `Source` fields, but normalize `ItemId.Id` from `ImmutableId` to the stable
+Exchange ID. The folder-dependent search ID remains in `ItemRestId` and `Id`.
+Outlook's `ImmutableId` alphabet maps `-` to `/` and `_` to `+`. The older `FindItem`
 query/restriction shapes did not produce valid search results in live checks.
 
 Directory lookup uses `POST /search/api/v2/query` with
@@ -84,7 +86,7 @@ playwright-cli -s=nus-outlook requests
 playwright-cli -s=nus-outlook close
 ```
 
-The command restores private cookies, local storage, and IndexedDB in a named `@playwright/cli` session. Use `--headed` for authorized UI writes so the action can be reviewed in the browser; for read-only inspection, use it when a visible window helps. Do not reuse an existing unrelated session or print authorization headers, token responses, or storage contents. Avoid opening messages through the page when read-state changes would be unwanted; use `message` instead.
+The command restores private cookies, local storage, and IndexedDB in a named `@playwright/cli` session. Use named high-level commands for authorized mailbox changes; use this session to inspect page behavior or investigate a changed endpoint. Use `--headed` when a visible window helps. Do not reuse an existing unrelated session or print authorization headers, token responses, or storage contents. Avoid opening messages through the page when read-state changes would be unwanted; use `message` instead.
 
 Outlook currently redirects older `outlook.office.com` links to `outlook.cloud.microsoft`. NUS login can involve Microsoft account discovery followed by NUS federation and MFA. A realm-forced link can cause an extra account-discovery round trip; the CLI uses the standard mailbox URL and remembers the sign-in hint. A renewed session is saved only after the server returns a signed-in mailbox profile. If silent renewal fails, use explicit interactive login.
 

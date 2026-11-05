@@ -17,6 +17,7 @@ from .browser import (
     capture_session,
     validate_base_url,
 )
+from .storage import canonical_immutable_id
 
 READ_ACTIONS = frozenset(
     {
@@ -32,6 +33,7 @@ READ_ACTIONS = frozenset(
         "GetCalendarView",
     }
 )
+WRITE_ACTIONS = frozenset({"UpdateItem", "MoveItem", "CreateItem", "DeleteItem"})
 DISTINGUISHED_FOLDERS = frozenset(
     {
         "inbox",
@@ -125,6 +127,11 @@ def search_results(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 source = result.get("Source")
                 if not isinstance(source, dict):
                     raise OutlookError("Outlook returned an unexpected search result.")
+                immutable = canonical_immutable_id(source.get("ImmutableId"))
+                if immutable:
+                    source = {**source, "ItemId": {**source.get("ItemId", {}), "Id": immutable}}
+                    if "Flag" not in source:
+                        source = {**source, "Flag": {"FlagStatus": "NotFlagged"}}
                 items.append(source)
     return items
 
@@ -156,7 +163,9 @@ class OutlookClient:
             raise OutlookAuthError("No saved Outlook login. Run `nus-outlook auth login` first.")
         return saved
 
-    def request(self, method: str, path: str, data: Any = None) -> dict[str, Any]:
+    def request(
+        self, method: str, path: str, data: Any = None, *, _write: bool = False
+    ) -> dict[str, Any]:
         method = method.upper()
         parsed = urlsplit(path)
         query = parse_qs(parsed.query)
@@ -170,12 +179,13 @@ class OutlookClient:
             parsed.scheme
             or parsed.netloc
             or parsed.fragment
+            or (_write and method != "POST")
             or not (
                 search
                 or (
                     parsed.path == "/owa/service.svc"
                     and len(action) == 1
-                    and action[0] in READ_ACTIONS
+                    and action[0] in (WRITE_ACTIONS if _write else READ_ACTIONS)
                 )
             )
             or method not in {"GET", "POST"}
@@ -256,6 +266,13 @@ class OutlookClient:
     def action(self, name: str, body: dict[str, Any]) -> dict[str, Any]:
         return self.request("POST", "/owa/service.svc?action=" + name, envelope(name, body))
 
+    def write_action(self, name: str, body: dict[str, Any]) -> dict[str, Any]:
+        if name not in WRITE_ACTIONS:
+            raise ValueError("Unsupported Outlook write action.")
+        return self.request(
+            "POST", "/owa/service.svc?action=" + name, envelope(name, body), _write=True
+        )
+
     def profile(self) -> dict[str, Any]:
         result = self.action("GetOwaUserConfiguration", {})
         profile = result.get("SessionSettings", {})
@@ -329,7 +346,7 @@ class OutlookClient:
                 "__type": "ItemResponseShape:#Exchange",
                 "BaseShape": "Default",
                 "AdditionalProperties": properties(
-                    "DateTimeReceived", "ConversationId", "InternetMessageId"
+                    "DateTimeReceived", "ConversationId", "InternetMessageId", "Flag"
                 ),
             },
             "ParentFolderIds": [folder_id(folder, distinguished=not folder_is_id)],

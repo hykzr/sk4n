@@ -21,6 +21,7 @@ from sk4n.tools.playwright_cli import (
 )
 from sk4n.tools.shared import exclusive_file_lock
 
+from .actions import OutlookActions
 from .auth import DEFAULT_LOGIN_WAIT_SECONDS, check_auth_status, login, logout
 from .browser import validate_base_url
 from .client import DEFAULT_BASE_URL, DEFAULT_SITE_NAME, OutlookClient, OutlookError
@@ -93,7 +94,7 @@ def add_folder_arguments(parser: argparse.ArgumentParser) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="nus-outlook",
-        description="Read and incrementally cache NUS Outlook mail and look up people using a saved NUS SSO browser login.",
+        description="Read, cache, and manage NUS Outlook mail using a saved NUS SSO browser login.",
         epilog=(
             "Exit codes: 0 success, 1 unauthenticated status, 2 validation, "
             "3 authentication, 4 transport, 5 remote HTTP/response failure."
@@ -209,6 +210,36 @@ def build_parser() -> argparse.ArgumentParser:
     add_refresh_arguments(message, attachments=True)
     add_format_argument(message)
 
+    for name, help_text in (
+        ("flag", "Flag one message for follow-up."),
+        ("unflag", "Remove a message's follow-up flag."),
+        ("mark-read", "Mark one message as read."),
+        ("mark-unread", "Mark one message as unread."),
+    ):
+        command = commands.add_parser(name, help=help_text)
+        command.add_argument("message_id", help="Exact Outlook message ID.")
+        add_format_argument(command)
+
+    move = commands.add_parser("move", help="Move one message to another folder.")
+    move.add_argument("message_id", help="Exact Outlook message ID.")
+    add_folder_arguments(move)
+    add_format_argument(move)
+
+    draft = commands.add_parser("draft", help="Create or remove an unsent draft.")
+    draft_commands = draft.add_subparsers(dest="draft_command", required=True)
+    create = draft_commands.add_parser("create", help="Save a new unsent message.")
+    create.add_argument("--to", required=True, help="Recipient email address.")
+    create.add_argument("--subject", required=True, help="Draft subject.")
+    create.add_argument("--body", required=True, help="Plain-text draft body.")
+    add_format_argument(create)
+    reply = draft_commands.add_parser("reply", help="Save an unsent reply to one message.")
+    reply.add_argument("message_id", help="Original message ID.")
+    reply.add_argument("--body", required=True, help="Plain-text reply body.")
+    add_format_argument(reply)
+    remove = draft_commands.add_parser("remove", help="Discard a draft into Deleted Items.")
+    remove.add_argument("message_id", help="Draft message ID.")
+    add_format_argument(remove)
+
     api = commands.add_parser(
         "api",
         help="Make a read-only Outlook web API request.",
@@ -307,6 +338,8 @@ def human_record(record: dict[str, Any]) -> dict[str, Any]:
         "From": f"{name} <{email}>" if name and email else (name or email or None),
         "Received": record.get("DateTimeReceived"),
         "Read": record.get("IsRead"),
+        "Flag": record.get("Flag", {}).get("FlagStatus"),
+        "Draft": record.get("IsDraft"),
         "Attachments": record.get("HasAttachments"),
         "Attachment links": [
             {"name": a.get("name"), "url": a.get("url"), "local": a.get("path")}
@@ -369,6 +402,8 @@ def run(args: argparse.Namespace) -> int:
     client = OutlookClient(**options)
     if args.command in {"folders", "messages", "search", "message"}:
         value = cached_read(args, client)
+    elif args.command in {"flag", "unflag", "mark-read", "mark-unread", "move", "draft"}:
+        value = cached_write(args, client)
     elif args.command == "people":
         value = client.people(args.query, limit=args.limit)
     elif args.command == "api":
@@ -409,6 +444,24 @@ def cached_read(args: argparse.Namespace, client: OutlookClient) -> Any:
     ensure_private_directory(store.root)
     with exclusive_file_lock(store.root / ".cache.lock"):
         return read()
+
+
+def cached_write(args: argparse.Namespace, client: OutlookClient) -> Any:
+    store = OutlookStore(args.data_path)
+    ensure_private_directory(store.root)
+    with exclusive_file_lock(store.root / ".cache.lock"):
+        actions = OutlookActions(client, store)
+        if args.command in {"flag", "unflag"}:
+            return actions.flag(args.message_id, flagged=args.command == "flag")
+        if args.command in {"mark-read", "mark-unread"}:
+            return actions.mark_read(args.message_id, read=args.command == "mark-read")
+        if args.command == "move":
+            return actions.move(args.message_id, folder=args.folder, folder_id_value=args.folder_id)
+        if args.draft_command == "create":
+            return actions.draft(to=args.to, subject=args.subject, body=args.body)
+        if args.draft_command == "reply":
+            return actions.reply_draft(args.message_id, body=args.body)
+        return actions.remove_draft(args.message_id)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

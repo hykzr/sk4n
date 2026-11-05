@@ -33,14 +33,34 @@ nus-outlook messages --limit 10 --no-refresh
 nus-outlook people 'INSTRUCTOR NAME' --limit 10 --format json
 ```
 
+When the user explicitly requests a mailbox change, the named commands act on
+one message and then refresh its cached record:
+
+```bash
+nus-outlook flag 'MESSAGE_ID'
+nus-outlook unflag 'MESSAGE_ID'
+nus-outlook mark-read 'MESSAGE_ID'
+nus-outlook mark-unread 'MESSAGE_ID'
+nus-outlook move 'MESSAGE_ID' --folder Archive
+nus-outlook draft create --to person@example.com --subject 'Draft subject' --body 'Unsent text'
+nus-outlook draft reply 'MESSAGE_ID' --body 'Unsent reply text'
+nus-outlook draft remove 'DRAFT_ID'
+```
+
+`draft remove` moves the draft to Deleted Items. There is no send command.
+Read `IsRead` and `Flag.FlagStatus` in JSON to check message state. `messages`
+requests `Flag` explicitly; older cached records without it need a refresh.
+
 Use `ItemId.Id` from message results and `FolderId.Id` from folder results.
 Message reads preserve the read flag. Search defaults to the inbox; select
 another folder with `--folder`. Names are case-insensitive. Duplicate folder
 names require a full path such as `Projects/Reports` or `--folder-id ID`.
 `--folder` selects names/paths or distinguished names; `--folder-id` selects an
 exact ID and bypasses name lookup. These options are mutually exclusive. With
-neither option, the inbox is selected. JSON output retains original Outlook fields and adds
+neither option, the inbox is selected. JSON output retains Outlook fields and adds
 `_outlook.path` and `_outlook.attachments` with local paths and download status.
+Search normalizes `ItemId.Id` to Outlook's stable immutable ID; the raw search
+ID remains in `ItemRestId` and `Id`.
 `_outlook.body_downloaded` reports whether a complete body has been cached;
 `_outlook.body_current` becomes false if later metadata shows that body is stale.
 
@@ -149,6 +169,21 @@ playwright-cli -s=nus-outlook close
 sk4n skills install --agents codex --skills nus-outlook --scope user
 ```
 
-The low-level API accepts supported read actions only. The integration does not
-send, delete, move, or mark mail. It uses Outlook web endpoints, which can change
-independently of this package.
+The low-level `api` command accepts supported read actions only. Named write
+commands use item-scoped Outlook actions. They reread the changed item after a
+successful write, update its folder and metadata in the cache, and return the
+current ID. If that reread fails, the stale cached record is invalidated.
+Changes made outside these commands become visible to offline reads only after
+the affected message is refreshed.
+Outlook web endpoints can change independently of this package.
+
+
+## Outlook action contracts observed in November 2026
+
+- `FindItem` needs `AdditionalProperties: [{"FieldURI":"Flag", "__type":"PropertyUri:#Exchange"}]` to expose `Flag.FlagStatus`; full `GetItem` and search results include it. `IsRead` is already returned.
+- Search `ItemId.Id`/`ItemRestId` is folder-dependent (`AQMk…`); `ImmutableId` is the stable `AAk…` ID in Outlook's alphabet (`-` means `/`, `_` means `+`). Normalize it before cache keys or item actions. Search omits `Flag` on unflagged mail. `GetItem` accepts REST IDs only with `Prefer: IdType="ImmutableId"`; folder lists return stable IDs without that header.
+- Item-scoped `UpdateItem` with `SetItemField` paths `Flag` or `IsRead` updates one email. Outlook's list UI instead uses `ApplyConversationAction`, which can affect a whole conversation. Read state can change without a new `ChangeKey`, so reread the full item after every successful write.
+- `MoveItem` returns the moved item in `Items[]`; in the tested mailbox `ItemId.Id` remained stable while `ChangeKey` and `ParentFolderId` changed. Handle a changed ID anyway. The UI move response uses `MovedItemIds[]`.
+- `CreateItem` with `MessageDisposition: SaveOnly` and a `Message` creates an unsent draft; a `ReplyToItem` with `ReferenceItemId` and `NewBodyContent` creates a reply draft with conversation linkage and quoted original text. `DeleteItem` with `DeleteType: MoveToDeletedItems` discards a draft and returns `MovedItemId`. Sending has no high-level support.
+- Trace request bodies may be stored by SHA-1 under `.playwright-cli/traces/resources/` rather than printed by `request-body`; inspect only the needed JSON payload. Trace network logs also contain credentials, so never print whole logs or request headers.
+

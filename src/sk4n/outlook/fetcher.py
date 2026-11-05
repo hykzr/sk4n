@@ -72,7 +72,7 @@ class OutlookFetcher:
             raise OutlookError(f"Folder {value!r} does not exist in the cached folder mapping.")
         return matches[0]
 
-    def _select_folder(
+    def select_folder(
         self, folder: str | None, identifier: str | None, mode: str
     ) -> tuple[str, bool, bool]:
         if folder is not None and identifier is not None:
@@ -115,7 +115,7 @@ class OutlookFetcher:
             raise ValueError(
                 "Offline search is not supported. Use messages --no-refresh --format json with jq or grep."
             )
-        selected, named, refreshed = self._select_folder(folder, folder_id, refresh_mode)
+        selected, named, refreshed = self.select_folder(folder, folder_id, refresh_mode)
         if refresh_mode == "none":
             return self._offline_messages(
                 selected,
@@ -173,6 +173,11 @@ class OutlookFetcher:
                 )
             else:
                 result.append(self._result(record, item))
+        immutable_ids = {
+            message_id(item) for item in items if item.get("ImmutableId")
+        }
+        if immutable_ids:
+            self.store.forget_search_aliases(immutable_ids)
         return result
 
     def _canonical_folder(self, selected: str) -> str:
@@ -273,6 +278,48 @@ class OutlookFetcher:
             },
         }
 
+    def refresh_after_write(
+        self,
+        identifier: str,
+        *,
+        previous_id: str | None = None,
+        folder_override: str | None = None,
+    ) -> dict[str, Any]:
+        """Read the authoritative post-write item and replace its cached state."""
+        old_id = previous_id or identifier
+        previous = self.store.message(old_id)
+        try:
+            full = self.client.message(identifier)
+            if message_id(full) != identifier:
+                raise OutlookError("Outlook returned a different message ID after the write.")
+        except Exception:
+            self.store.forget_message(old_id)
+            raise
+        full = with_links(full, self.client.base_url)
+        parent = full.get("ParentFolderId", {}).get("Id")
+        previous_parent = (previous or {}).get("metadata", {}).get("ParentFolderId", {}).get("Id")
+        folder = folder_override or (
+            (previous or {}).get("folder")
+            if parent and parent == previous_parent and (previous or {}).get("folder")
+            else self._canonical_folder(parent) if parent else None
+        )
+        record = {
+            **(previous or {}),
+            "message": full,
+            "metadata": self._metadata(full),
+            "complete": complete_message(full),
+            "body_current": complete_message(full),
+            "folder": folder,
+            "attachment_files": (previous or {}).get("attachment_files", {})
+            if old_id == identifier
+            else {},
+        }
+        self.store.save_message(record)
+        self.store.forget_search_aliases({identifier})
+        if old_id != identifier:
+            self.store.forget_message(old_id)
+        return self._result(record, full)
+
     def message(
         self,
         identifier: str,
@@ -331,7 +378,7 @@ class OutlookFetcher:
                     "body_current": complete_message(full),
                     "attachment_files": (record or {}).get("attachment_files", {}),
                 }
-                if not record.get("folder") and full.get("ParentFolderId", {}).get("Id"):
+                if full.get("ParentFolderId", {}).get("Id"):
                     record["folder"] = self._canonical_folder(full["ParentFolderId"]["Id"])
                 self.store.save_message(record)
             elif summary:

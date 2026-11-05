@@ -323,6 +323,16 @@ def test_direct_message_checks_only_revision_then_force_refreshes(cached: Any) -
     assert remote.calls == [("message", "one")]
 
 
+def test_force_message_refresh_reconciles_external_folder_move(cached: Any) -> None:
+    fetcher, store, remote = cached
+    remote.items["one"]["ParentFolderId"] = {"Id": "inbox"}
+    fetcher.message("one")
+    assert store.message("one")["folder"] == "inbox"
+    remote.items["one"]["ParentFolderId"] = {"Id": "deleteditems"}
+    fetcher.message("one", refresh_mode="force")
+    assert store.message("one")["folder"] == "deleteditems"
+
+
 def test_search_without_revision_never_fetches_individual_messages_unless_requested(
     cached: Any,
 ) -> None:

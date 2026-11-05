@@ -15,7 +15,7 @@ nus-canvas, nus-talent-connect, nus-outlook and nusmods skills may have been ins
   authenticated `@playwright/cli` sessions.
 - `src/sk4n/nusmods/` uses public NUSMods APIs and does not need an authentication flow.
 - `src/sk4n/outlook/` provides NUS SSO/MFA login, durable browser state with
-  silent token renewal, read-only Outlook mail and NUS directory (people) search, and authenticated
+  silent token renewal, Outlook mail reads and authorized item actions, NUS directory (people) search, and authenticated
   `@playwright/cli` inspection. Its web endpoints are private and may change.
 - `src/sk4n/tools/` contains shared request, saved-session, and browser-session helpers.
 - `tests/` contains the unit suite. Keep application-specific behavior in its

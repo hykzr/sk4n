@@ -30,6 +30,14 @@ def message_id(message: dict[str, Any]) -> str:
     return identifier
 
 
+def canonical_immutable_id(value: Any) -> str | None:
+    """Search's URL-safe immutable ID in the standard Exchange ID alphabet."""
+    if not isinstance(value, str) or not value:
+        return None
+    # Outlook's search alphabet maps '-' to '/' and '_' to '+'.
+    return value.replace("-", "/").replace("_", "+")
+
+
 def revision(message: dict[str, Any]) -> dict[str, str]:
     result = {}
     change_key = message.get("ItemId", {}).get("ChangeKey")
@@ -136,6 +144,27 @@ class OutlookStore:
         if index != self._index():
             self.write(self.root / "emails" / "index.json", index)
         return path
+
+    def forget_message(self, identifier: str) -> None:
+        """Remove a stale record from offline listings after a remote write."""
+        index = self._index()
+        name = index.pop(identifier, None)
+        if name is None:
+            return
+        self.write(self.root / "emails" / "index.json", index)
+        if isinstance(name, str) and Path(name).name == name and name not in {".", ".."}:
+            (self.root / "emails" / name / "message.json").unlink(missing_ok=True)
+
+    def forget_search_aliases(self, identifiers: set[str]) -> None:
+        """Discard legacy search records keyed by folder-dependent REST IDs."""
+        aliases = [
+            message_id(record["message"])
+            for record in self.records()
+            if message_id(record["message"]) not in identifiers
+            and canonical_immutable_id(record["message"].get("ImmutableId")) in identifiers
+        ]
+        for alias in aliases:
+            self.forget_message(alias)
 
     def records(self) -> Iterator[dict[str, Any]]:
         """Iterate cached emails without a saved query or repeated index reads."""
