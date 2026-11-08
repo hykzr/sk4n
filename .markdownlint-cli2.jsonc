@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/DavidAnson/markdownlint-cli2/main/schema/markdownlint-cli2-config-schema.json",
+  "config": {
+    "default": true,
+    // Prettier checks prose wrapping. MD013 would also flag unbreakable inline
+    // commands and links; tables and code blocks may exceed the prose width.
+    "MD013": false
+  },
+  "globs": ["**/*.{md,markdown}"],
+  // Shared by the CLI and VS Code, including when an ignored file is opened.
+  "ignores": [
+    "**/node_modules/**",
+    "**/.venv/**",
+    "**/.git/**",
+    "build/**",
+    "dist/**",
+    "temp/**",
+    "data/**",
+    "sessions/**",
+    ".agents/**",
+    ".agent/**",
+    ".claude/**",
+    ".playwright/**",
+    ".playwright-cli/**"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "sk4n-dev",
+  "private": true,
+  "description": "Markdown development tools for sk4n",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "lint:markdown": "markdownlint-cli2 && prettier --check \"**/*.{md,markdown}\"",
+    "format:markdown": "markdownlint-cli2 --fix && prettier --write \"**/*.{md,markdown}\""
+  },
+  "devDependencies": {
+    "markdownlint-cli2": "0.24.0",
+    "prettier": "3.9.10"
+  },
+  "overrides": {
+    "katex": "0.18.2",
+    "re2js": "2.8.7"
+  }
+}

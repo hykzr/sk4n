@@ -1,0 +1,13 @@
+**/node_modules/**
+**/.venv/**
+**/.git/**
+build/**
+dist/**
+temp/**
+data/**
+sessions/**
+.agents/**
+.agent/**
+.claude/**
+.playwright/**
+.playwright-cli/**
