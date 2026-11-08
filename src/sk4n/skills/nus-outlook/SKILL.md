@@ -12,7 +12,7 @@ command is not yet installed on `PATH`.
 
 1. Read [references/commands.md](references/commands.md) for the command grammar, option placement, and defaults.
 2. Check `nus-outlook auth status` before accessing the mailbox or directory. If login is needed and the user has not already authorized it, ask to open the interactive browser, then run `nus-outlook auth login`. The user completes their own NUS password and MFA. `--login-hint EMAIL` can preselect the Microsoft account: students use `NUS-ID@u.nus.edu`; staff use `NUS-ID@nus.edu.sg`.
-  - `--no-refresh` mailbox reads are entirely local and need no login check, used it only when the user cannot login or explicitly asked.
+  - `--no-refresh` mailbox reads are entirely local and need no login check, use it only when the user cannot login or explicitly asked.
 3. Prefer `folders`, `messages`, `search`, `message`, and `people`. To find an instructor, tutor, or TA's email from their name, use `nus-outlook people "QUERY" --limit 20 --format json`. This searches the NUS directory, including people you have not emailed. Use returned `EmailAddresses` and available `JobTitle`, `Department`, and `CompanyName` to distinguish matches; do not infer an email from a name or assume the first match is the intended person. Refine the query or ask the user when the identity remains ambiguous. Missing directory entries or affiliation fields do not prove someone is absent from NUS or holds a particular course role.
 4. Use `--format json` or `jsonl` when parsing records. Listing and reading messages do not mark them as read. Mail defaults to the inbox. For folder-specific search, list available folders first. Use `--folder` for case-insensitive names, full paths, or distinguished names, and `--folder-id` for an exact ID. These selectors are mutually exclusive. Mail JSON exposes `ItemId.Id`, `ItemId.ChangeKey`, `IsRead`, `Flag.FlagStatus`, and `FolderId.Id`. Quote IDs when passing them to the shell.
 5. Mailbox writes require the user's explicit request or approval for that action: `flag`, `unflag`, `mark-read`, `mark-unread`, `move`, and `draft create|reply|edit|remove|send`. Draft create/reply/edit support repeatable `--attach PATH`; edit replaces only specified fields (`--body`/`--body-file` replaces the entire body, including quoted text). `draft remove` moves a draft to Deleted Items.
@@ -38,7 +38,7 @@ refresh once when the name is absent or its folder no longer exists.
 `--folder-id` bypasses name mapping. Use returned local paths rather than reconstructing names.
 Explicit body reads validate the server revision and reuse complete unchanged bodies.
 `--refresh` forces fetching; Use it ONLY when explicitly asked or there's strong evidence of a revision change that the tool cannot detect.
-For `--no-refresh`, cached records cover only mail previously seen by the CLI. Searching by natural language is not supported offline
+For `--no-refresh`, cached records cover only mail previously seen by the CLI. Searching by natural language is not supported offline.
 By default, no refreshness flags are needed.
 
 Use `--attachments` on `messages`, `search`, or `message` when attachment bytes
