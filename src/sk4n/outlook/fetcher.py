@@ -189,6 +189,13 @@ class OutlookFetcher:
             selected,
         )
 
+    def _online_folder(self, parent: str) -> str:
+        # GetItem returns opaque parent IDs, even when the list used "inbox".
+        # Resolve these on online body reads so offline listings share that scope.
+        if parent not in DISTINGUISHED_FOLDERS and self.store.folders() is None:
+            self.folders()
+        return self._canonical_folder(parent)
+
     @staticmethod
     def _metadata(message: dict[str, Any]) -> dict[str, Any]:
         return {key: value for key, value in message.items() if key not in {"Body", "_outlook"}}
@@ -258,7 +265,13 @@ class OutlookFetcher:
         ]
 
     def _result(self, record: dict[str, Any], value: dict[str, Any]) -> dict[str, Any]:
-        value = with_links(value, self.client.base_url)
+        # Read/flag state can change without a new body revision. Use the latest
+        # observed state without relabeling the cached body or writing offline.
+        metadata = record.get("metadata") or {}
+        value = with_links(
+            {**value, **{key: metadata[key] for key in ("IsRead", "Flag") if key in metadata}},
+            self.client.base_url,
+        )
         downloaded = bool(record.get("complete") and complete_message(record["message"]))
         current = bool(record.get("body_current", downloaded))
         paths = (
@@ -293,19 +306,12 @@ class OutlookFetcher:
             full = self.client.message(identifier)
             if message_id(full) != identifier:
                 raise OutlookError("Outlook returned a different message ID after the write.")
+            parent = full.get("ParentFolderId", {}).get("Id")
+            folder = folder_override or (self._online_folder(parent) if parent else None)
         except Exception:
             self.store.forget_message(old_id)
             raise
         full = with_links(full, self.client.base_url)
-        parent = full.get("ParentFolderId", {}).get("Id")
-        previous_parent = (previous or {}).get("metadata", {}).get("ParentFolderId", {}).get("Id")
-        folder = folder_override or (
-            (previous or {}).get("folder")
-            if parent and parent == previous_parent and (previous or {}).get("folder")
-            else self._canonical_folder(parent)
-            if parent
-            else None
-        )
         record = {
             **(previous or {}),
             "message": full,
@@ -381,8 +387,6 @@ class OutlookFetcher:
                     "body_current": complete_message(full),
                     "attachment_files": (record or {}).get("attachment_files", {}),
                 }
-                if full.get("ParentFolderId", {}).get("Id"):
-                    record["folder"] = self._canonical_folder(full["ParentFolderId"]["Id"])
                 self.store.save_message(record)
             elif summary:
                 # Lists/search may expose extra fields absent from GetItem. Keep them
@@ -413,8 +417,12 @@ class OutlookFetcher:
                 self.store.save_message(record)
         assert record is not None
         linked = record_with_links(record, self.client.base_url)
-        if refresh_mode != "none" and linked != record:
-            self.store.save_message(linked)
+        if refresh_mode != "none":
+            parent = linked["message"].get("ParentFolderId", {}).get("Id")
+            if parent:
+                linked["folder"] = self._online_folder(parent)
+            if linked != record:
+                self.store.save_message(linked)
         record = linked
         paths = self._attachments(identifier, record, mode=refresh_mode, download=attachments)
         result = self._result(record, record["message"])

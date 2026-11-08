@@ -131,6 +131,39 @@ def test_move_rekeys_cache_when_server_changes_item_id(
     assert remote.writes[0][1]["ToFolderId"]["BaseFolderId"]["Id"] == "archive"
 
 
+@pytest.mark.parametrize("folder_error", [False, True])
+def test_write_refresh_resolves_opaque_parent_and_invalidates_cache_on_resolution_failure(
+    setup: tuple[OutlookActions, Remote, OutlookStore],
+    monkeypatch: pytest.MonkeyPatch,
+    folder_error: bool,
+) -> None:
+    actions, remote, store = setup
+    remote.items["one"]["ParentFolderId"] = {"Id": "opaque-inbox-id"}
+
+    def folders() -> list[dict[str, Any]]:
+        if folder_error:
+            raise OutlookError("Folder lookup failed")
+        return [
+            {
+                "FolderId": {"Id": "opaque-inbox-id"},
+                "DisplayName": "Inbox",
+                "DistinguishedFolderId": "inbox",
+            }
+        ]
+
+    monkeypatch.setattr(remote, "folders", folders)
+    if folder_error:
+        with pytest.raises(OutlookError, match="Folder lookup failed"):
+            actions.mark_read("one", read=False)
+        assert store.message("one") is None
+    else:
+        actions.mark_read("one", read=False)
+        assert (record := store.message("one")) is not None
+        assert record["folder"] == "inbox"
+        assert len(actions.fetcher.messages(refresh_mode="none")) == 1
+    assert remote.items["one"]["IsRead"] is False
+
+
 def test_create_reply_and_remove_draft_use_save_only_and_reconcile_folder(
     setup: tuple[OutlookActions, Remote, OutlookStore],
 ) -> None:

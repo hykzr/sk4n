@@ -292,6 +292,109 @@ def test_explicit_bodies_reuse_complete_content_and_default_list_stays_concise(c
     assert remote.calls == []
 
 
+@pytest.mark.parametrize("inline_body", [False, True])
+def test_body_reads_keep_inbox_membership_without_a_prior_folder_mapping(
+    cached: Any, inline_body: bool
+) -> None:
+    fetcher, store, remote = cached
+    remote.items["one"]["ParentFolderId"] = {"Id": "opaque-inbox-id"}
+    remote.folder_list = [{**folder("Inbox", "opaque-inbox-id"), "DistinguishedFolderId": "inbox"}]
+
+    fetcher.messages(body=inline_body)
+    if not inline_body:
+        assert store.folders() is None
+        assert [call[0] for call in remote.calls] == ["messages"]
+        assert len(fetcher.messages(refresh_mode="none")) == 1
+        fetcher.message("one")
+
+    assert store.message("one")["folder"] == "inbox"
+    assert store.message("one")["message"]["ParentFolderId"]["Id"] == "opaque-inbox-id"
+    assert [call[0] for call in remote.calls] == ["messages", "message", "folders"]
+    remote.calls.clear()
+    assert len(fetcher.messages(refresh_mode="none")) == 1
+    assert len(fetcher.messages(folder_id="opaque-inbox-id", refresh_mode="none")) == 1
+    assert remote.calls == []
+    fetcher.message("one")
+    assert remote.calls == [("metadata", "one")]
+
+
+@pytest.mark.parametrize("mapping_cached", [False, True])
+def test_existing_body_cache_repairs_opaque_folder_membership_without_refetching(
+    cached: Any, mapping_cached: bool
+) -> None:
+    fetcher, store, remote = cached
+    full = message(ParentFolderId={"Id": "opaque-inbox-id"})
+    remote.items["one"] = full
+    remote.folder_list = [{**folder("Inbox", "opaque-inbox-id"), "DistinguishedFolderId": "inbox"}]
+    store.save_message(
+        {
+            "message": full,
+            "metadata": fetcher._metadata(full),
+            "complete": True,
+            "body_current": True,
+            "folder": "opaque-inbox-id",
+        }
+    )
+    if mapping_cached:
+        store.save_folders(remote.folder_list)
+
+    fetcher.message("one")
+    assert remote.calls == [("metadata", "one")] + ([] if mapping_cached else [("folders", None)])
+    assert store.message("one")["folder"] == "inbox"
+    assert len(fetcher.messages(refresh_mode="none")) == 1
+
+
+@pytest.mark.parametrize("search_metadata", [False, True])
+@pytest.mark.parametrize("read,flag", [(True, "Flagged"), (False, "NotFlagged")])
+def test_offline_body_reads_use_latest_read_and_flag_state_without_writing(
+    cached: Any, search_metadata: bool, read: bool, flag: str
+) -> None:
+    fetcher, store, remote = cached
+    remote.items["one"]["IsRead"] = not read
+    remote.items["one"]["Flag"] = {"FlagStatus": "NotFlagged" if flag == "Flagged" else "Flagged"}
+    remote.items["one"]["Attachments"] = [attachment()]
+    original = fetcher.messages(body=True)[0]
+
+    remote.items["one"]["IsRead"] = read
+    remote.items["one"]["Flag"] = {"FlagStatus": flag}
+    if search_metadata:
+        remote.summaries = [
+            {
+                "ItemId": {"Id": "one"},
+                "IsRead": read,
+                "Flag": {"FlagStatus": flag},
+                "DateTimeLastModified": "2026-11-01T00:00:00.1234567Z",
+            }
+        ]
+    fetcher.messages(query="term" if search_metadata else None)
+    assert store.message("one")["message"]["IsRead"] is not read
+    remote.calls.clear()
+
+    def cache_files() -> dict[Path, tuple[bytes, int]]:
+        return {
+            path: (path.read_bytes(), path.stat().st_mtime_ns)
+            for path in store.root.rglob("*")
+            if path.is_file()
+        }
+
+    before = cache_files()
+    results = [
+        fetcher.messages(refresh_mode="none")[0],
+        fetcher.message("one", refresh_mode="none"),
+        fetcher.messages(refresh_mode="none", body=True)[0],
+    ]
+    for result in results:
+        assert result["IsRead"] is read
+        assert result["Flag"] == {"FlagStatus": flag}
+        assert result["_outlook"]["body_current"] is True
+    for result in results[1:]:
+        for field in ("Body", "Attachments", "ItemId", "LastModifiedTime"):
+            assert result[field] == original[field]
+        assert "DateTimeLastModified" not in result
+    assert remote.calls == []
+    assert cache_files() == before
+
+
 def test_body_returned_by_list_api_is_cached_without_extra_request(cached: Any) -> None:
     fetcher, store, remote = cached
     remote.summaries = [message()]
@@ -325,12 +428,21 @@ def test_direct_message_checks_only_revision_then_force_refreshes(cached: Any) -
 
 def test_force_message_refresh_reconciles_external_folder_move(cached: Any) -> None:
     fetcher, store, remote = cached
-    remote.items["one"]["ParentFolderId"] = {"Id": "inbox"}
+    remote.folder_list = [
+        {**folder("Inbox", "opaque-inbox-id"), "DistinguishedFolderId": "inbox"},
+        {**folder("Deleted Items", "opaque-deleted-id"), "DistinguishedFolderId": "deleteditems"},
+    ]
+    remote.items["one"]["ParentFolderId"] = {"Id": "opaque-inbox-id"}
     fetcher.message("one")
     assert store.message("one")["folder"] == "inbox"
-    remote.items["one"]["ParentFolderId"] = {"Id": "deleteditems"}
+    assert [call[0] for call in remote.calls] == ["message", "folders"]
+    remote.calls.clear()
+    remote.items["one"]["ParentFolderId"] = {"Id": "opaque-deleted-id"}
     fetcher.message("one", refresh_mode="force")
     assert store.message("one")["folder"] == "deleteditems"
+    assert fetcher.messages(refresh_mode="none") == []
+    assert len(fetcher.messages(folder="deleteditems", refresh_mode="none")) == 1
+    assert remote.calls == [("message", "one")]
 
 
 def test_search_without_revision_never_fetches_individual_messages_unless_requested(

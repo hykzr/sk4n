@@ -122,6 +122,10 @@ cache the returned records without making per-message requests, including when
 the body was already cached. Use `message ID` to read one full body, or add
 `--body` to `messages`/`search` to fetch bodies for the selected results.
 `--attachments` also opts into fetching message details to discover attachments.
+Online full-message reads also fetch the folder mapping if it is missing and
+the message has an opaque parent-folder ID. This keeps the message in the same
+offline folder listing after its body is downloaded and repairs existing cached
+folder IDs on the next online message read. Later reads reuse the saved mapping.
 
 Folders, messages, searches, and individual messages use the same three refresh
 modes as Canvas:
@@ -130,7 +134,7 @@ modes as Canvas:
 | --- | --- | --- |
 | Default | `folders` always refreshes. Named filters reuse the mapping, refreshing once on a missing name or missing-folder response, then fail if unresolved. | Lists/searches cache returned metadata only. `message ID`, `--body`, or `--attachments` fetch details as needed and reuse complete unchanged bodies. Download attachment bytes only with `--attachments`. |
 | `--no-refresh` | Use only the saved mapping; missing names fail. | Read only cached data, without authentication or network requests. Listing applies local folder/unread/paging filters. Requested bodies/files must be cached and have no known revision change. Offline search is unsupported. |
-| `--refresh` | Refresh the mapping before resolving names; unresolved names fail. `--folder-id` bypasses mapping requests. | Lists/searches refresh metadata. Force body fetching for `message ID` or with `--body`/`--attachments`. With `--attachments`, force attachment downloads too. |
+| `--refresh` | Refresh the mapping before resolving names; unresolved names fail. `--folder-id` skips name lookup. | Lists/searches refresh metadata. Force body fetching for `message ID` or with `--body`/`--attachments`. With `--attachments`, force attachment downloads too. |
 
 The default cache root is `<sk4n-home>/outlook`, shown by `sk4n paths`.
 Override it with `nus-outlook --data-path PATH ...`. The layout is:
@@ -149,9 +153,11 @@ outlook/
 `message.json` stores the latest returned `metadata`, the last fetched `message`
 with its body when downloaded, a `complete` flag, a `body_current` flag, folder
 context, downloaded-attachment manifests, and a preview fingerprint/checksum.
-New metadata does not relabel
-an old body with a newer revision. New email directories and attachment
-filenames use at most 40 normalized ASCII title characters and the first
+Message results combine the cached body with the latest observed `IsRead` and
+`Flag` state, including offline reads. Offline reads do not rewrite the cache.
+New metadata does not relabel an old body with a newer revision.
+New email directories and attachment filenames use at most 40 normalized ASCII
+title characters and the first
 8 bytes of the SHA-256 ID hash (16 hex
 characters). On a name collision, only the new entry's hash grows, one byte at
 a time, until unique. Existing indexed paths stay stable, including when a
