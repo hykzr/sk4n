@@ -19,6 +19,7 @@ from .paths import (
     canvas_data_dir,
     home_dir,
     nusmods_data_dir,
+    outlook_data_dir,
     sessions_dir,
     talent_connect_data_dir,
     talent_connect_database_path,
@@ -29,7 +30,7 @@ from .skill_install import (
     skill_status_report,
 )
 
-CONSOLE_SCRIPTS = ("sk4n", "canvas", "nusmods", "talent-connect")
+CONSOLE_SCRIPTS = ("sk4n", "canvas", "nusmods", "talent-connect", "nus-outlook")
 MINIMUM_NODE_MAJOR = 18
 
 
@@ -55,6 +56,7 @@ def path_report() -> dict[str, str]:
         "sessions": str(sessions_dir()),
         "canvas": str(canvas_data_dir()),
         "nusmods": str(nusmods_data_dir()),
+        "outlook": str(outlook_data_dir()),
         "talent_connect": str(talent_connect_data_dir()),
         "talent_connect_database": str(talent_connect_database_path()),
     }

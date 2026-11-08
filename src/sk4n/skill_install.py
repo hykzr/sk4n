@@ -12,7 +12,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-NUS_SKILLS = ("nus-canvas", "nusmods", "nus-talent-connect")
+NUS_SKILLS = ("nus-canvas", "nusmods", "nus-talent-connect", "nus-outlook")
 AGENTS = ("codex", "copilot", "claude", "antigravity")
 SCOPES = ("user", "project")
 MANIFEST_NAME = ".sk4n-managed.json"

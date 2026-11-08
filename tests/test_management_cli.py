@@ -66,6 +66,7 @@ def test_paths_json_is_machine_readable(capsys: pytest.CaptureFixture[str]) -> N
         "sessions",
         "canvas",
         "nusmods",
+        "outlook",
         "talent_connect",
         "talent_connect_database",
     }

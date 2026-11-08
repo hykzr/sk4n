@@ -71,7 +71,7 @@ def _add_skill_argument(parser: argparse.ArgumentParser) -> None:
         "--skills",
         type=_selection_argument(NUS_SKILLS, "skills"),
         default=NUS_SKILLS,
-        metavar="nus-canvas,nusmods,nus-talent-connect,all",
+        metavar=",".join((*NUS_SKILLS, "all")),
         help="Bundled skills as a comma-separated list. Default: all.",
     )
 

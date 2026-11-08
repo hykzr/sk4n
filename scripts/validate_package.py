@@ -12,9 +12,15 @@ import zipfile
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CONSOLE_SCRIPTS = ("sk4n", "canvas", "nusmods", "talent-connect")
-FORBIDDEN_TOP_LEVEL_PACKAGES = ("canvas", "nusmods", "talent_connect", "tools")
+CONSOLE_SCRIPTS = ("sk4n", "canvas", "nusmods", "talent-connect", "nus-outlook")
+FORBIDDEN_TOP_LEVEL_PACKAGES = ("canvas", "nusmods", "outlook", "talent_connect", "tools")
 WHEEL_SKILLS = {
+    "nus-outlook": (
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/commands.md",
+        "references/low-level.md",
+    ),
     "nus-canvas": (
         "SKILL.md",
         "agents/openai.yaml",
@@ -92,7 +98,7 @@ def validate_install(artifact: Path, *, name: str, root: Path, outside: Path) ->
             "-c",
             (
                 "import importlib.util; import sk4n; "
-                "forbidden=('canvas','nusmods','talent_connect','tools'); "
+                "forbidden=('canvas','nusmods','outlook','talent_connect','tools'); "
                 "assert all(importlib.util.find_spec(name) is None for name in forbidden)"
             ),
         ],

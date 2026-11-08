@@ -40,6 +40,7 @@ sk4n = "sk4n.cli:main"
 canvas = "sk4n.canvas.cli:main"
 nusmods = "sk4n.nusmods.cli:main"
 talent-connect = "sk4n.talent_connect.cli:main"
+nus-outlook = "sk4n.outlook.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sk4n"]

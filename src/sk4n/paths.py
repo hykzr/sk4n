@@ -39,6 +39,10 @@ def nusmods_data_dir() -> Path:
     return home_dir() / "nusmods"
 
 
+def outlook_data_dir() -> Path:
+    return home_dir() / "outlook"
+
+
 def talent_connect_data_dir() -> Path:
     return home_dir() / "talent-connect"
 
