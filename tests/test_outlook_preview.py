@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from sk4n.outlook import cli, preview
-from sk4n.outlook.client import OutlookClient, OutlookError
+from sk4n.outlook.client import OutlookAuthError, OutlookClient, OutlookError
 from sk4n.outlook.storage import OutlookStore
 
 
@@ -324,3 +324,24 @@ def test_output_exports_a_copy_and_preserves_canonical_cache(
     assert second["_outlook"]["preview_reused"]
     assert second_export.read_bytes() == canonical.read_bytes()
     assert client.calls == [] and browser == []
+
+
+def test_preview_missing_session_raises_auth_error_and_uses_saved_base_url(
+    browser: list[Any],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        preview,
+        "load_session",
+        lambda name: {
+            "storage_state": {},
+            "base_url": "https://outlook.office.com/mail/",
+        },
+    )
+    output = tmp_path / "preview.png"
+    preview.capture_preview(Client(), message(), output)
+    assert ("goto", "https://outlook.office.com/mail/deeplink/read/one") in browser
+    monkeypatch.setattr(preview, "load_session", lambda name: None)
+    with pytest.raises(OutlookAuthError, match="auth login"):
+        preview.capture_preview(Client(), message(), output)

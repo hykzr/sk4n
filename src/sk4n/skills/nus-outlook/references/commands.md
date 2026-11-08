@@ -27,7 +27,7 @@ Read, cache, and manage NUS Outlook mail using a saved NUS SSO browser login.
 | Argument | Required | Repeatable | Default | Choices | Description |
 | --- | --- | --- | --- | --- | --- |
 | `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `--data-path DATA_PATH` | no | no | `<user-data>/sk4n/outlook` | — | Local Outlook cache directory. Default: %(default)s. |
+| `--data-path DATA_PATH` | no | no | `<user-data>/sk4n/outlook` | — | Local Outlook cache directory. Default: <user-data>/sk4n/outlook. |
 | `--base-url BASE_URL` | no | no | `https://outlook.cloud.microsoft/mail/` | — | Advanced HTTPS mailbox URL on a supported Microsoft Outlook host. |
 | `--site-name SITE_NAME` | no | no | `nus_outlook` | — | Advanced saved-session namespace. |
 | `--timeout TIMEOUT` | no | no | `30` | — | Request timeout in seconds. Default: 30. |

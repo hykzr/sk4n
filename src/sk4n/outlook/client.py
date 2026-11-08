@@ -131,7 +131,7 @@ def search_results(payload: dict[str, Any]) -> list[dict[str, Any]]:
                     raise OutlookError("Outlook returned an unexpected search result.")
                 immutable = canonical_immutable_id(source.get("ImmutableId"))
                 if immutable:
-                    source = {**source, "ItemId": {**source.get("ItemId", {}), "Id": immutable}}
+                    source = {**source, "ItemId": {**(source.get("ItemId") or {}), "Id": immutable}}
                     if "Flag" not in source:
                         source = {**source, "Flag": {"FlagStatus": "NotFlagged"}}
                 items.append(source)

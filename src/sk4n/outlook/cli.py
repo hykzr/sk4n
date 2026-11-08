@@ -131,6 +131,7 @@ def add_recipient_arguments(parser: argparse.ArgumentParser, *, editing: bool = 
 
 
 def build_parser() -> argparse.ArgumentParser:
+    default_data_path = outlook_data_dir()
     parser = argparse.ArgumentParser(
         prog="nus-outlook",
         description="Read, cache, and manage NUS Outlook mail using a saved NUS SSO browser login.",
@@ -142,8 +143,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--data-path",
         type=Path,
-        default=outlook_data_dir(),
-        help="Local Outlook cache directory. Default: %(default)s.",
+        default=default_data_path,
+        help=f"Local Outlook cache directory. Default: {default_data_path}.",
     )
     parser.add_argument(
         "--base-url",

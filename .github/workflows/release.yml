@@ -212,6 +212,7 @@ jobs:
           canvas --help
           nusmods --help
           talent-connect --help
+          nus-outlook --help
 
   publish-pypi:
     name: Publish to PyPI

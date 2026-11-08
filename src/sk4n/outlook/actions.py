@@ -23,9 +23,9 @@ def item_id(identifier: str, change_key: str | None = None) -> dict[str, str]:
 
 def returned_id(response: dict[str, Any], *, fallback: str | None = None) -> str:
     items = response.get("Items") or [{}]
-    item = items[0]
-    moved = response.get("MovedItemId", {})
-    identifier = item.get("ItemId", {}).get("Id") or moved.get("Id") or fallback
+    item = items[0] if isinstance(items, list) and items and isinstance(items[0], dict) else {}
+    moved = response.get("MovedItemId") or {}
+    identifier = (item.get("ItemId") or {}).get("Id") or moved.get("Id") or fallback
     if not isinstance(identifier, str) or not identifier:
         raise OutlookError("Outlook did not return a message ID for the write.")
     return identifier
@@ -36,7 +36,8 @@ def recipients(addresses: str | Sequence[str]) -> list[dict[str, str]]:
     result = []
     for address in values:
         address = address.strip()
-        if "@" not in address or any(c.isspace() for c in address):
+        local, sep, domain = address.partition("@")
+        if not local or not sep or not domain or "@" in domain or any(c.isspace() for c in address):
             raise ValueError("Recipients must be email addresses (one per option).")
         result.append({"EmailAddress": address, "MailboxType": "OneOff", "RoutingType": "SMTP"})
     return result
@@ -77,7 +78,7 @@ class OutlookActions:
         current = self.client.message(identifier)
         return self._update(identifier, current, {field: value})
 
-    def _update(
+    def _update_item(
         self,
         identifier: str,
         current: dict[str, Any],
@@ -85,8 +86,8 @@ class OutlookActions:
         *,
         send: bool = False,
     ) -> dict[str, Any]:
-        change_key = current.get("ItemId", {}).get("ChangeKey")
-        response = self._write_existing(
+        change_key = (current.get("ItemId") or {}).get("ChangeKey")
+        return self._write_existing(
             identifier,
             "UpdateItem",
             {
@@ -110,12 +111,23 @@ class OutlookActions:
                 "SendOnNotFoundError": False,
             },
         )
+
+    def _update(
+        self,
+        identifier: str,
+        current: dict[str, Any],
+        fields: dict[str, Any],
+        *,
+        send: bool = False,
+    ) -> dict[str, Any]:
+        response = self._update_item(identifier, current, fields, send=send)
+        updated_id = returned_id(response, fallback=identifier)
         if send:
             # Submission has succeeded. A failed follow-up read must not look like a
             # failed send and invite a duplicate retry.
             try:
                 result = self.fetcher.refresh_after_write(
-                    returned_id(response, fallback=identifier),
+                    updated_id,
                     previous_id=identifier,
                 )
             except Exception as exc:
@@ -132,9 +144,7 @@ class OutlookActions:
                 "cache_refreshed": True,
                 "pending": result.get("IsDraft") is True,
             }
-        return self.fetcher.refresh_after_write(
-            returned_id(response, fallback=identifier), previous_id=identifier
-        )
+        return self.fetcher.refresh_after_write(updated_id, previous_id=identifier)
 
     def flag(self, identifier: str, *, flagged: bool) -> dict[str, Any]:
         return self._set_field(
@@ -263,18 +273,36 @@ class OutlookActions:
             )
         return current
 
-    def _finish_draft(self, identifier: str, files: list[dict[str, Any]]) -> dict[str, Any]:
+    def _finish_draft(
+        self,
+        identifier: str,
+        files: list[dict[str, Any]],
+        *,
+        current: dict[str, Any] | None = None,
+        previous_id: str | None = None,
+    ) -> dict[str, Any]:
+        old_id = previous_id or identifier
         if files:
-            current = self._draft(identifier)
-            self._write_existing(
-                identifier,
-                "CreateAttachment",
-                {
-                    "ParentItemId": item_id(identifier, current.get("ItemId", {}).get("ChangeKey")),
-                    "Attachments": files,
-                },
-            )
-        return self.fetcher.refresh_after_write(identifier, folder_override="drafts")
+            try:
+                if current is None:
+                    current = self._draft(identifier)
+                change_key = (current.get("ItemId") or {}).get("ChangeKey")
+                self._write_existing(
+                    old_id,
+                    "CreateAttachment",
+                    {
+                        "ParentItemId": item_id(identifier, change_key),
+                        "Attachments": files,
+                    },
+                )
+            except Exception:
+                self.store.forget_message(old_id)
+                if identifier != old_id:
+                    self.store.forget_message(identifier)
+                raise
+        return self.fetcher.refresh_after_write(
+            identifier, previous_id=old_id, folder_override="drafts"
+        )
 
     def edit_draft(
         self,
@@ -300,10 +328,20 @@ class OutlookActions:
             raise ValueError("Specify a draft field to edit or --attach a file.")
         current = self._draft(identifier)
         if fields:
-            result = self._update(identifier, current, fields)
             if not files:
-                return result
-        return self._finish_draft(identifier, files)
+                return self._update(identifier, current, fields)
+            response = self._update_item(identifier, current, fields)
+            updated_id = returned_id(response, fallback=identifier)
+            items = response.get("Items") or [{}]
+            first = (
+                items[0] if isinstance(items, list) and items and isinstance(items[0], dict) else {}
+            )
+            item_id_dict = first.get("ItemId") or {}
+            next_current = {"ItemId": item_id_dict} if item_id_dict.get("ChangeKey") else None
+            return self._finish_draft(
+                updated_id, files, current=next_current, previous_id=identifier
+            )
+        return self._finish_draft(identifier, files, current=current)
 
     def send_draft(self, identifier: str) -> dict[str, Any]:
         current = self._draft(identifier)

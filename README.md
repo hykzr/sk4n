@@ -13,9 +13,10 @@ and give supported AI assistants a reliable way to use the same tools.
 - **TalentConnect:** search jobs and companies, including information available
   after signing in with NUS SSO.
 - **NUS Outlook:** sign in with NUS SSO and MFA, list folders, search mail, and
-  read messages without marking them as read; look up people's email addresses
-  by name in the NUS directory. Saved browser state renews tokens
-  silently when Microsoft permits it.
+  read messages with incremental local caching without marking them as read;
+  look up people's email addresses by name in the NUS directory; manage messages
+  and create, edit, preview, and send drafts with attachments. Saved browser
+  state renews tokens silently when Microsoft permits it.
 - **Agent skills:** install ready-made skills for ChatGPT Work / Codex, GitHub
   Copilot, Claude Code, and Google Antigravity.
 
@@ -160,7 +161,7 @@ talent-connect fetch --no-login --query engineer --max-jobs 20
 
 [More TalentConnect examples](https://github.com/hykzr/sk4n/blob/main/src/sk4n/talent_connect/README.md)
 
-### Read NUS Outlook mail
+### Read and manage NUS Outlook mail
 
 ```bash
 nus-outlook auth login
@@ -174,6 +175,9 @@ nus-outlook messages --folder 'Sent Items' --limit 10
 nus-outlook messages --folder-id 'FOLDER_ID' --limit 10
 nus-outlook messages --limit 10 --no-refresh
 nus-outlook people 'INSTRUCTOR NAME' --limit 10 --format json
+nus-outlook draft create --to person@example.com --subject 'Draft subject' --body 'Unsent text'
+nus-outlook preview 'DRAFT_ID' --output preview.png --format json
+nus-outlook draft send 'DRAFT_ID'
 ```
 
 If Microsoft account discovery needs help, use

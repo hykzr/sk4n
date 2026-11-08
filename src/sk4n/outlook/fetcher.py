@@ -173,9 +173,7 @@ class OutlookFetcher:
                 )
             else:
                 result.append(self._result(record, item))
-        immutable_ids = {
-            message_id(item) for item in items if item.get("ImmutableId")
-        }
+        immutable_ids = {message_id(item) for item in items if item.get("ImmutableId")}
         if immutable_ids:
             self.store.forget_search_aliases(immutable_ids)
         return result
@@ -304,7 +302,9 @@ class OutlookFetcher:
         folder = folder_override or (
             (previous or {}).get("folder")
             if parent and parent == previous_parent and (previous or {}).get("folder")
-            else self._canonical_folder(parent) if parent else None
+            else self._canonical_folder(parent)
+            if parent
+            else None
         )
         record = {
             **(previous or {}),

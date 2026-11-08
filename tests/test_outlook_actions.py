@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from sk4n.outlook.actions import OutlookActions
+from sk4n.outlook.actions import OutlookActions, recipients, returned_id
 from sk4n.outlook.client import OutlookClient, OutlookError, OutlookTransportError, search_results
 from sk4n.outlook.storage import OutlookStore, canonical_immutable_id
 
@@ -284,6 +284,9 @@ def test_draft_validation_prevents_partial_writes(
         actions.draft(
             to="self@example.com", subject="Test", body="Hello", attachments=[tmp_path / "missing"]
         )
+    for invalid in ("not-an-email", "@", "user@", "@example.com", "a@b@example.com"):
+        with pytest.raises(ValueError, match="email addresses"):
+            recipients(invalid)
     with pytest.raises(ValueError, match="email addresses"):
         actions.draft(to="not-an-email", subject="Test", body="Hello")
     assert remote.writes == []
@@ -464,3 +467,31 @@ def test_edit_failure_invalidates_message_and_preview(tmp_path: Path, failure: s
     assert store.message("new") is None
     assert not image.exists()
     assert remote.items["new"]["Body"]["Value"] == "Changed remotely"
+
+
+def test_returned_id_tolerates_explicit_null_fields() -> None:
+    assert (
+        returned_id({"Items": None, "MovedItemId": None}, fallback="fallback-id") == "fallback-id"
+    )
+    assert (
+        returned_id({"Items": [{"ItemId": None}], "MovedItemId": {"Id": "moved-id"}}) == "moved-id"
+    )
+
+
+def test_combined_edit_and_attach_failure_invalidates_cached_draft(tmp_path: Path) -> None:
+    class PartialCombined(Remote):
+        def write_action(self, name: str, body: dict[str, Any]) -> dict[str, Any]:
+            result = super().write_action(name, body)
+            if name == "CreateAttachment":
+                raise OutlookError("attachment upload failed after field update")
+            return result
+
+    remote = PartialCombined()
+    store = OutlookStore(tmp_path / "cache")
+    actions = OutlookActions(remote, store)
+    actions.draft(to="self@example.com", subject="Test", body="Hello")
+    file = tmp_path / "preview.png"
+    file.write_bytes(b"preview")
+    with pytest.raises(OutlookError, match="attachment upload failed"):
+        actions.edit_draft("new", body="Updated before upload failure", attachments=[file])
+    assert store.message("new") is None

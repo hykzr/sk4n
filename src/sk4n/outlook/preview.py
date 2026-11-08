@@ -12,8 +12,8 @@ from playwright.async_api import Route, async_playwright
 
 from sk4n.tools.shared import atomic_output_path, load_session
 
-from .browser import OUTLOOK_HOSTS
-from .client import OutlookClient, OutlookError
+from .browser import OUTLOOK_HOSTS, validate_base_url
+from .client import OutlookAuthError, OutlookClient, OutlookError
 from .fetcher import OutlookFetcher
 from .links import message_url
 from .storage import OutlookStore, digest, same_revision
@@ -103,7 +103,8 @@ async def capture_preview_async(
 ) -> None:
     saved = load_session(client.site_name)
     if not isinstance(saved, dict) or not isinstance(saved.get("storage_state"), dict):
-        raise OutlookError("No saved browser login. Run `nus-outlook auth login` first.")
+        raise OutlookAuthError("No saved browser login. Run `nus-outlook auth login` first.")
+    base_url = validate_base_url(str(saved.get("base_url") or client.base_url))
     identifier = message["ItemId"]["Id"]
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(headless=True)
@@ -124,7 +125,7 @@ async def capture_preview_async(
             await context.route("**/*", guard)
             page = await context.new_page()
             page.set_default_timeout(client.timeout * 1000)
-            await page.goto(message_url(identifier, client.base_url), wait_until="domcontentloaded")
+            await page.goto(message_url(identifier, base_url), wait_until="domcontentloaded")
             await page.get_by_role("document", name="Message body", exact=True).wait_for()
             if message.get("IsDraft"):
                 await page.get_by_role("button", name="Continue editing", exact=True).click()
