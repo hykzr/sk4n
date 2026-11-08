@@ -56,7 +56,10 @@ SERVICES = (
         constraints={
             "nus-outlook api": (
                 "Only /owa/service.svc with a supported read action, POST /searchservice/api/v2/query (mail), or POST /search/api/v2/query (people) is accepted; state-changing actions are rejected.",
-                "Use the named high-level commands for authorized mail changes. The low-level api command remains read-only; sending is unsupported.",
+                "Use the named high-level commands for authorized mail changes. The low-level api command remains read-only; sending requires an existing draft via draft send.",
+            ),
+            "nus-outlook draft send": (
+                "Only an existing draft ID is accepted. A successful submission is reported even if the follow-up cache read fails. Check Sent Items before retrying any uncertain send.",
             ),
         },
     ),

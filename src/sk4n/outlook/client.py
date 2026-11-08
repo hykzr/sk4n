@@ -33,7 +33,9 @@ READ_ACTIONS = frozenset(
         "GetCalendarView",
     }
 )
-WRITE_ACTIONS = frozenset({"UpdateItem", "MoveItem", "CreateItem", "DeleteItem"})
+WRITE_ACTIONS = frozenset(
+    {"UpdateItem", "MoveItem", "CreateItem", "DeleteItem", "CreateAttachment"}
+)
 DISTINGUISHED_FOLDERS = frozenset(
     {
         "inbox",
@@ -191,7 +193,7 @@ class OutlookClient:
             or method not in {"GET", "POST"}
         ):
             raise ValueError(
-                "Use /owa/service.svc?action=<supported read action> with GET or POST, or POST /searchservice/api/v2/query or /search/api/v2/query. API access is read-only; authorized writes must use the browser UI."
+                "Use /owa/service.svc?action=<supported read action> with GET or POST, or POST /searchservice/api/v2/query or /search/api/v2/query. API access is read-only; authorized writes must use named high-level commands."
             )
         if data is not None and not isinstance(data, dict):
             raise ValueError("Outlook request data must be a JSON object.")

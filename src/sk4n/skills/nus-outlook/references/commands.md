@@ -45,14 +45,17 @@ Global options must appear before the command name.
 - `nus-outlook messages` — List messages without marking them read.
 - `nus-outlook search` — Search mailbox messages.
 - `nus-outlook message` — Read one message without changing its read state.
+- `nus-outlook preview` — Capture an Outlook web screenshot of a draft or message without changing mail.
 - `nus-outlook flag` — Flag one message for follow-up.
 - `nus-outlook unflag` — Remove a message's follow-up flag.
 - `nus-outlook mark-read` — Mark one message as read.
 - `nus-outlook mark-unread` — Mark one message as unread.
 - `nus-outlook move` — Move one message to another folder.
-- `nus-outlook draft` — Create or remove an unsent draft.
+- `nus-outlook draft` — Create, edit, discard, or send an existing draft with user authorization.
 - `nus-outlook draft create` — Save a new unsent message.
 - `nus-outlook draft reply` — Save an unsent reply to one message.
+- `nus-outlook draft edit` — Edit specified draft fields and/or add attachments; save without sending.
+- `nus-outlook draft send` — Send an existing draft only, saving a copy in Sent Items.
 - `nus-outlook draft remove` — Discard a draft into Deleted Items.
 - `nus-outlook api` — Make a read-only Outlook web API request.
 - `nus-outlook playwright-cli` — Open an authenticated @playwright/cli inspection session.
@@ -208,6 +211,29 @@ Constraints:
 
 - Mutually exclusive: `--refresh` / `--no-refresh`.
 
+## `nus-outlook preview`
+
+Capture an Outlook web screenshot of a draft or message without changing mail.
+
+Usage: `nus-outlook preview [-h] [--output OUTPUT] [--refresh | --no-refresh] [--format {json,jsonl,plain}] message_id`
+
+| Argument | Required | Repeatable | Default | Choices | Description |
+| --- | --- | --- | --- | --- | --- |
+| `-h, --help` | no | no | `—` | — | show this help message and exit |
+| `MESSAGE_ID` | yes | no | `—` | — | Exact draft or message ID. |
+| `--output OUTPUT` | no | no | `—` | — | Export a copy to this PNG path. The preview is always cached as preview.png beside the email's message.json. |
+| `--refresh` | no | no | `default` | — | Force refresh the requested data and local artifacts. |
+| `--no-refresh` | no | no | `default` | — | Read only from the local cache; fail if the requested data is missing. |
+| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+
+Constraints:
+
+- Mutually exclusive: `--refresh` / `--no-refresh`.
+
+Notes:
+
+Reuses a cached screenshot when the message is unchanged. --refresh forces recapture; --no-refresh requires a valid local preview. Screenshots show the viewport; read the returned body for long messages.
+
 ## `nus-outlook flag`
 
 Flag one message for follow-up.
@@ -276,9 +302,9 @@ Constraints:
 
 ## `nus-outlook draft`
 
-Create or remove an unsent draft.
+Create, edit, discard, or send an existing draft with user authorization.
 
-Usage: `nus-outlook draft [-h] {create,reply,remove} ...`
+Usage: `nus-outlook draft [-h] {create,reply,edit,send,remove} ...`
 
 | Argument | Required | Repeatable | Default | Choices | Description |
 | --- | --- | --- | --- | --- | --- |
@@ -288,28 +314,91 @@ Usage: `nus-outlook draft [-h] {create,reply,remove} ...`
 
 Save a new unsent message.
 
-Usage: `nus-outlook draft create [-h] --to TO --subject SUBJECT --body BODY [--format {json,jsonl,plain}]`
+Usage: `nus-outlook draft create [-h] --to TO [--cc CC] [--bcc BCC] --subject SUBJECT (--body BODY | --body-file BODY_FILE) [--attach PATH] [--format {json,jsonl,plain}]`
 
 | Argument | Required | Repeatable | Default | Choices | Description |
 | --- | --- | --- | --- | --- | --- |
 | `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `--to TO` | yes | no | `—` | — | Recipient email address. |
+| `--to TO` | no | yes | `—` | — | To email address; repeat for multiple recipients. Editing replaces this list. |
+| `--cc CC` | no | yes | `—` | — | Cc email address; repeat for multiple recipients. Editing replaces this list. |
+| `--bcc BCC` | no | yes | `—` | — | Bcc email address; repeat for multiple recipients. Editing replaces this list. |
 | `--subject SUBJECT` | yes | no | `—` | — | Draft subject. |
-| `--body BODY` | yes | no | `—` | — | Plain-text draft body. |
+| `--body BODY` | no | no | `—` | — | Plain-text body; when editing, replaces the entire body including quoted text. |
+| `--body-file BODY_FILE` | no | no | `—` | — | Read the plain-text body from a UTF-8 file. |
+| `--attach PATH` | no | yes | `[]` | — | Attach a local file; repeat for multiple files. Existing attachments are retained. |
 | `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+
+Constraints:
+
+- Mutually exclusive: `--body` / `--body-file`.
 
 ## `nus-outlook draft reply`
 
 Save an unsent reply to one message.
 
-Usage: `nus-outlook draft reply [-h] --body BODY [--format {json,jsonl,plain}] message_id`
+Usage: `nus-outlook draft reply [-h] (--body BODY | --body-file BODY_FILE) [--attach PATH] [--format {json,jsonl,plain}] message_id`
 
 | Argument | Required | Repeatable | Default | Choices | Description |
 | --- | --- | --- | --- | --- | --- |
 | `-h, --help` | no | no | `—` | — | show this help message and exit |
 | `MESSAGE_ID` | yes | no | `—` | — | Original message ID. |
-| `--body BODY` | yes | no | `—` | — | Plain-text reply body. |
+| `--body BODY` | no | no | `—` | — | Plain-text body; when editing, replaces the entire body including quoted text. |
+| `--body-file BODY_FILE` | no | no | `—` | — | Read the plain-text body from a UTF-8 file. |
+| `--attach PATH` | no | yes | `[]` | — | Attach a local file; repeat for multiple files. Existing attachments are retained. |
 | `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+
+Constraints:
+
+- Mutually exclusive: `--body` / `--body-file`.
+
+## `nus-outlook draft edit`
+
+Edit specified draft fields and/or add attachments; save without sending.
+
+Usage: `nus-outlook draft edit [-h] [--to TO | --clear-to] [--cc CC | --clear-cc] [--bcc BCC | --clear-bcc] [--subject SUBJECT] [--body BODY | --body-file BODY_FILE] [--attach PATH] [--format {json,jsonl,plain}] message_id`
+
+| Argument | Required | Repeatable | Default | Choices | Description |
+| --- | --- | --- | --- | --- | --- |
+| `-h, --help` | no | no | `—` | — | show this help message and exit |
+| `MESSAGE_ID` | yes | no | `—` | — | Existing draft ID. |
+| `--to TO` | no | yes | `—` | — | To email address; repeat for multiple recipients. Editing replaces this list. |
+| `--clear-to` | no | no | `—` | — | Remove all To recipients. |
+| `--cc CC` | no | yes | `—` | — | Cc email address; repeat for multiple recipients. Editing replaces this list. |
+| `--clear-cc` | no | no | `—` | — | Remove all Cc recipients. |
+| `--bcc BCC` | no | yes | `—` | — | Bcc email address; repeat for multiple recipients. Editing replaces this list. |
+| `--clear-bcc` | no | no | `—` | — | Remove all Bcc recipients. |
+| `--subject SUBJECT` | no | no | `—` | — | Replace the subject. |
+| `--body BODY` | no | no | `—` | — | Plain-text body; when editing, replaces the entire body including quoted text. |
+| `--body-file BODY_FILE` | no | no | `—` | — | Read the plain-text body from a UTF-8 file. |
+| `--attach PATH` | no | yes | `[]` | — | Attach a local file; repeat for multiple files. Existing attachments are retained. |
+| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+
+Constraints:
+
+- Mutually exclusive: `--to` / `--clear-to`.
+- Mutually exclusive: `--cc` / `--clear-cc`.
+- Mutually exclusive: `--bcc` / `--clear-bcc`.
+- Mutually exclusive: `--body` / `--body-file`.
+
+## `nus-outlook draft send`
+
+Send an existing draft only, saving a copy in Sent Items.
+
+Usage: `nus-outlook draft send [-h] [--format {json,jsonl,plain}] message_id`
+
+| Argument | Required | Repeatable | Default | Choices | Description |
+| --- | --- | --- | --- | --- | --- |
+| `-h, --help` | no | no | `—` | — | show this help message and exit |
+| `MESSAGE_ID` | yes | no | `—` | — | Existing draft ID; non-draft messages are rejected. |
+| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+
+Constraints:
+
+- Only an existing draft ID is accepted. A successful submission is reported even if the follow-up cache read fails. Check Sent Items before retrying any uncertain send.
+
+Notes:
+
+Requires user authorization. Review the draft and its preview first; present its link and preview for approval unless the user explicitly waived their review. Never retry an uncertain send without checking Sent Items.
 
 ## `nus-outlook draft remove`
 
@@ -339,7 +428,7 @@ Usage: `nus-outlook api [-h] [-X {GET,POST}] [-d JSON] path`
 Constraints:
 
 - Only /owa/service.svc with a supported read action, POST /searchservice/api/v2/query (mail), or POST /search/api/v2/query (people) is accepted; state-changing actions are rejected.
-- Use the named high-level commands for authorized mail changes. The low-level api command remains read-only; sending is unsupported.
+- Use the named high-level commands for authorized mail changes. The low-level api command remains read-only; sending requires an existing draft via draft send.
 
 ## `nus-outlook playwright-cli`
 

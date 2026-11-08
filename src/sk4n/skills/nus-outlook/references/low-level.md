@@ -88,6 +88,13 @@ playwright-cli -s=nus-outlook close
 
 The command restores private cookies, local storage, and IndexedDB in a named `@playwright/cli` session. Use named high-level commands for authorized mailbox changes; use this session to inspect page behavior or investigate a changed endpoint. Use `--headed` when a visible window helps. Do not reuse an existing unrelated session or print authorization headers, token responses, or storage contents. Avoid opening messages through the page when read-state changes would be unwanted; use `message` instead.
 
+For a mail/draft screenshot, prefer `preview ID --format json`: it reuses an
+intact preview for an unchanged email, otherwise opens a temporary browser that
+blocks mailbox writes and waits for recipients and attachments. Named writes
+invalidate the preview. The result includes `_outlook.preview_path` plus the
+complete message for review. The screenshot covers the viewport; use the
+returned full body for long mail.
+
 Outlook currently redirects older `outlook.office.com` links to `outlook.cloud.microsoft`. NUS login can involve Microsoft account discovery followed by NUS federation and MFA. A realm-forced link can cause an extra account-discovery round trip; the CLI uses the standard mailbox URL and remembers the sign-in hint. A renewed session is saved only after the server returns a signed-in mailbox profile. If silent renewal fails, use explicit interactive login.
 
 These web endpoints are private Outlook implementation details and may change. Inspect the smallest read response and update the package when their contract changes. Always close the named inspection browser when finished.

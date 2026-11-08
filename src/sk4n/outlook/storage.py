@@ -154,6 +154,16 @@ class OutlookStore:
         self.write(self.root / "emails" / "index.json", index)
         if isinstance(name, str) and Path(name).name == name and name not in {".", ".."}:
             (self.root / "emails" / name / "message.json").unlink(missing_ok=True)
+            (self.root / "emails" / name / "preview.png").unlink(missing_ok=True)
+
+    def invalidate_preview(self, identifier: str) -> None:
+        record = self.message(identifier)
+        path = self.message_path(identifier)
+        if record is not None and "preview" in record:
+            record.pop("preview")
+            self.save_message(record)
+        if path is not None:
+            (path.parent / "preview.png").unlink(missing_ok=True)
 
     def forget_search_aliases(self, identifiers: set[str]) -> None:
         """Discard legacy search records keyed by folder-dependent REST IDs."""

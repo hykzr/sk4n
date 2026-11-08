@@ -287,6 +287,9 @@ class OutlookFetcher:
     ) -> dict[str, Any]:
         """Read the authoritative post-write item and replace its cached state."""
         old_id = previous_id or identifier
+        # Every successful named write invalidates the screenshot, even when
+        # Outlook leaves ChangeKey unchanged (e.g. read/flag state changes).
+        self.store.invalidate_preview(old_id)
         previous = self.store.message(old_id)
         try:
             full = self.client.message(identifier)

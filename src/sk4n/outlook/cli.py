@@ -26,6 +26,7 @@ from .auth import DEFAULT_LOGIN_WAIT_SECONDS, check_auth_status, login, logout
 from .browser import validate_base_url
 from .client import DEFAULT_BASE_URL, DEFAULT_SITE_NAME, OutlookClient, OutlookError
 from .fetcher import OutlookFetcher
+from .preview import OutlookPreview
 from .storage import OutlookStore
 
 
@@ -89,6 +90,44 @@ def add_folder_arguments(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Exact Outlook folder ID; bypass folder-name lookup.",
     )
+
+
+def add_body_argument(parser: argparse.ArgumentParser, *, required: bool) -> None:
+    body = parser.add_mutually_exclusive_group(required=required)
+    body.add_argument(
+        "--body",
+        help="Plain-text body; when editing, replaces the entire body including quoted text.",
+    )
+    body.add_argument("--body-file", type=Path, help="Read the plain-text body from a UTF-8 file.")
+
+
+def add_attachment_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--attach",
+        type=Path,
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="Attach a local file; repeat for multiple files. Existing attachments are retained.",
+    )
+
+
+def add_recipient_arguments(parser: argparse.ArgumentParser, *, editing: bool = False) -> None:
+    for name in ("to", "cc", "bcc"):
+        group = parser.add_mutually_exclusive_group(required=name == "to" and not editing)
+        group.add_argument(
+            f"--{name}",
+            action="append",
+            help=f"{name.title()} email address; repeat for multiple recipients. Editing replaces this list.",
+        )
+        if editing:
+            group.add_argument(
+                f"--clear-{name}",
+                dest=name,
+                action="store_const",
+                const=[],
+                help=f"Remove all {name.title()} recipients.",
+            )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -210,6 +249,20 @@ def build_parser() -> argparse.ArgumentParser:
     add_refresh_arguments(message, attachments=True)
     add_format_argument(message)
 
+    preview = commands.add_parser(
+        "preview",
+        help="Capture an Outlook web screenshot of a draft or message without changing mail.",
+        epilog="Reuses a cached screenshot when the message is unchanged. --refresh forces recapture; --no-refresh requires a valid local preview. Screenshots show the viewport; read the returned body for long messages.",
+    )
+    preview.add_argument("message_id", help="Exact draft or message ID.")
+    preview.add_argument(
+        "--output",
+        type=Path,
+        help="Export a copy to this PNG path. The preview is always cached as preview.png beside the email's message.json.",
+    )
+    add_refresh_arguments(preview)
+    add_format_argument(preview)
+
     for name, help_text in (
         ("flag", "Flag one message for follow-up."),
         ("unflag", "Remove a message's follow-up flag."),
@@ -225,17 +278,37 @@ def build_parser() -> argparse.ArgumentParser:
     add_folder_arguments(move)
     add_format_argument(move)
 
-    draft = commands.add_parser("draft", help="Create or remove an unsent draft.")
+    draft = commands.add_parser(
+        "draft", help="Create, edit, discard, or send an existing draft with user authorization."
+    )
     draft_commands = draft.add_subparsers(dest="draft_command", required=True)
     create = draft_commands.add_parser("create", help="Save a new unsent message.")
-    create.add_argument("--to", required=True, help="Recipient email address.")
+    add_recipient_arguments(create)
     create.add_argument("--subject", required=True, help="Draft subject.")
-    create.add_argument("--body", required=True, help="Plain-text draft body.")
+    add_body_argument(create, required=True)
+    add_attachment_argument(create)
     add_format_argument(create)
     reply = draft_commands.add_parser("reply", help="Save an unsent reply to one message.")
     reply.add_argument("message_id", help="Original message ID.")
-    reply.add_argument("--body", required=True, help="Plain-text reply body.")
+    add_body_argument(reply, required=True)
+    add_attachment_argument(reply)
     add_format_argument(reply)
+    edit = draft_commands.add_parser(
+        "edit", help="Edit specified draft fields and/or add attachments; save without sending."
+    )
+    edit.add_argument("message_id", help="Existing draft ID.")
+    add_recipient_arguments(edit, editing=True)
+    edit.add_argument("--subject", help="Replace the subject.")
+    add_body_argument(edit, required=False)
+    add_attachment_argument(edit)
+    add_format_argument(edit)
+    send = draft_commands.add_parser(
+        "send",
+        help="Send an existing draft only, saving a copy in Sent Items.",
+        epilog="Requires user authorization. Review the draft and its preview first; present its link and preview for approval unless the user explicitly waived their review. Never retry an uncertain send without checking Sent Items.",
+    )
+    send.add_argument("message_id", help="Existing draft ID; non-draft messages are rejected.")
+    add_format_argument(send)
     remove = draft_commands.add_parser("remove", help="Discard a draft into Deleted Items.")
     remove.add_argument("message_id", help="Draft message ID.")
     add_format_argument(remove)
@@ -340,6 +413,11 @@ def human_record(record: dict[str, Any]) -> dict[str, Any]:
         "Read": record.get("IsRead"),
         "Flag": record.get("Flag", {}).get("FlagStatus"),
         "Draft": record.get("IsDraft"),
+        "Send status": record.get("status"),
+        "Send pending": record.get("pending"),
+        "Preview screenshot": record.get("_outlook", {}).get("preview_path"),
+        "Preview reused": record.get("_outlook", {}).get("preview_reused"),
+        "Preview export": record.get("_outlook", {}).get("preview_output_path"),
         "Attachments": record.get("HasAttachments"),
         "Attachment links": [
             {"name": a.get("name"), "url": a.get("url"), "local": a.get("path")}
@@ -400,7 +478,7 @@ def run(args: argparse.Namespace) -> int:
     if getattr(args, "offset", 0) < 0:
         raise ValueError("--offset must be zero or greater")
     client = OutlookClient(**options)
-    if args.command in {"folders", "messages", "search", "message"}:
+    if args.command in {"folders", "messages", "search", "message", "preview"}:
         value = cached_read(args, client)
     elif args.command in {"flag", "unflag", "mark-read", "mark-unread", "move", "draft"}:
         value = cached_write(args, client)
@@ -427,6 +505,10 @@ def cached_read(args: argparse.Namespace, client: OutlookClient) -> Any:
             return fetcher.message(
                 args.message_id, refresh_mode=args.refresh_mode, attachments=args.attachments
             )
+        if args.command == "preview":
+            return OutlookPreview(client, store).message(
+                args.message_id, refresh_mode=args.refresh_mode, output=args.output
+            )
         return fetcher.messages(
             folder=args.folder,
             folder_id=args.folder_id,
@@ -439,7 +521,7 @@ def cached_read(args: argparse.Namespace, client: OutlookClient) -> Any:
             attachments=args.attachments,
         )
 
-    if args.refresh_mode == "none":
+    if getattr(args, "refresh_mode", None) == "none":
         return read()
     ensure_private_directory(store.root)
     with exclusive_file_lock(store.root / ".cache.lock"):
@@ -457,11 +539,31 @@ def cached_write(args: argparse.Namespace, client: OutlookClient) -> Any:
             return actions.mark_read(args.message_id, read=args.command == "mark-read")
         if args.command == "move":
             return actions.move(args.message_id, folder=args.folder, folder_id_value=args.folder_id)
+        if args.draft_command == "send":
+            return actions.send_draft(args.message_id)
+        if args.draft_command == "remove":
+            return actions.remove_draft(args.message_id)
+        body = args.body_file.read_text(encoding="utf-8") if args.body_file else args.body
         if args.draft_command == "create":
-            return actions.draft(to=args.to, subject=args.subject, body=args.body)
+            return actions.draft(
+                to=args.to,
+                cc=args.cc or [],
+                bcc=args.bcc or [],
+                subject=args.subject,
+                body=body,
+                attachments=args.attach,
+            )
         if args.draft_command == "reply":
-            return actions.reply_draft(args.message_id, body=args.body)
-        return actions.remove_draft(args.message_id)
+            return actions.reply_draft(args.message_id, body=body, attachments=args.attach)
+        return actions.edit_draft(
+            args.message_id,
+            to=args.to,
+            cc=args.cc,
+            bcc=args.bcc,
+            subject=args.subject,
+            body=body,
+            attachments=args.attach,
+        )
 
 
 def main(argv: Sequence[str] | None = None) -> int:

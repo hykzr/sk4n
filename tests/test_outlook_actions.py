@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -7,7 +8,7 @@ from typing import Any
 import pytest
 
 from sk4n.outlook.actions import OutlookActions
-from sk4n.outlook.client import OutlookClient, OutlookError, search_results
+from sk4n.outlook.client import OutlookClient, OutlookError, OutlookTransportError, search_results
 from sk4n.outlook.storage import OutlookStore, canonical_immutable_id
 
 
@@ -40,17 +41,25 @@ class Remote(OutlookClient):
         if name == "UpdateItem":
             change = body["ItemChanges"][0]
             identifier = change["ItemId"]["Id"]
-            update = change["Updates"][0]
-            field = update["Path"]["FieldURI"]
-            self.items[identifier][field] = update["Item"][field]
+            for update in change["Updates"]:
+                field = update["Path"]["FieldURI"]
+                self.items[identifier][field] = update["Item"][field]
+            if body["MessageDisposition"] == "SendAndSaveCopy":
+                self.items[identifier]["IsDraft"] = False
+                self.items[identifier]["ParentFolderId"] = {"Id": "sentitems"}
             returned: dict[str, Any] = {"Items": [{"ItemId": {"Id": identifier}}]}
+        elif name == "CreateAttachment":
+            identifier = body["ParentItemId"]["Id"]
+            existing = self.items[identifier].setdefault("Attachments", [])
+            for file in body["Attachments"]:
+                existing.append({**file, "AttachmentId": {"Id": f"file-{len(existing)}"}})
+            self.items[identifier]["HasAttachments"] = True
+            returned = {"Attachments": existing}
         elif name == "MoveItem":
             identifier = body["ItemIds"][0]["Id"]
             moved = deepcopy(self.items.pop(identifier))
             moved["ItemId"] = {"Id": self.next_id, "ChangeKey": "v2"}
-            moved["ParentFolderId"] = {
-                "Id": body["ToFolderId"]["BaseFolderId"]["Id"]
-            }
+            moved["ParentFolderId"] = {"Id": body["ToFolderId"]["BaseFolderId"]["Id"]}
             self.items[self.next_id] = moved
             returned = {"Items": [{"ItemId": moved["ItemId"]}]}
         elif name == "CreateItem":
@@ -131,7 +140,9 @@ def test_create_reply_and_remove_draft_use_save_only_and_reconcile_folder(
     assert (record := store.message("new")) is not None
     assert record["folder"] == "drafts"
     assert remote.writes[0][1]["MessageDisposition"] == "SaveOnly"
-    assert remote.writes[0][1]["Items"][0]["ToRecipients"][0]["EmailAddress"] == "personal@example.com"
+    assert (
+        remote.writes[0][1]["Items"][0]["ToRecipients"][0]["EmailAddress"] == "personal@example.com"
+    )
     remote.next_id = "reply"
     reply = actions.reply_draft("one", body="Thanks")
     assert reply["InReplyTo"] == "original-id"
@@ -213,6 +224,243 @@ def test_successful_write_invalidates_cache_if_followup_read_fails(tmp_path: Pat
     assert store.message("one") is None
 
 
-def test_write_actions_do_not_expose_sending() -> None:
+def test_sending_does_not_add_senditem_to_low_level_actions() -> None:
     with pytest.raises(ValueError, match="Unsupported Outlook write action"):
         OutlookClient().write_action("SendItem", {})
+
+
+@pytest.mark.parametrize("action", ["UpdateItem", "CreateAttachment", "SendItem"])
+def test_low_level_api_stays_read_only(action: str) -> None:
+    with pytest.raises(ValueError, match="read-only"):
+        OutlookClient().request("POST", "/owa/service.svc?action=" + action, {})
+
+
+def test_edit_and_attach_preserve_other_fields_and_send_only_existing_draft(
+    setup: tuple[OutlookActions, Remote, OutlookStore],
+    tmp_path: Path,
+) -> None:
+    actions, remote, store = setup
+    data = b"\x00binary\xff preview"
+    file = tmp_path / "preview.png"
+    file.write_bytes(data)
+    actions.reply_draft("one", body="Review me")
+    edited = actions.edit_draft(
+        "new", subject="Edited", body="Reviewed", to=["self@example.com"], attachments=[file]
+    )
+    assert edited["Body"]["Value"] == "Reviewed"
+    assert edited["InReplyTo"] == "original-id"
+    assert edited["ToRecipients"][0]["EmailAddress"] == "self@example.com"
+    upload = remote.writes[-1][1]
+    assert upload["ParentItemId"]["Id"] == "new"
+    assert base64.b64decode(upload["Attachments"][0]["Content"]) == data
+    sent = actions.send_draft("new")
+    assert sent["status"] == "submitted"
+    assert sent["IsDraft"] is False
+    assert sent["Attachments"][0]["Name"] == "preview.png"
+    assert sent["Body"]["Value"] == "Reviewed"
+    name, send = remote.writes[-1]
+    assert name == "UpdateItem"
+    assert send["MessageDisposition"] == "SendAndSaveCopy"
+    assert send["SendOnNotFoundError"] is False
+    assert send["ConflictResolution"] == "NeverOverwrite"
+    assert len(send["ItemChanges"]) == 1
+    assert [u["Path"]["FieldURI"] for u in send["ItemChanges"][0]["Updates"]] == ["Subject"]
+    assert (record := store.message("new")) is not None
+    assert record["folder"] == "sentitems"
+    writes = len(remote.writes)
+    with pytest.raises(ValueError, match="Only drafts"):
+        actions.send_draft("new")
+    with pytest.raises(ValueError, match="Only drafts"):
+        actions.edit_draft("one", body="No")
+    assert len(remote.writes) == writes
+
+
+def test_draft_validation_prevents_partial_writes(
+    setup: tuple[OutlookActions, Remote, OutlookStore],
+    tmp_path: Path,
+) -> None:
+    actions, remote, _ = setup
+    with pytest.raises(FileNotFoundError):
+        actions.draft(
+            to="self@example.com", subject="Test", body="Hello", attachments=[tmp_path / "missing"]
+        )
+    with pytest.raises(ValueError, match="email addresses"):
+        actions.draft(to="not-an-email", subject="Test", body="Hello")
+    assert remote.writes == []
+    actions.draft(
+        to=["one@example.com", "two@example.com"],
+        cc=["cc@example.com"],
+        bcc=["bcc@example.com"],
+        subject="Test",
+        body="Hello",
+    )
+    assert len(remote.writes[0][1]["Items"][0]["ToRecipients"]) == 2
+    with pytest.raises(ValueError, match="Specify a draft field"):
+        actions.edit_draft("new")
+    remote.items["new"]["ToRecipients"] = []
+    with pytest.raises(ValueError, match="no recipients"):
+        actions.send_draft("new")
+    assert len(remote.writes) == 1
+
+
+def test_accepted_send_with_failed_cache_read_is_reported_as_submitted(tmp_path: Path) -> None:
+    class SentButUnreadable(Remote):
+        def message(self, message_id: str) -> dict[str, Any]:
+            if self.writes and self.writes[-1][1].get("MessageDisposition") == "SendAndSaveCopy":
+                raise OutlookError("temporarily unavailable")
+            return super().message(message_id)
+
+    remote = SentButUnreadable()
+    store = OutlookStore(tmp_path)
+    actions = OutlookActions(remote, store)
+    actions.draft(to="self@example.com", subject="Test", body="Hello")
+    result = actions.send_draft("new")
+    assert result["status"] == "submitted"
+    assert result["cache_refreshed"] is False
+    assert "Do not resend" in result["warning"]
+    assert store.message("new") is None
+
+
+def test_pending_submission_cannot_be_sent_edited_or_discarded_again(
+    setup: tuple[OutlookActions, Remote, OutlookStore],
+) -> None:
+    actions, remote, _ = setup
+    actions.draft(to="self@example.com", subject="Test", body="Hello")
+    remote.items["new"]["IsSubmitted"] = True
+    for action in (
+        lambda: actions.send_draft("new"),
+        lambda: actions.edit_draft("new", body="Too late"),
+        lambda: actions.remove_draft("new"),
+    ):
+        with pytest.raises(ValueError, match="already submitted"):
+            action()
+    assert len(remote.writes) == 1
+
+
+def test_uncertain_send_invalidates_cache_and_does_not_retry(tmp_path: Path) -> None:
+    class Disconnected(Remote):
+        def write_action(self, name: str, body: dict[str, Any]) -> dict[str, Any]:
+            result = super().write_action(name, body)
+            if body.get("MessageDisposition") == "SendAndSaveCopy":
+                raise OutlookTransportError("connection lost after submission")
+            return result
+
+    remote = Disconnected()
+    store = OutlookStore(tmp_path)
+    actions = OutlookActions(remote, store)
+    actions.draft(to="self@example.com", subject="Test", body="Hello")
+    with pytest.raises(OutlookTransportError, match="Do not resend"):
+        actions.send_draft("new")
+    assert len(remote.writes) == 2
+    assert store.message("new") is None
+
+
+def test_pending_send_retains_actual_folder_until_transport_moves_it(tmp_path: Path) -> None:
+    class Pending(Remote):
+        def write_action(self, name: str, body: dict[str, Any]) -> dict[str, Any]:
+            result = super().write_action(name, body)
+            if body.get("MessageDisposition") == "SendAndSaveCopy":
+                self.items["new"].update(
+                    IsDraft=True, IsSubmitted=True, ParentFolderId={"Id": "drafts"}
+                )
+            return result
+
+    store = OutlookStore(tmp_path)
+    actions = OutlookActions(Pending(), store)
+    actions.draft(to="self@example.com", subject="Test", body="Hello")
+    result = actions.send_draft("new")
+    assert result["status"] == "submitted" and result["pending"] is True
+    assert (record := store.message("new")) is not None
+    assert record["folder"] == "drafts"
+    assert record["metadata"]["IsSubmitted"] is True
+
+
+def test_partial_attachment_failure_invalidates_cached_draft(tmp_path: Path) -> None:
+    class PartialUpload(Remote):
+        def write_action(self, name: str, body: dict[str, Any]) -> dict[str, Any]:
+            result = super().write_action(name, body)
+            if name == "CreateAttachment":
+                raise OutlookError("second upload failed")
+            return result
+
+    remote = PartialUpload()
+    store = OutlookStore(tmp_path / "cache")
+    actions = OutlookActions(remote, store)
+    actions.draft(to="self@example.com", subject="Test", body="Hello")
+    file = tmp_path / "preview.png"
+    file.write_bytes(b"preview")
+    with pytest.raises(OutlookError, match="upload failed"):
+        actions.edit_draft("new", attachments=[file])
+    assert store.message("new") is None
+    assert remote.items["new"]["Attachments"][0]["Name"] == "preview.png"
+
+
+@pytest.mark.parametrize("command", ["edit", "attach", "flag", "read", "move", "remove", "send"])
+def test_every_named_write_invalidates_preview_even_with_unchanged_change_key(
+    command: str,
+    setup: tuple[OutlookActions, Remote, OutlookStore],
+) -> None:
+    actions, remote, store = setup
+    actions.draft(to="self@example.com", subject="Test", body="Hello")
+    record = store.message("new")
+    path = store.message_path("new")
+    assert record is not None and path is not None
+    image = path.parent / "preview.png"
+    image.write_bytes(b"old screenshot")
+    record["preview"] = {"path": "preview.png"}
+    store.save_message(record)
+    if command == "edit":
+        result = actions.edit_draft("new", body="Updated")
+        assert result["Body"]["Value"] == "Updated"
+        assert result["ItemId"]["ChangeKey"] == "v1"
+    elif command == "attach":
+        actions.edit_draft("new", attachments=[image])
+        assert (
+            base64.b64decode(remote.writes[-1][1]["Attachments"][0]["Content"]) == b"old screenshot"
+        )
+    elif command == "flag":
+        actions.flag("new", flagged=True)
+    elif command == "read":
+        actions.mark_read("new", read=False)
+    elif command == "move":
+        actions.move("new", folder="archive")
+    elif command == "remove":
+        actions.remove_draft("new")
+    else:
+        actions.send_draft("new")
+    assert not image.exists()
+    assert (updated := store.message("new")) is not None
+    assert "preview" not in updated
+
+
+@pytest.mark.parametrize("failure", ["response", "reread"])
+def test_edit_failure_invalidates_message_and_preview(tmp_path: Path, failure: str) -> None:
+    class Failing(Remote):
+        written = False
+
+        def write_action(self, name: str, body: dict[str, Any]) -> dict[str, Any]:
+            result = super().write_action(name, body)
+            if name == "UpdateItem":
+                self.written = True
+                if failure == "response":
+                    raise OutlookTransportError("lost update response")
+            return result
+
+        def message(self, message_id: str) -> dict[str, Any]:
+            if self.written and failure == "reread":
+                raise OutlookError("failed post-write read")
+            return super().message(message_id)
+
+    remote = Failing()
+    store = OutlookStore(tmp_path)
+    actions = OutlookActions(remote, store)
+    actions.draft(to="self@example.com", subject="Test", body="Hello")
+    path = store.message_path("new")
+    assert path is not None
+    image = path.parent / "preview.png"
+    image.write_bytes(b"old screenshot")
+    with pytest.raises(OutlookError):
+        actions.edit_draft("new", body="Changed remotely")
+    assert store.message("new") is None
+    assert not image.exists()
+    assert remote.items["new"]["Body"]["Value"] == "Changed remotely"

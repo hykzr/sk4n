@@ -44,10 +44,53 @@ nus-outlook mark-unread 'MESSAGE_ID'
 nus-outlook move 'MESSAGE_ID' --folder Archive
 nus-outlook draft create --to person@example.com --subject 'Draft subject' --body 'Unsent text'
 nus-outlook draft reply 'MESSAGE_ID' --body 'Unsent reply text'
+nus-outlook draft edit 'DRAFT_ID' --body-file reply.txt --attach preview.png
+nus-outlook preview 'DRAFT_ID' --output preview.png --format json
+# After the agent reviews the draft and the user approves (or explicitly waives their review):
+nus-outlook draft send 'DRAFT_ID'
 nus-outlook draft remove 'DRAFT_ID'
 ```
 
-`draft remove` moves the draft to Deleted Items. There is no send command.
+`draft create`, `reply`, and `edit` accept repeatable `--attach PATH` options.
+Create/edit accept repeatable `--to`, `--cc`, and `--bcc`; edit replaces only
+specified recipient lists, with `--clear-to`, `--clear-cc`, and `--clear-bcc`
+to empty them. `--body` or UTF-8 `--body-file` replaces the entire plain-text
+body when editing, including any quoted original. Unspecified fields and
+existing attachments are retained. Attachment files are validated before any
+mailbox changes; an upload failure can still leave a saved/partially edited draft.
+`draft remove` moves the draft to Deleted Items.
+
+Sending requires an existing, unsubmitted draft ID and user authorization.
+Always draft first and personally review recipients (including Cc/Bcc), subject,
+full body, attachments, and a fresh `preview`. Show the draft's Outlook link and
+preview and wait for approval unless the user explicitly waived their review.
+After edits, repeat the applicable review/approval steps. A waiver never skips
+the agent's own review. `draft send` reports `status: submitted` when Outlook
+accepts the submission; this does not confirm delivery. A briefly pending item
+can still have `IsDraft: true` and `IsSubmitted: true`; it cannot be sent again.
+The cache keeps the actual returned folder until Outlook moves it to Sent Items.
+If the follow-up read fails, submission success is returned with a warning and
+the stale cache is invalidated. Check Sent Items before retrying an uncertain send.
+
+`preview ID` captures the actual Outlook web UI for drafts and received/sent
+mail in a temporary authenticated headless browser. It blocks mailbox write
+requests, including autosave and read-state changes, and closes that browser.
+Drafts open in the editor to show recipients and attachment tiles. The command
+returns `_outlook.preview_path`, the message `url`, full body, and metadata.
+The PNG is always cached as `preview.png` beside that email's `message.json`.
+Default reads validate the message revision and reuse an unchanged, intact
+preview without opening a browser; `_outlook.preview_reused` reports reuse.
+`--refresh` forces recapture; `--no-refresh` requires a valid local message and
+preview and never contacts Outlook. `--output PATH.png` exports a copy while
+retaining the canonical cached PNG. `_outlook.preview_path` always names that
+cached PNG; `_outlook.preview_output_path` names the optional export.
+Every named mailbox write invalidates its cached preview, even if the server
+leaves the change key unchanged. Draft edits refresh the message body/metadata;
+uncertain writes or failed follow-up reads invalidate the stale message too.
+Screenshots show the current viewport, so review the returned full body and all
+recipients/attachments as well. A changed revision during capture fails without
+replacing the previous screenshot.
+
 Read `IsRead` and `Flag.FlagStatus` in JSON to check message state. `messages`
 requests `Flag` explicitly; older cached records without it need a refresh.
 
@@ -99,12 +142,14 @@ outlook/
     index.json
     <normalized-subject>--<message-id-hash>/
       message.json
+      preview.png
       attachments/<normalized-name>--<attachment-id-hash>.<extension>
 ```
 
 `message.json` stores the latest returned `metadata`, the last fetched `message`
 with its body when downloaded, a `complete` flag, a `body_current` flag, folder
-context, and the downloaded-attachment manifest. New metadata does not relabel
+context, downloaded-attachment manifests, and a preview fingerprint/checksum.
+New metadata does not relabel
 an old body with a newer revision. New email directories and attachment
 filenames use at most 40 normalized ASCII title characters and the first
 8 bytes of the SHA-256 ID hash (16 hex
@@ -184,6 +229,9 @@ Outlook web endpoints can change independently of this package.
 - Search `ItemId.Id`/`ItemRestId` is folder-dependent (`AQMk…`); `ImmutableId` is the stable `AAk…` ID in Outlook's alphabet (`-` means `/`, `_` means `+`). Normalize it before cache keys or item actions. Search omits `Flag` on unflagged mail. `GetItem` accepts REST IDs only with `Prefer: IdType="ImmutableId"`; folder lists return stable IDs without that header.
 - Item-scoped `UpdateItem` with `SetItemField` paths `Flag` or `IsRead` updates one email. Outlook's list UI instead uses `ApplyConversationAction`, which can affect a whole conversation. Read state can change without a new `ChangeKey`, so reread the full item after every successful write.
 - `MoveItem` returns the moved item in `Items[]`; in the tested mailbox `ItemId.Id` remained stable while `ChangeKey` and `ParentFolderId` changed. Handle a changed ID anyway. The UI move response uses `MovedItemIds[]`.
-- `CreateItem` with `MessageDisposition: SaveOnly` and a `Message` creates an unsent draft; a `ReplyToItem` with `ReferenceItemId` and `NewBodyContent` creates a reply draft with conversation linkage and quoted original text. `DeleteItem` with `DeleteType: MoveToDeletedItems` discards a draft and returns `MovedItemId`. Sending has no high-level support.
+- `CreateItem` with `MessageDisposition: SaveOnly` and a `Message` creates an unsent draft; a `ReplyToItem` with `ReferenceItemId` and `NewBodyContent` creates a reply draft with conversation linkage and quoted original text. `DeleteItem` with `DeleteType: MoveToDeletedItems` discards a draft and returns `MovedItemId`.
+- On 2026-11-08, draft edits used `UpdateItem`, `SetItemField` paths `Subject`, `Body`, and recipient lists, with `MessageDisposition: SaveOnly`. `CreateAttachment` accepts `ParentItemId` and `FileAttachment` entries with `Name`, `ContentType`, `IsInline: false`, and base64 `Content`; its response includes `AttachmentId.RootItemChangeKey`. The UI's binary `CreateAttachmentFromLocalFile` route carries the same JSON contract in `x-owa-urlpostdata`; the CLI's JSON upload was checked live with PNG bytes.
+- The UI sends with `UpdateItem` and `MessageDisposition: SendAndSaveCopy`; its success response has `Items: null` and `ResponseCode: NoError`. A no-op `Subject` update with the draft ID/change key, `ConflictResolution: NeverOverwrite`, and `SendOnNotFoundError: false` was verified live, preserving the body and attachment bytes. The immutable ID remained stable. Immediately afterward `GetItem` can return `IsSubmitted: true` while `IsDraft` and folder still reflect Drafts; a later read confirms `IsDraft: false` in Sent Items. Never treat a post-submission read failure as a failed send.
+- `/mail/deeplink/read/{id}` opens a saved draft with `Continue editing`; that button exposes the composer, recipient wells and attachment options. These mount asynchronously after the editor. Preview waits for them, blocks service writes, and verifies the same message revision afterward. Sent mail uses the reading view.
 - Trace request bodies may be stored by SHA-1 under `.playwright-cli/traces/resources/` rather than printed by `request-body`; inspect only the needed JSON payload. Trace network logs also contain credentials, so never print whole logs or request headers.
 
