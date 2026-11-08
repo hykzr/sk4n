@@ -5,14 +5,24 @@ default:
 test *flags='-q':
     uv run pytest {{flags}}
 
-# Run linting using ruff and pyright
+# Run Python and Markdown linting
 lint *flags='--fix':
     uv run ruff --config pyproject.toml check . {{flags}}
     uv run pyright
+    just lint-markdown
 
-# Format sources and tests
+# Fix automatically-fixable Markdown issues using the shared editor rules
+format-markdown:
+    npm run format:markdown
+
+# Check Markdown using the shared editor rules
+lint-markdown:
+    npm run lint:markdown
+
+# Format Python and Markdown sources
 format *flags:
     uv run ruff format . {{flags}}
+    just {{if flags =~ '(^| )--check( |$)' { 'lint-markdown' } else { 'format-markdown' }}}
 
 # Check generated CLI references
 references *flags:

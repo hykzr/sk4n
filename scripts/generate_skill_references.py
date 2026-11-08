@@ -7,6 +7,7 @@ import argparse
 import importlib
 import os
 import re
+import subprocess
 import sys
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -277,7 +278,19 @@ def _render_help(action: argparse.Action, service: Service) -> str:
     help_text = action.help or "—"
     if action.dest in service.default_labels:
         help_text = help_text.replace(str(action.default), service.default_labels[action.dest])
-    return " ".join(help_text.split())
+    help_text = " ".join(help_text.split())
+
+    # Render paths, URLs, and email examples as inline code so placeholders
+    # such as <user-data> need no HTML escaping.
+    def render_example(match: re.Match[str]) -> str:
+        example = match[0].rstrip(".,;:!?")
+        return f"`{example}`{match[0][len(example) :]}"
+
+    return re.sub(
+        r"https?://[^\s`]+|[\w.+-]+@[\w.-]+\.[A-Za-z]+|<[^<>]+>[^\s`]*",
+        render_example,
+        help_text,
+    )
 
 
 def _argument_table(parser: argparse.ArgumentParser, service: Service) -> list[str]:
@@ -393,6 +406,20 @@ def generate_documents() -> dict[Path, str]:
     }
 
 
+def _format_markdown(path: Path, content: str) -> str:
+    prettier = PROJECT_ROOT / "node_modules" / "prettier" / "bin" / "prettier.cjs"
+    if not prettier.is_file():
+        raise RuntimeError("Install the locked Markdown tools with `npm ci` first.")
+    return subprocess.run(
+        ["node", str(prettier), "--stdin-filepath", str(path)],
+        input=content,
+        stdout=subprocess.PIPE,
+        check=True,
+        text=True,
+        cwd=PROJECT_ROOT,
+    ).stdout
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -404,6 +431,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     stale: list[Path] = []
     for path, content in generate_documents().items():
+        content = _format_markdown(path, content)
         if args.check:
             if not path.exists() or path.read_text(encoding="utf-8") != content:
                 stale.append(path)

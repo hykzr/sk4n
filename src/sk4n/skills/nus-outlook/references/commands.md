@@ -9,28 +9,29 @@ Read, cache, and manage NUS Outlook mail using a saved NUS SSO browser login.
 - Omit `--format` for concise human-readable tables or details.
 - Use `--format json` for one complete JSON document.
 - Use `--format jsonl` for one complete JSON record per line when the command offers it.
-- Use `--format plain` for line-oriented `key: value` records suited to shell filtering when the command offers it.
+- Use `--format plain` for line-oriented `key: value` records suited to shell filtering when the
+  command offers it.
 - Structured formats preserve full records and may be substantially larger than human output.
 
 ## Environment variables
 
-| Variable | Effect |
-| --- | --- |
-| `SK4N_HOME` | Override the stable data root used to derive the service's default data path. |
-| `SK4N_SESSION_DIR` | Override the private directory containing saved browser authentication state. |
-| `OUTLOOK_BASE_URL` | Set the Microsoft Outlook mailbox URL used by --base-url. |
-| `OUTLOOK_SITE_NAME` | Set the saved-session namespace used by --site-name. |
-| `OUTLOOK_TIMEOUT` | Set the request and silent login-renewal timeout in seconds. |
+| Variable            | Effect                                                                        |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `SK4N_HOME`         | Override the stable data root used to derive the service's default data path. |
+| `SK4N_SESSION_DIR`  | Override the private directory containing saved browser authentication state. |
+| `OUTLOOK_BASE_URL`  | Set the Microsoft Outlook mailbox URL used by --base-url.                     |
+| `OUTLOOK_SITE_NAME` | Set the saved-session namespace used by --site-name.                          |
+| `OUTLOOK_TIMEOUT`   | Set the request and silent login-renewal timeout in seconds.                  |
 
 ## Global options
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `--data-path DATA_PATH` | no | no | `<user-data>/sk4n/outlook` | — | Local Outlook cache directory. Default: <user-data>/sk4n/outlook. |
-| `--base-url BASE_URL` | no | no | `https://outlook.cloud.microsoft/mail/` | — | Advanced HTTPS mailbox URL on a supported Microsoft Outlook host. |
-| `--site-name SITE_NAME` | no | no | `nus_outlook` | — | Advanced saved-session namespace. |
-| `--timeout TIMEOUT` | no | no | `30` | — | Request timeout in seconds. Default: 30. |
+| Argument                | Required | Repeatable | Default                                 | Choices | Description                                                         |
+| ----------------------- | -------- | ---------- | --------------------------------------- | ------- | ------------------------------------------------------------------- |
+| `-h, --help`            | no       | no         | `—`                                     | —       | show this help message and exit                                     |
+| `--data-path DATA_PATH` | no       | no         | `<user-data>/sk4n/outlook`              | —       | Local Outlook cache directory. Default: `<user-data>/sk4n/outlook`. |
+| `--base-url BASE_URL`   | no       | no         | `https://outlook.cloud.microsoft/mail/` | —       | Advanced HTTPS mailbox URL on a supported Microsoft Outlook host.   |
+| `--site-name SITE_NAME` | no       | no         | `nus_outlook`                           | —       | Advanced saved-session namespace.                                   |
+| `--timeout TIMEOUT`     | no       | no         | `30`                                    | —       | Request timeout in seconds. Default: 30.                            |
 
 Global options must appear before the command name.
 
@@ -45,7 +46,8 @@ Global options must appear before the command name.
 - `nus-outlook messages` — List messages without marking them read.
 - `nus-outlook search` — Search mailbox messages.
 - `nus-outlook message` — Read one message without changing its read state.
-- `nus-outlook preview` — Capture an Outlook web screenshot of a draft or message without changing mail.
+- `nus-outlook preview` — Capture an Outlook web screenshot of a draft or message without changing
+  mail.
 - `nus-outlook flag` — Flag one message for follow-up.
 - `nus-outlook unflag` — Remove a message's follow-up flag.
 - `nus-outlook mark-read` — Mark one message as read.
@@ -54,7 +56,8 @@ Global options must appear before the command name.
 - `nus-outlook draft` — Create, edit, discard, or send an existing draft with user authorization.
 - `nus-outlook draft create` — Save a new unsent message.
 - `nus-outlook draft reply` — Save an unsent reply to one message.
-- `nus-outlook draft edit` — Edit specified draft fields and/or add attachments; save without sending.
+- `nus-outlook draft edit` — Edit specified draft fields and/or add attachments; save without
+  sending.
 - `nus-outlook draft send` — Send an existing draft only, saving a copy in Sent Items.
 - `nus-outlook draft remove` — Discard a draft into Deleted Items.
 - `nus-outlook api` — Make a read-only Outlook web API request.
@@ -66,9 +69,9 @@ Manage the saved NUS login.
 
 Usage: `nus-outlook auth [-h] {status,login,logout} ...`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
+| Argument     | Required | Repeatable | Default | Choices | Description                     |
+| ------------ | -------- | ---------- | ------- | ------- | ------------------------------- |
+| `-h, --help` | no       | no         | `—`     | —       | show this help message and exit |
 
 ## `nus-outlook auth status`
 
@@ -76,10 +79,10 @@ Check the saved login.
 
 Usage: `nus-outlook auth status [-h] [--format {json}]`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `--format FORMAT` | no | no | `—` | json | Output machine-readable authentication status. |
+| Argument          | Required | Repeatable | Default | Choices | Description                                    |
+| ----------------- | -------- | ---------- | ------- | ------- | ---------------------------------------------- |
+| `-h, --help`      | no       | no         | `—`     | —       | show this help message and exit                |
+| `--format FORMAT` | no       | no         | `—`     | json    | Output machine-readable authentication status. |
 
 ## `nus-outlook auth login`
 
@@ -87,12 +90,12 @@ Open a browser for NUS login and MFA.
 
 Usage: `nus-outlook auth login [-h] [--refresh] [--login-hint EMAIL] [--wait-seconds WAIT_SECONDS]`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `--refresh` | no | no | `false` | — | Ignore saved authentication and perform a fresh login. |
-| `--login-hint EMAIL` | no | no | `—` | — | Microsoft sign-in address: ...@u.nus.edu for students or ...@nus.edu.sg for staff. Subsequent logins remember it. |
-| `--wait-seconds WAIT_SECONDS` | no | no | `300` | — | Login detection timeout. Default: 300. |
+| Argument                      | Required | Repeatable | Default | Choices | Description                                                                                                           |
+| ----------------------------- | -------- | ---------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------- |
+| `-h, --help`                  | no       | no         | `—`     | —       | show this help message and exit                                                                                       |
+| `--refresh`                   | no       | no         | `false` | —       | Ignore saved authentication and perform a fresh login.                                                                |
+| `--login-hint EMAIL`          | no       | no         | `—`     | —       | Microsoft sign-in address: `...@u.nus.edu` for students or `...@nus.edu.sg` for staff. Subsequent logins remember it. |
+| `--wait-seconds WAIT_SECONDS` | no       | no         | `300`   | —       | Login detection timeout. Default: 300.                                                                                |
 
 ## `nus-outlook auth logout`
 
@@ -100,9 +103,9 @@ Delete this CLI's saved login without signing other browsers out.
 
 Usage: `nus-outlook auth logout [-h]`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
+| Argument     | Required | Repeatable | Default | Choices | Description                     |
+| ------------ | -------- | ---------- | ------- | ------- | ------------------------------- |
+| `-h, --help` | no       | no         | `—`     | —       | show this help message and exit |
 
 ## `nus-outlook folders`
 
@@ -110,12 +113,12 @@ List mailbox folders.
 
 Usage: `nus-outlook folders [-h] [--refresh | --no-refresh] [--format {json,jsonl,plain}]`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `--refresh` | no | no | `default` | — | Force refresh the requested data and local artifacts. |
-| `--no-refresh` | no | no | `default` | — | Read only from the local cache; fail if the requested data is missing. |
-| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+| Argument          | Required | Repeatable | Default   | Choices            | Description                                                            |
+| ----------------- | -------- | ---------- | --------- | ------------------ | ---------------------------------------------------------------------- |
+| `-h, --help`      | no       | no         | `—`       | —                  | show this help message and exit                                        |
+| `--refresh`       | no       | no         | `default` | —                  | Force refresh the requested data and local artifacts.                  |
+| `--no-refresh`    | no       | no         | `default` | —                  | Read only from the local cache; fail if the requested data is missing. |
+| `--format FORMAT` | no       | no         | `—`       | json, jsonl, plain | Output format. Default: human-friendly details.                        |
 
 Constraints:
 
@@ -127,32 +130,33 @@ Find people's email addresses in the NUS directory.
 
 Usage: `nus-outlook people [-h] [--limit LIMIT] [--format {json,jsonl,plain}] query`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `QUERY` | yes | no | `—` | — | Name or email to look up, for example an instructor, tutor, or TA's name. |
-| `--limit LIMIT` | no | no | `20` | — | Maximum matches. Default: 20. |
-| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+| Argument          | Required | Repeatable | Default | Choices            | Description                                                               |
+| ----------------- | -------- | ---------- | ------- | ------------------ | ------------------------------------------------------------------------- |
+| `-h, --help`      | no       | no         | `—`     | —                  | show this help message and exit                                           |
+| `QUERY`           | yes      | no         | `—`     | —                  | Name or email to look up, for example an instructor, tutor, or TA's name. |
+| `--limit LIMIT`   | no       | no         | `20`    | —                  | Maximum matches. Default: 20.                                             |
+| `--format FORMAT` | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly details.                           |
 
 ## `nus-outlook messages`
 
 List messages without marking them read.
 
-Usage: `nus-outlook messages [-h] [--folder FOLDER | --folder-id FOLDER_ID] [--limit LIMIT] [--offset OFFSET] [--unread] [--body] [--refresh | --no-refresh] [--attachments] [--format {json,jsonl,plain}]`
+Usage:
+`nus-outlook messages [-h] [--folder FOLDER | --folder-id FOLDER_ID] [--limit LIMIT] [--offset OFFSET] [--unread] [--body] [--refresh | --no-refresh] [--attachments] [--format {json,jsonl,plain}]`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `--folder FOLDER` | no | no | `—` | — | Folder display name/path or distinguished name. Default: inbox when neither folder option is given. |
-| `--folder-id FOLDER_ID` | no | no | `—` | — | Exact Outlook folder ID; bypass folder-name lookup. |
-| `--limit LIMIT` | no | no | `20` | — | Maximum results. Default: 20. |
-| `--offset OFFSET` | no | no | `0` | — | Result offset. Default: 0. |
-| `--unread` | no | no | `false` | — | Only unread messages. |
-| `--body` | no | no | `false` | — | Also fetch full bodies. Default: use only the list response without per-message requests. |
-| `--refresh` | no | no | `default` | — | Force refresh the requested data and local artifacts. |
-| `--no-refresh` | no | no | `default` | — | Read only from the local cache; fail if the requested data is missing. |
-| `--attachments` | no | no | `false` | — | Download and cache file/item attachments, fetching message details as needed. |
-| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+| Argument                | Required | Repeatable | Default   | Choices            | Description                                                                                         |
+| ----------------------- | -------- | ---------- | --------- | ------------------ | --------------------------------------------------------------------------------------------------- |
+| `-h, --help`            | no       | no         | `—`       | —                  | show this help message and exit                                                                     |
+| `--folder FOLDER`       | no       | no         | `—`       | —                  | Folder display name/path or distinguished name. Default: inbox when neither folder option is given. |
+| `--folder-id FOLDER_ID` | no       | no         | `—`       | —                  | Exact Outlook folder ID; bypass folder-name lookup.                                                 |
+| `--limit LIMIT`         | no       | no         | `20`      | —                  | Maximum results. Default: 20.                                                                       |
+| `--offset OFFSET`       | no       | no         | `0`       | —                  | Result offset. Default: 0.                                                                          |
+| `--unread`              | no       | no         | `false`   | —                  | Only unread messages.                                                                               |
+| `--body`                | no       | no         | `false`   | —                  | Also fetch full bodies. Default: use only the list response without per-message requests.           |
+| `--refresh`             | no       | no         | `default` | —                  | Force refresh the requested data and local artifacts.                                               |
+| `--no-refresh`          | no       | no         | `default` | —                  | Read only from the local cache; fail if the requested data is missing.                              |
+| `--attachments`         | no       | no         | `false`   | —                  | Download and cache file/item attachments, fetching message details as needed.                       |
+| `--format FORMAT`       | no       | no         | `—`       | json, jsonl, plain | Output format. Default: human-friendly details.                                                     |
 
 Constraints:
 
@@ -161,27 +165,29 @@ Constraints:
 
 Notes:
 
-Default: one list request, metadata only. --body and --attachments opt into message detail requests. Offline listing filters cached records.
+Default: one list request, metadata only. --body and --attachments opt into message detail requests.
+Offline listing filters cached records.
 
 ## `nus-outlook search`
 
 Search mailbox messages.
 
-Usage: `nus-outlook search [-h] [--folder FOLDER | --folder-id FOLDER_ID] [--limit LIMIT] [--offset OFFSET] [--body] [--refresh | --no-refresh] [--attachments] [--format {json,jsonl,plain}] query`
+Usage:
+`nus-outlook search [-h] [--folder FOLDER | --folder-id FOLDER_ID] [--limit LIMIT] [--offset OFFSET] [--body] [--refresh | --no-refresh] [--attachments] [--format {json,jsonl,plain}] query`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `QUERY` | yes | no | `—` | — | Outlook search query, for example 'subject:internship'. |
-| `--folder FOLDER` | no | no | `—` | — | Folder display name/path or distinguished name. Default: inbox when neither folder option is given. |
-| `--folder-id FOLDER_ID` | no | no | `—` | — | Exact Outlook folder ID; bypass folder-name lookup. |
-| `--limit LIMIT` | no | no | `20` | — | Maximum results. Default: 20. |
-| `--offset OFFSET` | no | no | `0` | — | Result offset. Default: 0. |
-| `--body` | no | no | `false` | — | Also fetch full bodies. Default: use only the search response without per-message requests. |
-| `--refresh` | no | no | `default` | — | Force refresh the requested data and local artifacts. |
-| `--no-refresh` | no | no | `default` | — | Read only from the local cache; fail if the requested data is missing. |
-| `--attachments` | no | no | `false` | — | Download and cache file/item attachments, fetching message details as needed. |
-| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+| Argument                | Required | Repeatable | Default   | Choices            | Description                                                                                         |
+| ----------------------- | -------- | ---------- | --------- | ------------------ | --------------------------------------------------------------------------------------------------- |
+| `-h, --help`            | no       | no         | `—`       | —                  | show this help message and exit                                                                     |
+| `QUERY`                 | yes      | no         | `—`       | —                  | Outlook search query, for example 'subject:internship'.                                             |
+| `--folder FOLDER`       | no       | no         | `—`       | —                  | Folder display name/path or distinguished name. Default: inbox when neither folder option is given. |
+| `--folder-id FOLDER_ID` | no       | no         | `—`       | —                  | Exact Outlook folder ID; bypass folder-name lookup.                                                 |
+| `--limit LIMIT`         | no       | no         | `20`      | —                  | Maximum results. Default: 20.                                                                       |
+| `--offset OFFSET`       | no       | no         | `0`       | —                  | Result offset. Default: 0.                                                                          |
+| `--body`                | no       | no         | `false`   | —                  | Also fetch full bodies. Default: use only the search response without per-message requests.         |
+| `--refresh`             | no       | no         | `default` | —                  | Force refresh the requested data and local artifacts.                                               |
+| `--no-refresh`          | no       | no         | `default` | —                  | Read only from the local cache; fail if the requested data is missing.                              |
+| `--attachments`         | no       | no         | `false`   | —                  | Download and cache file/item attachments, fetching message details as needed.                       |
+| `--format FORMAT`       | no       | no         | `—`       | json, jsonl, plain | Output format. Default: human-friendly details.                                                     |
 
 Constraints:
 
@@ -190,22 +196,24 @@ Constraints:
 
 Notes:
 
-Default: one search request, without per-message fetching. Queries are not cached. Offline search is unsupported; use messages --no-refresh --format json with jq or grep.
+Default: one search request, without per-message fetching. Queries are not cached. Offline search is
+unsupported; use messages --no-refresh --format json with jq or grep.
 
 ## `nus-outlook message`
 
 Read one message without changing its read state.
 
-Usage: `nus-outlook message [-h] [--refresh | --no-refresh] [--attachments] [--format {json,jsonl,plain}] message_id`
+Usage:
+`nus-outlook message [-h] [--refresh | --no-refresh] [--attachments] [--format {json,jsonl,plain}] message_id`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `MESSAGE_ID` | yes | no | `—` | — | Message ID returned by messages or search. |
-| `--refresh` | no | no | `default` | — | Force refresh the requested data and local artifacts. |
-| `--no-refresh` | no | no | `default` | — | Read only from the local cache; fail if the requested data is missing. |
-| `--attachments` | no | no | `false` | — | Download and cache file/item attachments, fetching message details as needed. |
-| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+| Argument          | Required | Repeatable | Default   | Choices            | Description                                                                   |
+| ----------------- | -------- | ---------- | --------- | ------------------ | ----------------------------------------------------------------------------- |
+| `-h, --help`      | no       | no         | `—`       | —                  | show this help message and exit                                               |
+| `MESSAGE_ID`      | yes      | no         | `—`       | —                  | Message ID returned by messages or search.                                    |
+| `--refresh`       | no       | no         | `default` | —                  | Force refresh the requested data and local artifacts.                         |
+| `--no-refresh`    | no       | no         | `default` | —                  | Read only from the local cache; fail if the requested data is missing.        |
+| `--attachments`   | no       | no         | `false`   | —                  | Download and cache file/item attachments, fetching message details as needed. |
+| `--format FORMAT` | no       | no         | `—`       | json, jsonl, plain | Output format. Default: human-friendly details.                               |
 
 Constraints:
 
@@ -215,16 +223,17 @@ Constraints:
 
 Capture an Outlook web screenshot of a draft or message without changing mail.
 
-Usage: `nus-outlook preview [-h] [--output OUTPUT] [--refresh | --no-refresh] [--format {json,jsonl,plain}] message_id`
+Usage:
+`nus-outlook preview [-h] [--output OUTPUT] [--refresh | --no-refresh] [--format {json,jsonl,plain}] message_id`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `MESSAGE_ID` | yes | no | `—` | — | Exact draft or message ID. |
-| `--output OUTPUT` | no | no | `—` | — | Export a copy to this PNG path. The preview is always cached as preview.png beside the email's message.json. |
-| `--refresh` | no | no | `default` | — | Force refresh the requested data and local artifacts. |
-| `--no-refresh` | no | no | `default` | — | Read only from the local cache; fail if the requested data is missing. |
-| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+| Argument          | Required | Repeatable | Default   | Choices            | Description                                                                                                  |
+| ----------------- | -------- | ---------- | --------- | ------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `-h, --help`      | no       | no         | `—`       | —                  | show this help message and exit                                                                              |
+| `MESSAGE_ID`      | yes      | no         | `—`       | —                  | Exact draft or message ID.                                                                                   |
+| `--output OUTPUT` | no       | no         | `—`       | —                  | Export a copy to this PNG path. The preview is always cached as preview.png beside the email's message.json. |
+| `--refresh`       | no       | no         | `default` | —                  | Force refresh the requested data and local artifacts.                                                        |
+| `--no-refresh`    | no       | no         | `default` | —                  | Read only from the local cache; fail if the requested data is missing.                                       |
+| `--format FORMAT` | no       | no         | `—`       | json, jsonl, plain | Output format. Default: human-friendly details.                                                              |
 
 Constraints:
 
@@ -232,7 +241,9 @@ Constraints:
 
 Notes:
 
-Reuses a cached screenshot when the message is unchanged. --refresh forces recapture; --no-refresh requires a valid local preview. Screenshots show the viewport; read the returned body for long messages.
+Reuses a cached screenshot when the message is unchanged. --refresh forces recapture; --no-refresh
+requires a valid local preview. Screenshots show the viewport; read the returned body for long
+messages.
 
 ## `nus-outlook flag`
 
@@ -240,11 +251,11 @@ Flag one message for follow-up.
 
 Usage: `nus-outlook flag [-h] [--format {json,jsonl,plain}] message_id`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `MESSAGE_ID` | yes | no | `—` | — | Exact Outlook message ID. |
-| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+| Argument          | Required | Repeatable | Default | Choices            | Description                                     |
+| ----------------- | -------- | ---------- | ------- | ------------------ | ----------------------------------------------- |
+| `-h, --help`      | no       | no         | `—`     | —                  | show this help message and exit                 |
+| `MESSAGE_ID`      | yes      | no         | `—`     | —                  | Exact Outlook message ID.                       |
+| `--format FORMAT` | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly details. |
 
 ## `nus-outlook unflag`
 
@@ -252,11 +263,11 @@ Remove a message's follow-up flag.
 
 Usage: `nus-outlook unflag [-h] [--format {json,jsonl,plain}] message_id`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `MESSAGE_ID` | yes | no | `—` | — | Exact Outlook message ID. |
-| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+| Argument          | Required | Repeatable | Default | Choices            | Description                                     |
+| ----------------- | -------- | ---------- | ------- | ------------------ | ----------------------------------------------- |
+| `-h, --help`      | no       | no         | `—`     | —                  | show this help message and exit                 |
+| `MESSAGE_ID`      | yes      | no         | `—`     | —                  | Exact Outlook message ID.                       |
+| `--format FORMAT` | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly details. |
 
 ## `nus-outlook mark-read`
 
@@ -264,11 +275,11 @@ Mark one message as read.
 
 Usage: `nus-outlook mark-read [-h] [--format {json,jsonl,plain}] message_id`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `MESSAGE_ID` | yes | no | `—` | — | Exact Outlook message ID. |
-| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+| Argument          | Required | Repeatable | Default | Choices            | Description                                     |
+| ----------------- | -------- | ---------- | ------- | ------------------ | ----------------------------------------------- |
+| `-h, --help`      | no       | no         | `—`     | —                  | show this help message and exit                 |
+| `MESSAGE_ID`      | yes      | no         | `—`     | —                  | Exact Outlook message ID.                       |
+| `--format FORMAT` | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly details. |
 
 ## `nus-outlook mark-unread`
 
@@ -276,25 +287,26 @@ Mark one message as unread.
 
 Usage: `nus-outlook mark-unread [-h] [--format {json,jsonl,plain}] message_id`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `MESSAGE_ID` | yes | no | `—` | — | Exact Outlook message ID. |
-| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+| Argument          | Required | Repeatable | Default | Choices            | Description                                     |
+| ----------------- | -------- | ---------- | ------- | ------------------ | ----------------------------------------------- |
+| `-h, --help`      | no       | no         | `—`     | —                  | show this help message and exit                 |
+| `MESSAGE_ID`      | yes      | no         | `—`     | —                  | Exact Outlook message ID.                       |
+| `--format FORMAT` | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly details. |
 
 ## `nus-outlook move`
 
 Move one message to another folder.
 
-Usage: `nus-outlook move [-h] [--folder FOLDER | --folder-id FOLDER_ID] [--format {json,jsonl,plain}] message_id`
+Usage:
+`nus-outlook move [-h] [--folder FOLDER | --folder-id FOLDER_ID] [--format {json,jsonl,plain}] message_id`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `MESSAGE_ID` | yes | no | `—` | — | Exact Outlook message ID. |
-| `--folder FOLDER` | no | no | `—` | — | Folder display name/path or distinguished name. Default: inbox when neither folder option is given. |
-| `--folder-id FOLDER_ID` | no | no | `—` | — | Exact Outlook folder ID; bypass folder-name lookup. |
-| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+| Argument                | Required | Repeatable | Default | Choices            | Description                                                                                         |
+| ----------------------- | -------- | ---------- | ------- | ------------------ | --------------------------------------------------------------------------------------------------- |
+| `-h, --help`            | no       | no         | `—`     | —                  | show this help message and exit                                                                     |
+| `MESSAGE_ID`            | yes      | no         | `—`     | —                  | Exact Outlook message ID.                                                                           |
+| `--folder FOLDER`       | no       | no         | `—`     | —                  | Folder display name/path or distinguished name. Default: inbox when neither folder option is given. |
+| `--folder-id FOLDER_ID` | no       | no         | `—`     | —                  | Exact Outlook folder ID; bypass folder-name lookup.                                                 |
+| `--format FORMAT`       | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly details.                                                     |
 
 Constraints:
 
@@ -306,27 +318,28 @@ Create, edit, discard, or send an existing draft with user authorization.
 
 Usage: `nus-outlook draft [-h] {create,reply,edit,send,remove} ...`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
+| Argument     | Required | Repeatable | Default | Choices | Description                     |
+| ------------ | -------- | ---------- | ------- | ------- | ------------------------------- |
+| `-h, --help` | no       | no         | `—`     | —       | show this help message and exit |
 
 ## `nus-outlook draft create`
 
 Save a new unsent message.
 
-Usage: `nus-outlook draft create [-h] --to TO [--cc CC] [--bcc BCC] --subject SUBJECT (--body BODY | --body-file BODY_FILE) [--attach PATH] [--format {json,jsonl,plain}]`
+Usage:
+`nus-outlook draft create [-h] --to TO [--cc CC] [--bcc BCC] --subject SUBJECT (--body BODY | --body-file BODY_FILE) [--attach PATH] [--format {json,jsonl,plain}]`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `--to TO` | no | yes | `—` | — | To email address; repeat for multiple recipients. Editing replaces this list. |
-| `--cc CC` | no | yes | `—` | — | Cc email address; repeat for multiple recipients. Editing replaces this list. |
-| `--bcc BCC` | no | yes | `—` | — | Bcc email address; repeat for multiple recipients. Editing replaces this list. |
-| `--subject SUBJECT` | yes | no | `—` | — | Draft subject. |
-| `--body BODY` | no | no | `—` | — | Plain-text body; when editing, replaces the entire body including quoted text. |
-| `--body-file BODY_FILE` | no | no | `—` | — | Read the plain-text body from a UTF-8 file. |
-| `--attach PATH` | no | yes | `[]` | — | Attach a local file; repeat for multiple files. Existing attachments are retained. |
-| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+| Argument                | Required | Repeatable | Default | Choices            | Description                                                                        |
+| ----------------------- | -------- | ---------- | ------- | ------------------ | ---------------------------------------------------------------------------------- |
+| `-h, --help`            | no       | no         | `—`     | —                  | show this help message and exit                                                    |
+| `--to TO`               | no       | yes        | `—`     | —                  | To email address; repeat for multiple recipients. Editing replaces this list.      |
+| `--cc CC`               | no       | yes        | `—`     | —                  | Cc email address; repeat for multiple recipients. Editing replaces this list.      |
+| `--bcc BCC`             | no       | yes        | `—`     | —                  | Bcc email address; repeat for multiple recipients. Editing replaces this list.     |
+| `--subject SUBJECT`     | yes      | no         | `—`     | —                  | Draft subject.                                                                     |
+| `--body BODY`           | no       | no         | `—`     | —                  | Plain-text body; when editing, replaces the entire body including quoted text.     |
+| `--body-file BODY_FILE` | no       | no         | `—`     | —                  | Read the plain-text body from a UTF-8 file.                                        |
+| `--attach PATH`         | no       | yes        | `[]`    | —                  | Attach a local file; repeat for multiple files. Existing attachments are retained. |
+| `--format FORMAT`       | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly details.                                    |
 
 Constraints:
 
@@ -336,16 +349,17 @@ Constraints:
 
 Save an unsent reply to one message.
 
-Usage: `nus-outlook draft reply [-h] (--body BODY | --body-file BODY_FILE) [--attach PATH] [--format {json,jsonl,plain}] message_id`
+Usage:
+`nus-outlook draft reply [-h] (--body BODY | --body-file BODY_FILE) [--attach PATH] [--format {json,jsonl,plain}] message_id`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `MESSAGE_ID` | yes | no | `—` | — | Original message ID. |
-| `--body BODY` | no | no | `—` | — | Plain-text body; when editing, replaces the entire body including quoted text. |
-| `--body-file BODY_FILE` | no | no | `—` | — | Read the plain-text body from a UTF-8 file. |
-| `--attach PATH` | no | yes | `[]` | — | Attach a local file; repeat for multiple files. Existing attachments are retained. |
-| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+| Argument                | Required | Repeatable | Default | Choices            | Description                                                                        |
+| ----------------------- | -------- | ---------- | ------- | ------------------ | ---------------------------------------------------------------------------------- |
+| `-h, --help`            | no       | no         | `—`     | —                  | show this help message and exit                                                    |
+| `MESSAGE_ID`            | yes      | no         | `—`     | —                  | Original message ID.                                                               |
+| `--body BODY`           | no       | no         | `—`     | —                  | Plain-text body; when editing, replaces the entire body including quoted text.     |
+| `--body-file BODY_FILE` | no       | no         | `—`     | —                  | Read the plain-text body from a UTF-8 file.                                        |
+| `--attach PATH`         | no       | yes        | `[]`    | —                  | Attach a local file; repeat for multiple files. Existing attachments are retained. |
+| `--format FORMAT`       | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly details.                                    |
 
 Constraints:
 
@@ -355,23 +369,24 @@ Constraints:
 
 Edit specified draft fields and/or add attachments; save without sending.
 
-Usage: `nus-outlook draft edit [-h] [--to TO | --clear-to] [--cc CC | --clear-cc] [--bcc BCC | --clear-bcc] [--subject SUBJECT] [--body BODY | --body-file BODY_FILE] [--attach PATH] [--format {json,jsonl,plain}] message_id`
+Usage:
+`nus-outlook draft edit [-h] [--to TO | --clear-to] [--cc CC | --clear-cc] [--bcc BCC | --clear-bcc] [--subject SUBJECT] [--body BODY | --body-file BODY_FILE] [--attach PATH] [--format {json,jsonl,plain}] message_id`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `MESSAGE_ID` | yes | no | `—` | — | Existing draft ID. |
-| `--to TO` | no | yes | `—` | — | To email address; repeat for multiple recipients. Editing replaces this list. |
-| `--clear-to` | no | no | `—` | — | Remove all To recipients. |
-| `--cc CC` | no | yes | `—` | — | Cc email address; repeat for multiple recipients. Editing replaces this list. |
-| `--clear-cc` | no | no | `—` | — | Remove all Cc recipients. |
-| `--bcc BCC` | no | yes | `—` | — | Bcc email address; repeat for multiple recipients. Editing replaces this list. |
-| `--clear-bcc` | no | no | `—` | — | Remove all Bcc recipients. |
-| `--subject SUBJECT` | no | no | `—` | — | Replace the subject. |
-| `--body BODY` | no | no | `—` | — | Plain-text body; when editing, replaces the entire body including quoted text. |
-| `--body-file BODY_FILE` | no | no | `—` | — | Read the plain-text body from a UTF-8 file. |
-| `--attach PATH` | no | yes | `[]` | — | Attach a local file; repeat for multiple files. Existing attachments are retained. |
-| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+| Argument                | Required | Repeatable | Default | Choices            | Description                                                                        |
+| ----------------------- | -------- | ---------- | ------- | ------------------ | ---------------------------------------------------------------------------------- |
+| `-h, --help`            | no       | no         | `—`     | —                  | show this help message and exit                                                    |
+| `MESSAGE_ID`            | yes      | no         | `—`     | —                  | Existing draft ID.                                                                 |
+| `--to TO`               | no       | yes        | `—`     | —                  | To email address; repeat for multiple recipients. Editing replaces this list.      |
+| `--clear-to`            | no       | no         | `—`     | —                  | Remove all To recipients.                                                          |
+| `--cc CC`               | no       | yes        | `—`     | —                  | Cc email address; repeat for multiple recipients. Editing replaces this list.      |
+| `--clear-cc`            | no       | no         | `—`     | —                  | Remove all Cc recipients.                                                          |
+| `--bcc BCC`             | no       | yes        | `—`     | —                  | Bcc email address; repeat for multiple recipients. Editing replaces this list.     |
+| `--clear-bcc`           | no       | no         | `—`     | —                  | Remove all Bcc recipients.                                                         |
+| `--subject SUBJECT`     | no       | no         | `—`     | —                  | Replace the subject.                                                               |
+| `--body BODY`           | no       | no         | `—`     | —                  | Plain-text body; when editing, replaces the entire body including quoted text.     |
+| `--body-file BODY_FILE` | no       | no         | `—`     | —                  | Read the plain-text body from a UTF-8 file.                                        |
+| `--attach PATH`         | no       | yes        | `[]`    | —                  | Attach a local file; repeat for multiple files. Existing attachments are retained. |
+| `--format FORMAT`       | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly details.                                    |
 
 Constraints:
 
@@ -386,19 +401,22 @@ Send an existing draft only, saving a copy in Sent Items.
 
 Usage: `nus-outlook draft send [-h] [--format {json,jsonl,plain}] message_id`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `MESSAGE_ID` | yes | no | `—` | — | Existing draft ID; non-draft messages are rejected. |
-| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+| Argument          | Required | Repeatable | Default | Choices            | Description                                         |
+| ----------------- | -------- | ---------- | ------- | ------------------ | --------------------------------------------------- |
+| `-h, --help`      | no       | no         | `—`     | —                  | show this help message and exit                     |
+| `MESSAGE_ID`      | yes      | no         | `—`     | —                  | Existing draft ID; non-draft messages are rejected. |
+| `--format FORMAT` | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly details.     |
 
 Constraints:
 
-- Only an existing draft ID is accepted. A successful submission is reported even if the follow-up cache read fails. Check Sent Items before retrying any uncertain send.
+- Only an existing draft ID is accepted. A successful submission is reported even if the follow-up
+  cache read fails. Check Sent Items before retrying any uncertain send.
 
 Notes:
 
-Requires user authorization. Review the draft and its preview first; present its link and preview for approval unless the user explicitly waived their review. Never retry an uncertain send without checking Sent Items.
+Requires user authorization. Review the draft and its preview first; present its link and preview
+for approval unless the user explicitly waived their review. Never retry an uncertain send without
+checking Sent Items.
 
 ## `nus-outlook draft remove`
 
@@ -406,11 +424,11 @@ Discard a draft into Deleted Items.
 
 Usage: `nus-outlook draft remove [-h] [--format {json,jsonl,plain}] message_id`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `MESSAGE_ID` | yes | no | `—` | — | Draft message ID. |
-| `--format FORMAT` | no | no | `—` | json, jsonl, plain | Output format. Default: human-friendly details. |
+| Argument          | Required | Repeatable | Default | Choices            | Description                                     |
+| ----------------- | -------- | ---------- | ------- | ------------------ | ----------------------------------------------- |
+| `-h, --help`      | no       | no         | `—`     | —                  | show this help message and exit                 |
+| `MESSAGE_ID`      | yes      | no         | `—`     | —                  | Draft message ID.                               |
+| `--format FORMAT` | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly details. |
 
 ## `nus-outlook api`
 
@@ -418,17 +436,19 @@ Make a read-only Outlook web API request.
 
 Usage: `nus-outlook api [-h] [-X {GET,POST}] [-d JSON] path`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `PATH` | yes | no | `—` | — | Supported /owa/service.svc read action, /searchservice/api/v2/query (mail), or /search/api/v2/query (people) path. |
-| `-X, --method METHOD` | no | no | `GET` | GET, POST | HTTP method. Default: GET. POST is limited to supported read actions. |
-| `-d, --data JSON` | no | no | `—` | — | JSON request body. |
+| Argument              | Required | Repeatable | Default | Choices   | Description                                                                                                        |
+| --------------------- | -------- | ---------- | ------- | --------- | ------------------------------------------------------------------------------------------------------------------ |
+| `-h, --help`          | no       | no         | `—`     | —         | show this help message and exit                                                                                    |
+| `PATH`                | yes      | no         | `—`     | —         | Supported /owa/service.svc read action, /searchservice/api/v2/query (mail), or /search/api/v2/query (people) path. |
+| `-X, --method METHOD` | no       | no         | `GET`   | GET, POST | HTTP method. Default: GET. POST is limited to supported read actions.                                              |
+| `-d, --data JSON`     | no       | no         | `—`     | —         | JSON request body.                                                                                                 |
 
 Constraints:
 
-- Only /owa/service.svc with a supported read action, POST /searchservice/api/v2/query (mail), or POST /search/api/v2/query (people) is accepted; state-changing actions are rejected.
-- Use the named high-level commands for authorized mail changes. The low-level api command remains read-only; sending requires an existing draft via draft send.
+- Only /owa/service.svc with a supported read action, POST /searchservice/api/v2/query (mail), or
+  POST /search/api/v2/query (people) is accepted; state-changing actions are rejected.
+- Use the named high-level commands for authorized mail changes. The low-level api command remains
+  read-only; sending requires an existing draft via draft send.
 
 ## `nus-outlook playwright-cli`
 
@@ -436,13 +456,13 @@ Open an authenticated @playwright/cli inspection session.
 
 Usage: `nus-outlook playwright-cli [-h] [--url URL] [--headed | --headless] [-s SESSION]`
 
-| Argument | Required | Repeatable | Default | Choices | Description |
-| --- | --- | --- | --- | --- | --- |
-| `-h, --help` | no | no | `—` | — | show this help message and exit |
-| `--url URL` | no | no | `—` | — | Initial Outlook URL. Default: mailbox. |
-| `--headed` | no | no | `false` | — | Show the browser window. |
-| `--headless` | no | no | `false` | — | Run headless (default). |
-| `-s, --session SESSION` | no | no | `nus-outlook` | — | @playwright/cli session ID. Default: nus-outlook. |
+| Argument                | Required | Repeatable | Default       | Choices | Description                                       |
+| ----------------------- | -------- | ---------- | ------------- | ------- | ------------------------------------------------- |
+| `-h, --help`            | no       | no         | `—`           | —       | show this help message and exit                   |
+| `--url URL`             | no       | no         | `—`           | —       | Initial Outlook URL. Default: mailbox.            |
+| `--headed`              | no       | no         | `false`       | —       | Show the browser window.                          |
+| `--headless`            | no       | no         | `false`       | —       | Run headless (default).                           |
+| `-s, --session SESSION` | no       | no         | `nus-outlook` | —       | @playwright/cli session ID. Default: nus-outlook. |
 
 Constraints:
 

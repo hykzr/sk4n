@@ -5,24 +5,45 @@ description: Search public NUSMods course data, inspect course details, import o
 
 # NUSMods
 
-Use the installed `nusmods` command for public course reads and local timetable management. Do not request authentication; NUSMods data is public.
+Use the installed `nusmods` command for public course reads and local timetable management. Do not
+request authentication; NUSMods data is public.
 
 ## Workflow
 
-1. Verify `nusmods` exists on `PATH`. If it is missing, tell the user to install `sk4n`; do not clone or install software silently.
-2. Before constructing or running any `nusmods` CLI command, read [references/commands.md](references/commands.md), including for seemingly familiar commands. Treat it as the authoritative command grammar; do not infer subcommands, options, argument placement, or defaults.
-3. Distinguish public network reads from local timetable mutations. High-level `nusmods` commands are the preferred interface; use `curl` or `playwright-cli` yourself only when those commands cannot answer a public-data question. Consult `playwright-cli --help` first. If the skill for it is ALREADY installed you can refer to that as well.
-4. Use human output for a simple check, `--format json` or `jsonl` for parsing, and `--format plain` for line-oriented shell filtering. Expect JSON formats to contain complete records and potentially be large.
-5. Inspect the current schedule before `schedule import`, `add`, `edit`, or `delete` when the request does not already identify the affected semester, course, or slots.
-6. Treat `schedule import` as replacement of one semester. Surface that effect before executing an ambiguous import request.
+1. Verify `nusmods` exists on `PATH`. If it is missing, tell the user to install `sk4n`; do not
+   clone or install software silently.
+2. Before constructing or running any `nusmods` CLI command, read
+   [references/commands.md](references/commands.md), including for seemingly familiar commands.
+   Treat it as the authoritative command grammar; do not infer subcommands, options, argument
+   placement, or defaults.
+3. Distinguish public network reads from local timetable mutations. High-level `nusmods` commands
+   are the preferred interface; use `curl` or `playwright-cli` yourself only when those commands
+   cannot answer a public-data question. Consult `playwright-cli --help` first. If the skill for it
+   is ALREADY installed you can refer to that as well.
+4. Use human output for a simple check, `--format json` or `jsonl` for parsing, and `--format plain`
+   for line-oriented shell filtering. Expect JSON formats to contain complete records and
+   potentially be large.
+5. Inspect the current schedule before `schedule import`, `add`, `edit`, or `delete` when the
+   request does not already identify the affected semester, course, or slots.
+6. Treat `schedule import` as replacement of one semester. Surface that effect before executing an
+   ambiguous import request.
 7. Prefer a NUSMods share URL for portable schedule exports.
-8. Return the source command and relevant local artifact paths when they help the user verify the result.
+8. Return the source command and relevant local artifact paths when they help the user verify the
+   result.
 
 ## Cache and mutation rules
 
-- Treat no refresh flag as the normal freshness mode. missing or expired entries are fetched and replaced automatically, and a stale entry remains available as fallback if normal network request fails.
-- Explicit `--refresh` is a force option: it ignores even fresh cached entries for the request, fetches every required remote resource, and replaces the affected entries after successful responses. Do not use it unless explicitly asked or when a cached entry is known to be invalid or incomplete.
-- Use `--no-refresh` only for an explicitly offline/cache-only request or a repetitive read whose required data is already cached. Do not use it on the first call by default.
-- Preserve the default data location so cached API data and the local timetable remain incremental. Do not choose a temporary data path or clear the cache unless the user asks.
-- A schedule mutation changes only the local timetable, not NUSMods or NUS registration records. Execute a clear user-requested local edit, but clarify ambiguous replacements or deletions first.
+- Treat no refresh flag as the normal freshness mode. missing or expired entries are fetched and
+  replaced automatically, and a stale entry remains available as fallback if normal network request
+  fails.
+- Explicit `--refresh` is a force option: it ignores even fresh cached entries for the request,
+  fetches every required remote resource, and replaces the affected entries after successful
+  responses. Do not use it unless explicitly asked or when a cached entry is known to be invalid or
+  incomplete.
+- Use `--no-refresh` only for an explicitly offline/cache-only request or a repetitive read whose
+  required data is already cached. Do not use it on the first call by default.
+- Preserve the default data location so cached API data and the local timetable remain incremental.
+  Do not choose a temporary data path or clear the cache unless the user asks.
+- A schedule mutation changes only the local timetable, not NUSMods or NUS registration records.
+  Execute a clear user-requested local edit, but clarify ambiguous replacements or deletions first.
 - Do not claim that a timetable edit registers for, drops, or changes an official NUS course.
