@@ -11,7 +11,7 @@ import sys
 import uuid
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from importlib.metadata import PackageNotFoundError, version
+from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +29,7 @@ from .skill_install import (
     NUS_SKILLS,
     skill_status_report,
 )
+from .version import package_version
 
 CONSOLE_SCRIPTS = ("sk4n", "canvas", "nusmods", "talent-connect", "nus-outlook")
 MINIMUM_NODE_MAJOR = 18
@@ -41,13 +42,6 @@ class Check:
     summary: str
     details: dict[str, Any] = field(default_factory=dict)
     remediation: str | None = None
-
-
-def package_version() -> str:
-    try:
-        return version("sk4n")
-    except PackageNotFoundError:
-        return "unknown"
 
 
 def path_report() -> dict[str, str]:
@@ -80,37 +74,46 @@ def _result_text(result: subprocess.CompletedProcess[str]) -> str:
     return (result.stdout or result.stderr).strip()
 
 
-def _same_interpreter(script: Path) -> bool | None:
-    """Compare a POSIX console-script shebang with this interpreter when possible."""
-    try:
-        first_line = script.read_bytes().splitlines()[0].decode("utf-8")
-    except (OSError, UnicodeDecodeError, IndexError):
-        return None
-    if not first_line.startswith("#!"):
-        return None
-    interpreter = Path(first_line[2:].strip().split()[0])
-    if interpreter.name == "env":
-        return None
-    try:
-        return interpreter.samefile(sys.executable)
-    except OSError:
-        return False
-
-
 def _console_script_check() -> Check:
-    scripts: dict[str, dict[str, Any]] = {}
+    scripts: dict[str, dict[str, Any]] = {
+        "sk4n": {
+            "path": os.path.abspath(sys.argv[0]),
+            "python_executable": sys.executable,
+            "compatible": True,
+        }
+    }
     missing: list[str] = []
     incompatible: list[str] = []
-    for name in CONSOLE_SCRIPTS:
+    failed: list[str] = []
+    for name in CONSOLE_SCRIPTS[1:]:
         resolved = shutil.which(name)
         if not resolved:
             scripts[name] = {"path": None, "compatible": False}
             missing.append(name)
             continue
-        path = Path(resolved).resolve()
-        compatible = _same_interpreter(path)
-        scripts[name] = {"path": str(path), "compatible": compatible}
-        if compatible is False:
+        details: dict[str, Any] = {"path": resolved, "compatible": False}
+        scripts[name] = details
+        try:
+            result = _run([resolved, "-v"])
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            details["error"] = str(exc)
+            failed.append(name)
+            continue
+        lines = result.stdout.splitlines()
+        if (
+            result.returncode
+            or len(lines) != 2
+            or not lines[0].startswith(f"{name} ")
+            or not lines[1].startswith("Python: ")
+            or not lines[1].removeprefix("Python: ")
+        ):
+            details.update(returncode=result.returncode, output=_result_text(result))
+            failed.append(name)
+            continue
+        python_executable = lines[1].removeprefix("Python: ")
+        compatible = os.path.normcase(python_executable) == os.path.normcase(sys.executable)
+        details.update(python_executable=python_executable, compatible=compatible)
+        if not compatible:
             incompatible.append(name)
     if missing:
         return Check(
@@ -120,16 +123,27 @@ def _console_script_check() -> Check:
             {"scripts": scripts},
             "Reinstall with `python -m pip install --force-reinstall sk4n`.",
         )
+    if failed:
+        return Check(
+            "console_scripts",
+            "error",
+            f"Could not verify Python for console scripts: {', '.join(failed)}",
+            {"scripts": scripts},
+            "Update or reinstall sk4n so every command reports its Python path with `-v`.",
+        )
     if incompatible:
         return Check(
             "console_scripts",
             "error",
             f"Console scripts use another Python installation: {', '.join(incompatible)}",
             {"scripts": scripts},
-            "Remove stale scripts from PATH, then reinstall sk4n.",
+            "Check the reported Python paths and reinstall sk4n in the intended environment.",
         )
     return Check(
-        "console_scripts", "ok", "All console scripts resolve on PATH.", {"scripts": scripts}
+        "console_scripts",
+        "ok",
+        "All console scripts use the running sk4n Python.",
+        {"scripts": scripts},
     )
 
 

@@ -21,6 +21,7 @@ in order. Unmarked arguments are optional; `-h/--help` is available everywhere.
 
 | Argument                      | Details                                                                    |
 | ----------------------------- | -------------------------------------------------------------------------- |
+| `--version, -v`               | Show the package version and Python executable, then exit.                 |
 | `--data-path DATA_PATH`       | Schedule and API cache directory. Default: `<user-data>/sk4n/nusmods`.     |
 | `--academic-year YYYY/YYYY`   | Course-data academic year. Default: current NUSMods year.                  |
 | `--api-base-url API_BASE_URL` | Advanced public NUSMods API origin. Default: `https://api.nusmods.com/v2`. |

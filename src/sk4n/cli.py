@@ -14,7 +14,7 @@ from .academic_calendar import (
     current_academic_year,
     normalize_academic_year,
 )
-from .doctor import build_doctor_report, package_version, path_report, print_doctor_report
+from .doctor import build_doctor_report, path_report, print_doctor_report
 from .nusmods.client import NUSModsAPIError, NUSModsClient
 from .paths import nusmods_data_dir
 from .skill_install import (
@@ -27,6 +27,7 @@ from .skill_install import (
     skill_status_report,
     uninstall_skills,
 )
+from .version import add_version_argument
 
 OUTPUT_FORMATS = ("human", "json")
 STRUCTURED_OUTPUT_FORMATS = ("json", "jsonl", "plain")
@@ -90,9 +91,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="sk4n",
         description="Manage SkillKit for NUS tools and agent skills.",
     )
-    parser.add_argument(
-        "--version", "-v", action="version", version=f"%(prog)s {package_version()}"
-    )
+    add_version_argument(parser)
     commands = parser.add_subparsers(dest="command")
 
     doctor_parser = commands.add_parser("doctor", help="Diagnose the local installation.")

@@ -24,6 +24,7 @@ Low-level `api` output is unfiltered response data and has no `--format` option.
 
 | Argument                                  | Details                                                              |
 | ----------------------------------------- | -------------------------------------------------------------------- |
+| `--version, -v`                           | Show the package version and Python executable, then exit.           |
 | `--base-url BASE_URL`                     | Canvas base URL. Default: `https://canvas.nus.edu.sg`.               |
 | `--site-name SITE_NAME`                   | Advanced saved-session namespace. Default: `nus_canvas`.             |
 | `--data-path DATA_PATH`                   | Cache folder. Default: `<user-data>/sk4n/canvas`.                    |

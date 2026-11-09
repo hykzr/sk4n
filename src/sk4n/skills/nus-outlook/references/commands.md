@@ -23,6 +23,7 @@ Low-level `api` output is unfiltered response data and has no `--format` option.
 
 | Argument                | Details                                                                                                             |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `--version, -v`         | Show the package version and Python executable, then exit.                                                          |
 | `--data-path DATA_PATH` | Local Outlook cache directory. Default: `<user-data>/sk4n/outlook`.                                                 |
 | `--base-url BASE_URL`   | Advanced HTTPS mailbox URL on a supported Microsoft Outlook host. Default: `https://outlook.cloud.microsoft/mail/`. |
 | `--site-name SITE_NAME` | Advanced saved-session namespace. Default: `nus_outlook`.                                                           |
