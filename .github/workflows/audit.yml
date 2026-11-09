@@ -1,0 +1,47 @@
+name: Dependency audit
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  UV_NO_PROGRESS: "1"
+
+jobs:
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.11.17"
+          python-version: "3.14"
+          enable-cache: true
+
+      - name: Install Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install just
+        uses: extractions/setup-just@v3
+
+      - name: Install the locked project and development dependencies
+        run: uv sync --locked --all-groups
+
+      - name: Audit dependencies and GitHub Actions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: just audit

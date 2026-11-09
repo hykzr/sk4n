@@ -20,12 +20,19 @@ jobs:
     name: Run CI for the release commit
     permissions:
       contents: read
-    uses: $/.github/workflows/ci.yml
+    uses: ./.github/workflows/ci.yml
+
+  audit:
+    name: Audit dependencies for the release commit
+    permissions:
+      contents: read
+    uses: ./.github/workflows/audit.yml
 
   build:
     name: Build and validate release artifacts
     needs:
       - ci
+      - audit
     runs-on: ubuntu-latest
     timeout-minutes: 25
     outputs:
@@ -59,16 +66,6 @@ jobs:
             exit 1
           fi
           echo "version=$package_version" >> "$GITHUB_OUTPUT"
-
-      - name: Audit the locked environment
-        run: uv run --locked pip-audit --local --skip-editable --progress-spinner off
-
-      - name: Audit the allowed runtime dependency range
-        run: >-
-          uv run --locked pip-audit
-          --strict
-          --progress-spinner off
-          .
 
       - name: Build wheel and source distribution
         run: uv run --locked python -m build
@@ -131,7 +128,7 @@ jobs:
           path: dist/
 
       - name: Publish the artifacts to TestPyPI
-        uses: pypa/gh-action-pypi-publish@v1.14.2
+        uses: pypa/gh-action-pypi-publish@v1.14.3
         with:
           repository-url: https://test.pypi.org/legacy/
           skip-existing: true
@@ -235,7 +232,7 @@ jobs:
           path: dist/
 
       - name: Publish the artifacts to PyPI
-        uses: pypa/gh-action-pypi-publish@v1.14.2
+        uses: pypa/gh-action-pypi-publish@v1.14.3
         with:
           skip-existing: true
           print-hash: true

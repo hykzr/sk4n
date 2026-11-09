@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Update dependencies to fix reported security vulnerabilities.
 - Make `--format json` and `jsonl` more compact across all four services. Use `json-full` for full
   records; saved data is unchanged. Direct API output remains unfiltered.
 - Add NUS Outlook tools and an assistant skill: sign in with NUS SSO/MFA, read/search mail without
