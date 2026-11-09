@@ -77,13 +77,22 @@ def key_value(value: str) -> tuple[str, str]:
     raise argparse.ArgumentTypeError("must be NAME=VALUE or NAME:VALUE")
 
 
-def add_format_argument(parser: argparse.ArgumentParser) -> None:
+def add_format_argument(parser: argparse.ArgumentParser, *, html: bool = False) -> None:
     parser.add_argument(
         "--format",
         choices=OUTPUT_FORMATS,
         default=None,
         help=f"{FORMAT_HELP} Default: human-friendly output.",
     )
+    if html:
+        parser.add_argument(
+            "--original-html",
+            action="store_true",
+            help=(
+                "Preserve source HTML fields instead of converting them to text. "
+                "Requires --format json, jsonl, or json-full; field filtering is unchanged."
+            ),
+        )
 
 
 def add_refresh_arguments(parser: argparse.ArgumentParser) -> None:
@@ -277,16 +286,16 @@ def build_parser() -> argparse.ArgumentParser:
         dest="event_type",
         help="Canvas calendar item type. Default: event.",
     )
-    add_format_argument(events_parser)
+    add_format_argument(events_parser, html=True)
 
     todo_parser = commands.add_parser("todo", help="List the current user's Canvas To-Do items.")
-    add_format_argument(todo_parser)
+    add_format_argument(todo_parser, html=True)
 
     upcoming_parser = commands.add_parser(
         "upcoming",
         help="List the current user's upcoming Canvas events.",
     )
-    add_format_argument(upcoming_parser)
+    add_format_argument(upcoming_parser, html=True)
 
     course_parser = commands.add_parser("course", help="Show a course or one cached content area.")
     course_parser.add_argument("course_code", help="Course code or Canvas course ID.")
@@ -308,7 +317,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="For a resource: list, path, or an item ID.",
     )
     add_refresh_arguments(course_parser)
-    add_format_argument(course_parser)
+    add_format_argument(course_parser, html=True)
 
     api_parser = commands.add_parser(
         "api",
@@ -413,9 +422,9 @@ def _without_canvas_metadata(value: Any) -> Any:
     return value
 
 
-def print_formatted(value: Any, output_format: str) -> None:
+def print_formatted(value: Any, output_format: str, *, original_html: bool = False) -> None:
     if output_format in {"json", "jsonl"}:
-        value = compact(value)
+        value = compact(value, original_html=original_html)
     if output_format in {"json", "json-full"}:
         print(_json_text(_without_canvas_metadata(value)))
         return
@@ -820,7 +829,7 @@ def handle_calendar_events(args: argparse.Namespace) -> int:
         event_type=args.event_type,
     )
     if args.format:
-        print_formatted(items, args.format)
+        print_formatted(items, args.format, original_html=args.original_html)
     else:
         print_activity_list(items, "Canvas calendar events")
     return 0
@@ -829,7 +838,7 @@ def handle_calendar_events(args: argparse.Namespace) -> int:
 def handle_todo(args: argparse.Namespace) -> int:
     items = _fetcher(args).todo()
     if args.format:
-        print_formatted(items, args.format)
+        print_formatted(items, args.format, original_html=args.original_html)
     else:
         print_activity_list(items, "Canvas To-Do items")
     return 0
@@ -838,7 +847,7 @@ def handle_todo(args: argparse.Namespace) -> int:
 def handle_upcoming(args: argparse.Namespace) -> int:
     items = _fetcher(args).upcoming()
     if args.format:
-        print_formatted(items, args.format)
+        print_formatted(items, args.format, original_html=args.original_html)
     else:
         print_activity_list(items, "Upcoming Canvas events")
     return 0
@@ -856,7 +865,7 @@ def handle_course(args: argparse.Namespace) -> int:
                 force=force,
             )
             if args.format:
-                print_formatted(value, args.format)
+                print_formatted(value, args.format, original_html=args.original_html)
             else:
                 print_course_detail(value, args.course_code)
             return 0
@@ -870,7 +879,7 @@ def handle_course(args: argparse.Namespace) -> int:
                 force=force,
             ).as_posix()
             if args.format:
-                print_formatted({"path": path}, args.format)
+                print_formatted({"path": path}, args.format, original_html=args.original_html)
             else:
                 print(path)
             return 0
@@ -885,11 +894,11 @@ def handle_course(args: argparse.Namespace) -> int:
         if isinstance(value, Path):
             output: Any = {"path": value.resolve().as_posix()}
             if args.format:
-                print_formatted(output, args.format)
+                print_formatted(output, args.format, original_html=args.original_html)
             else:
                 print(output["path"])
         elif args.format:
-            print_formatted(value, args.format)
+            print_formatted(value, args.format, original_html=args.original_html)
         elif isinstance(value, list):
             if args.resource.casefold() in {"group", "groups"}:
                 print_group_list(value)
@@ -994,6 +1003,8 @@ def _run_unlocked(args: argparse.Namespace) -> int:
 
 
 def run(args: argparse.Namespace) -> int:
+    if getattr(args, "original_html", False) and args.format not in {"json", "jsonl", "json-full"}:
+        raise ValueError("--original-html requires --format json, jsonl, or json-full.")
     cache_write = args.command == "sync" or (
         args.command in {"student", "list", "course"}
         and getattr(args, "refresh_mode", "none") != "none"

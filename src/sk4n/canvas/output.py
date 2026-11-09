@@ -248,9 +248,9 @@ COURSE_FIELDS = PATH_FIELDS | {
 }
 
 
-def compact(value: Any) -> Any:
+def compact(value: Any, *, original_html: bool = False) -> Any:
     if isinstance(value, list):
-        return [compact(item) for item in value]
+        return [compact(item, original_html=original_html) for item in value]
     if not isinstance(value, dict):
         return value
     if "course_code" in value and "metadata_path" in value:
@@ -341,18 +341,24 @@ def compact(value: Any) -> Any:
             item = useful_fields(
                 item, {"id", "name", "self_signup", "self_signup_end_at", "group_limit"}
             )
-        elif key in {"message", "body", "description", "syllabus_body"} and isinstance(item, str):
+        elif (
+            not original_html
+            and key in {"message", "body", "description", "syllabus_body"}
+            and isinstance(item, str)
+        ):
             item = html_text(item)
-        result[key] = compact(item)
+        result[key] = compact(item, original_html=original_html)
     if "question_html" in result:
-        result["question_text"] = html_text(result.pop("question_html") or "") or result.get(
-            "question_text", ""
-        )
+        if not original_html:
+            result["question_text"] = html_text(result.pop("question_html") or "") or result.get(
+                "question_text", ""
+            )
         result.pop("classes", None)
         if result.get("score"):
             result.pop("header_text", None)
     if "html" in result and "selected" in result and "correct" in result:
-        result["text"] = html_text(result.pop("html") or "") or result.get("text", "")
+        if not original_html:
+            result["text"] = html_text(result.pop("html") or "") or result.get("text", "")
         result.pop("classes", None)
     return result
 

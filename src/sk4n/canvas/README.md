@@ -78,6 +78,15 @@ Run `canvas sync` without course filters to save all accessible courses.
 Normal course reads check for updates and reuse unchanged downloads. Use `--no-refresh` for saved
 copies only; use `--refresh` to force another download when something appears incomplete.
 
+Compact JSON converts HTML to text. When formatting matters or text appears incomplete, preserve the
+source HTML while keeping the compact fields:
+
+```bash
+canvas course CG2028 announcements list --format json --original-html
+```
+
+Bodies stored in HTML files remain file paths; open those files to inspect or render their HTML.
+
 Run `sk4n paths` to find your data. Put `--data-path PATH` before the subcommand to choose another
 folder. See `canvas --help` and, for example, `canvas course --help` for all options and structured
 output formats. Advanced API/browser procedures are in the

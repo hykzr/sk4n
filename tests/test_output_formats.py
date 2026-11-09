@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import copy
 import json
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 from sk4n.canvas import cli as canvas
+from sk4n.canvas import output as canvas_output
 from sk4n.nusmods import cli as nusmods
 from sk4n.outlook import cli as outlook
 from sk4n.talent_connect import cli as talent_connect
@@ -144,6 +146,87 @@ def test_outlook_compact_keeps_recipients_attachments_preview_and_send_state(
     assert result["status"] == "submitted"
     assert result["pending"] is True and result["cache_refreshed"] is True
     assert result["warning"] == record["warning"]
+
+
+@pytest.mark.parametrize("output_format", ["json", "jsonl"])
+@pytest.mark.parametrize(
+    "message_type",
+    ["MeetingRequestMessageType", "MeetingCancellationMessageType", "MeetingResponseMessageType"],
+)
+def test_outlook_compact_keeps_meeting_schedule_and_responses(
+    output_format: str,
+    message_type: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    schedule = {
+        "__type": f"{message_type}:#Exchange",
+        "Start": "2026-11-10T02:00:00Z",
+        "End": "2026-11-10T03:00:00Z",
+        "TimeZone": "Singapore Standard Time",
+        "StartTimeZoneId": "Singapore Standard Time",
+        "EndTimeZoneId": "Singapore Standard Time",
+        "Location": "Meeting room",
+        "IsMeeting": True,
+        "IsCancelled": message_type == "MeetingCancellationMessageType",
+        "IsAllDayEvent": False,
+        "IsRecurring": True,
+        "Recurrence": {"DailyRecurrence": {"Interval": 1}},
+        "CalendarItemType": "RecurringMaster",
+        "MeetingMessageType": "MeetingRequest",
+        "MeetingRequestType": "FullUpdate",
+        "ResponseType": "Accept",
+        "IsResponseRequested": True,
+    }
+    record = {
+        **schedule,
+        "ItemId": {"Id": "invitation", "ChangeKey": "revision"},
+        "Subject": "Team meeting",
+        "Body": {"BodyType": "Text", "Value": "Discuss progress."},
+        "Organizer": {
+            "Mailbox": {
+                "Name": "Organizer",
+                "EmailAddress": "organizer@example.test",
+                "Id": "noise",
+            }
+        },
+        "RequiredAttendees": [
+            {
+                "Mailbox": {
+                    "Name": "Attendee",
+                    "EmailAddress": "attendee@example.test",
+                    "Id": "noise",
+                },
+                "ResponseType": "Accept",
+                "LastResponseTime": "2026-11-09T01:00:00Z",
+                "ProposedStart": None,
+            }
+        ],
+        "OptionalAttendees": [
+            {"Mailbox": {"EmailAddress": "optional@example.test"}, "ResponseType": "Tentative"}
+        ],
+        "Resources": [{"Mailbox": {"Name": "Meeting room"}, "ResponseType": "Accept"}],
+        "AssociatedCalendarItemId": {"Id": "event", "ChangeKey": "revision"},
+        "InternetMessageHeaders": [{"Value": "transport metadata"}],
+    }
+    original = copy.deepcopy(record)
+    outlook.print_result(record, output_format)
+    result = json.loads(capsys.readouterr().out)
+    assert {key: result[key] for key in schedule} == schedule
+    assert result["Organizer"] == {
+        "Mailbox": {"Name": "Organizer", "EmailAddress": "organizer@example.test"}
+    }
+    assert result["RequiredAttendees"] == [
+        {
+            "Mailbox": {"Name": "Attendee", "EmailAddress": "attendee@example.test"},
+            "ResponseType": "Accept",
+            "LastResponseTime": "2026-11-09T01:00:00Z",
+        }
+    ]
+    assert result["OptionalAttendees"] == record["OptionalAttendees"]
+    assert result["Resources"] == record["Resources"]
+    assert result["AssociatedCalendarItemId"] == {"Id": "event"}
+    assert "InternetMessageHeaders" not in result
+    assert record == original
 
 
 def test_canvas_compact_preserves_access_errors_grades_and_quiz_answers(
@@ -457,3 +540,123 @@ def test_html_text_preserves_image_inside_link() -> None:
         )
         == "Chart (images/chart.png) (https://example.test/full)"
     )
+
+
+@pytest.mark.parametrize(
+    ("html", "expected"),
+    [
+        ("<p>Evaluate 2<sup>10</sup>.</p>", "Evaluate 2^(10)."),
+        ("<p>Compare x<sub>2</sub> and x2.</p>", "Compare x_(2) and x2."),
+        ("x<sup>n + 1</sup>", "x^(n + 1)"),
+        ("H<sub>2</sub>O", "H_(2)O"),
+        ("<p>x<sub>i<sup>2</sup></sub></p>", "x_(i^(2))"),
+        ("<p>x<sup><i>n</i> &minus; 1</sup></p>", "x^(n \N{MINUS SIGN} 1)"),
+        (
+            "<pre>x<sub>i</sub> = 2<sup>10</sup>\n    y = x</pre>",
+            "x_(i) = 2^(10)\n    y = x",
+        ),
+    ],
+)
+def test_canvas_compact_preserves_mathematical_notation(
+    html: str, expected: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert html_text(html) == expected
+    record = {"question_html": html, "answers": [{"html": html, "selected": True, "correct": True}]}
+    canvas.print_formatted(record, "json")
+    question = json.loads(capsys.readouterr().out)
+    assert question["question_text"] == expected
+    assert question["answers"][0]["text"] == expected
+
+
+@pytest.mark.parametrize("output_format", ["json", "jsonl"])
+def test_canvas_original_html_preserves_markup_and_compacts_other_fields(
+    output_format: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    html = '<p class="equation" style="color: red">x<sup>2</sup> &nbsp; H<sub>2</sub>O</p>\n'
+    record = {
+        "course": {"name": "Course", "course_code": "CG2028", "syllabus_body": html},
+        "announcements": [
+            {"id": 1, "discussion_type": "threaded", "message": html, "subscription_hold": "noise"}
+        ],
+        "assignment": {
+            "submission_types": ["online_text_entry"],
+            "description": html,
+            "secure_params": "noise",
+        },
+        "self_submission": {"attempt": 1, "submission_type": "online_text_entry", "body": html},
+        "questions": [
+            {
+                "question_html": html,
+                "question_text": "Existing text",
+                "classes": ["noise"],
+                "raw_session_item": {"noise": True},
+                "answers": [
+                    {"html": html, "text": "Existing text", "selected": True, "correct": False}
+                ],
+            }
+        ],
+        "_canvas": {"signature": "noise"},
+    }
+    original = copy.deepcopy(record)
+    monkeypatch.setattr(
+        canvas_output, "html_text", lambda *_a: pytest.fail("Original HTML must not be converted")
+    )
+    canvas.print_formatted([record], output_format, original_html=True)
+    value = json.loads(capsys.readouterr().out)
+    result = value[0] if output_format == "json" else value
+    assert result["course"]["syllabus_body"] == html
+    assert result["announcements"] == [{"id": 1, "discussion_type": "threaded", "message": html}]
+    assert result["assignment"] == {"submission_types": ["online_text_entry"], "description": html}
+    assert result["self_submission"]["body"] == html
+    assert result["questions"] == [
+        {
+            "question_html": html,
+            "question_text": "Existing text",
+            "answers": [
+                {"html": html, "text": "Existing text", "selected": True, "correct": False}
+            ],
+        }
+    ]
+    assert "_canvas" not in result
+    assert record == original
+
+
+@pytest.mark.parametrize("output_format", ["json", "jsonl", "json-full"])
+@pytest.mark.parametrize(
+    ("command", "method"),
+    [
+        (["course", "CG2028", "--no-refresh"], "course"),
+        (["course", "CG2028", "announcements", "list", "--no-refresh"], "content"),
+        (["calendar-events"], "calendar_events"),
+        (["todo"], "todo"),
+        (["upcoming"], "upcoming"),
+    ],
+)
+def test_canvas_original_html_cli_routes_to_output(
+    command: list[str],
+    method: str,
+    output_format: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    record = {"description": '<p style="color: red">Keep this HTML</p>'}
+    fetcher = SimpleNamespace(last_selected_course=None)
+    setattr(fetcher, method, lambda *_a, **_kw: record)
+    monkeypatch.setattr(canvas, "_fetcher", lambda *_a: fetcher)
+    args = canvas.build_parser().parse_args(
+        [*command, "--format", output_format, "--original-html"]
+    )
+    assert canvas.run(args) == 0
+    assert json.loads(capsys.readouterr().out) == record
+
+
+@pytest.mark.parametrize("format_args", [[], ["--format", "plain"]])
+def test_canvas_original_html_rejects_non_json_output_before_reading(
+    format_args: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(canvas, "_fetcher", lambda *_a: pytest.fail("Must validate before reading"))
+    args = canvas.build_parser().parse_args(["todo", "--original-html", *format_args])
+    with pytest.raises(ValueError, match="--original-html requires --format"):
+        canvas.run(args)

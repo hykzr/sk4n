@@ -40,6 +40,7 @@ remote HTTP/response failure.
 | `--format FORMAT` | `auth status`, `student`, `list`, `calendar-events`, `todo`, `upcoming`, `course` | Omit for human output. json/jsonl are compact (JSONL: one record per line); json-full includes full records; plain emits key: value lines. Cached data is unchanged. Choices: `json`, `json-full`, `jsonl`, `plain`. |
 | `--refresh`       | `student`, `list`, `course`                                                       | Force refresh the requested remote data and local artifacts.                                                                                                                                                         |
 | `--no-refresh`    | `student`, `list`, `course`                                                       | Read only from the local cache.                                                                                                                                                                                      |
+| `--original-html` | `calendar-events`, `todo`, `upcoming`, `course`                                   | Preserve source HTML fields instead of converting them to text. Requires --format json, jsonl, or json-full; field filtering is unchanged.                                                                           |
 
 ## Shared constraints
 
@@ -126,19 +127,19 @@ List the current user's Canvas calendar events.
 | `--end YYYY-MM-DD`   | Inclusive end date in Canvas time. Default: Canvas endpoint default.         |
 | `--type EVENT_TYPE`  | Canvas calendar item type. Default: `event`. Choices: `event`, `assignment`. |
 
-Also accepts [shared options](#shared-options): `--format`.
+Also accepts [shared options](#shared-options): `--format`, `--original-html`.
 
 ## `canvas todo`
 
 List the current user's Canvas To-Do items.
 
-Also accepts [shared options](#shared-options): `--format`.
+Also accepts [shared options](#shared-options): `--format`, `--original-html`.
 
 ## `canvas upcoming`
 
 List the current user's upcoming Canvas events.
 
-Also accepts [shared options](#shared-options): `--format`.
+Also accepts [shared options](#shared-options): `--format`, `--original-html`.
 
 ## `canvas course`
 
@@ -151,7 +152,8 @@ Show a course or one cached content area.
 | `[RESOURCE]`         | path, home, announcements, assignments, discussions, files, groups, modules, pages, people, quizzes, or syllabus. |
 | `[ITEM]`             | For a resource: list, path, or an item ID. Default: `list`.                                                       |
 
-Also accepts [shared options](#shared-options): `--refresh`, `--no-refresh`, `--format`.
+Also accepts [shared options](#shared-options): `--refresh`, `--no-refresh`, `--format`,
+`--original-html`.
 
 - The `path` resource does not accept an item selector.
 - The `home` resource does not accept an item selector.

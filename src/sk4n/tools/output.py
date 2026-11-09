@@ -24,7 +24,7 @@ def useful_fields(record: Mapping[str, Any], fields: set[str]) -> dict[str, Any]
 def html_text(value: str) -> str:
     """Remove markup and styling without truncating prose or losing link targets."""
     if not re.search(
-        r"</?(?:html|body|p|div|span|br|a|b|strong|i|em|u|ul|ol|li|table|thead|tbody|tr|td|th|h[1-6]|blockquote|pre|code|img|style|script|head|hr|font)(?=[\s/>])",
+        r"</?(?:html|body|p|div|span|br|a|b|strong|i|em|u|sub|sup|ul|ol|li|table|thead|tbody|tr|td|th|h[1-6]|blockquote|pre|code|img|style|script|head|hr|font)(?=[\s/>])",
         value,
         re.IGNORECASE,
     ):
@@ -32,6 +32,9 @@ def html_text(value: str) -> str:
     soup = BeautifulSoup(value, "html.parser")
     for element in soup(["script", "style", "head"]):
         element.decompose()
+    for element in soup.find_all(["sup", "sub"]):
+        element.insert_before("^(" if element.name == "sup" else "_(")
+        element.insert_after(")")
     code_blocks = {}
     for index, element in enumerate(soup.find_all("pre")):
         marker = f"SK4N_CODE_BLOCK_{index}_"

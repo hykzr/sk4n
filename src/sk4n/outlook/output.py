@@ -7,6 +7,7 @@ from typing import Any
 from sk4n.tools.output import html_text, useful_fields
 
 MESSAGE_FIELDS = {
+    "__type",
     "ItemId",
     "Subject",
     "url",
@@ -43,6 +44,33 @@ MESSAGE_FIELDS = {
     "draft_id",
     "message_id",
     "cache_refreshed",
+}
+MEETING_FIELDS = {
+    "Start",
+    "End",
+    "TimeZone",
+    "StartTimeZoneId",
+    "EndTimeZoneId",
+    "Location",
+    "EnhancedLocation",
+    "When",
+    "IsAllDayEvent",
+    "IsMeeting",
+    "IsCancelled",
+    "IsRecurring",
+    "Recurrence",
+    "CalendarItemType",
+    "MeetingMessageType",
+    "MeetingRequestType",
+    "ResponseType",
+    "IsResponseRequested",
+    "Organizer",
+    "RequiredAttendees",
+    "OptionalAttendees",
+    "Resources",
+    "AssociatedCalendarItemId",
+    "IsOnlineMeeting",
+    "JoinOnlineMeetingUrl",
 }
 ATTACHMENT_FIELDS = {
     "id",
@@ -84,7 +112,7 @@ def compact(value: Any) -> Any:
     if not isinstance(value, dict):
         return value
     if "ItemId" in value:
-        result = useful_fields(value, MESSAGE_FIELDS)
+        result = useful_fields(value, MESSAGE_FIELDS | MEETING_FIELDS)
     elif "FolderId" in value:
         result = useful_fields(
             value,
@@ -104,12 +132,20 @@ def compact(value: Any) -> Any:
         # Unknown API envelopes and small action/status results remain intact.
         return {key: compact(item) for key, item in value.items()}
     for key, item in list(result.items()):
-        if key in {"ItemId", "FolderId", "ParentFolderId", "ConversationId"}:
+        if key in {
+            "ItemId",
+            "FolderId",
+            "ParentFolderId",
+            "ConversationId",
+            "AssociatedCalendarItemId",
+        }:
             result[key] = useful_fields(item, {"Id"}) if isinstance(item, dict) else item
-        elif key in {"From", "Sender"}:
+        elif key in {"From", "Sender", "Organizer"}:
             result[key] = _address(item)
         elif key in {"ToRecipients", "CcRecipients", "BccRecipients", "ReplyTo"}:
             result[key] = [_address(address) for address in item]
+        elif key in {"RequiredAttendees", "OptionalAttendees", "Resources"}:
+            result[key] = [_attendee(attendee) for attendee in item]
         elif key in {"Body", "UniqueBody"} and isinstance(item, dict):
             result[key] = useful_fields(item, {"BodyType", "Value", "IsTruncated"})
             if str(item.get("BodyType", "")).casefold() == "html":
@@ -150,6 +186,12 @@ def _address(value: Any) -> Any:
     address = value.get("Mailbox", value)
     result = useful_fields(address, {"Name", "EmailAddress"})
     return {"Mailbox": result} if "Mailbox" in value else result
+
+
+def _attendee(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+    return {**_address(value), **useful_fields(value, {"ResponseType", "LastResponseTime"})}
 
 
 def _attachment(value: Any) -> Any:
