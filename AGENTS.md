@@ -1,110 +1,90 @@
-# Maintainer agent guide
+# Maintainer guide
 
-This file is guidance for agents maintaining this repository. It is not the operating prompt for an
-end-user-facing NUS assistant.
+This guide is for repository maintainers. Bundled and globally installed NUS skills are for end-user
+assistants; do not use them as maintainer instructions.
 
-nus-canvas, nus-talent-connect, nus-outlook and nusmods skills may have been installed to you, those
-are for end-user-facing NUS assistant.
+## Dependencies and initial setup
 
-## Repository map
-
-- `src/sk4n/canvas/` provides authenticated, read-only Canvas queries, targeted cache refreshes,
-  bulk synchronization, direct authenticated API access, and authenticated `@playwright/cli`
-  sessions.
-- `src/sk4n/talent_connect/` provides public and authenticated Kinobi job/company access, local
-  SQLite persistence, direct authenticated API access, and authenticated `@playwright/cli` sessions.
-- `src/sk4n/nusmods/` uses public NUSMods APIs and does not need an authentication flow.
-- `src/sk4n/outlook/` provides NUS SSO/MFA login, durable browser state with silent token renewal,
-  Outlook mail reads and authorized item actions, NUS directory (people) search, and authenticated
-  `@playwright/cli` inspection. Its web endpoints are private and may change.
-- `src/sk4n/tools/` contains shared request, saved-session, and browser-session helpers.
-- `tests/` contains the unit suite. Keep application-specific behavior in its package and put
-  genuinely shared behavior in `src/sk4n/tools/`.
-
-For check / build / test, refer to the justfile under repo root. Prefer running the just commands
-like `just check` as is.
-
-## Authentication comes first
-
-Before any Canvas, TalentConnect, or Outlook task that may contact the real service, always check
-authentication status first:
+Install Git, [uv](https://docs.astral.sh/uv/getting-started/installation/), Node.js 22+ with npm,
+and [just](https://github.com/casey/just#installation). Python 3.11+ is required; uv can provision
+it. From the repository root:
 
 ```bash
-uv run canvas auth status
-uv run talent-connect auth status
-uv run nus-outlook auth status
+uv sync       # Install Python runtime and development dependencies into .venv
+npm ci        # Install locked Markdown tools, also required by the reference generator
+just check    # Run tests, lint/type checks, and generated-reference checks
 ```
 
-If the relevant command reports unauthenticated and the task needs actual access, ask the user for
-approval to start authentication. Once approved, run the appropriate command below and ask the user
-to complete NUS SSO in the browser window:
+For live sign-in/browser investigation, also install the two browser tools:
 
 ```bash
-uv run canvas auth login
-uv run talent-connect auth login
-uv run nus-outlook auth login
+uv run sk4n doctor # Run the commands below if the two browser is not installed
+uv run sk4n browser install chromium  # Browser used by the integrations for NUS sign-in
+npm install -g @playwright/cli@latest # Separate agent browser inspection tool
+playwright-cli install-browser
 ```
 
-Do not require authentication for NUSMods: its APIs are public, so use direct requests or available
-browser skills as appropriate.
+Use `uv run` for repository commands; no manual virtual-environment activation is needed. See
+`justfile` for check/build recipes and prefer them unchanged, including `just build`.
 
-Prefer the repository's direct authenticated `api` command for endpoint discovery and validation. It
-reuses the durable saved login and has lower cost and overhead than a built-in browser/app
-connector. When page-level inspection is necessary, use the repository's `playwright-cli` command;
-it injects that same saved authentication into a named `@playwright/cli` session that later CLI
-commands can reuse. Avoid built-in app/browser connectors for Canvas and TalentConnect maintenance
-because their authentication is not persisted for subsequent repository commands and they add
-unnecessary overhead.
+## Structure and formatting
 
-```bash
-uv run canvas api /api/v1/users/self/profile
-uv run canvas playwright-cli --session canvas
+- `src/sk4n/{canvas,talent_connect,outlook,nusmods}/`: platform integrations. Read the relevant
+  platform `AGENTS.md` before changing its integration or bundled skill.
+- `src/sk4n/tools/`: genuinely shared request, authentication, and browser helpers. Keep
+  platform-specific behavior in its platform package.
+- `src/sk4n/skills/`: packaged end-user skills and references; `tests/`: unit suite.
+- Markdown uses shared markdownlint/Prettier configs and 100-column prose wrapping. Run
+  `just format-markdown` after edits. Generate references with `just references`; never edit them
+  directly. The generator needs the locked npm tools.
 
-uv run talent-connect api /api/auth/
-uv run talent-connect playwright-cli --session talent-connect
+## Documentation boundaries
 
-uv run nus-outlook api '/owa/service.svc?action=GetOwaUserConfiguration' -X POST
-uv run nus-outlook playwright-cli --session nus-outlook
-```
+Keep each document concise and specific to its audience. Give each fact one home within an
+audience's documentation; link to it elsewhere. Do not copy code inventories or CLI help into prose.
 
-The browser-opening commands leave their sessions running. Continue with, for example,
-`playwright-cli -s=canvas snapshot`, and close a session explicitly when the task is finished.
+| Document                  | Audience and content                                                                                                                                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Root `README.md`          | Students, including those without a computing background. Plain language; purpose, setup, everyday examples, and a brief optional output-format guide for shell users.                                       |
+| Root `CHANGELOG.md`       | Students reading release notes. Brief user-visible features/fixes; modest technical detail only when useful.                                                                                                 |
+| Root `AGENTS.md`          | Code maintainers. Universal requirements, repository structure, and shared workflow only.                                                                                                                    |
+| Platform `AGENTS.md`      | Maintainers of that integration. Exploration guidance needed before reading code, restrictions, and non-obvious external facts or reasons for decisions. Omit implementation details discoverable from code. |
+| Platform `README.md`      | Human users. Cover every named high-level command with its purpose and a concise example/comment. Include useful limitations; omit agent-only internals and exhaustive option tables.                        |
+| Platform `SKILL.md`       | End-user agents. Minimal interface routing, workflow, and non-generated decision/approval rules. Omit implementation details and generated command grammar.                                                  |
+| `references/commands.md`  | Generated interface reference. Syntax, options, defaults, and constraints; define shared information once. Change the parser/generator and regenerate.                                                       |
+| `references/low-level.md` | End-user agents using direct API/browser commands. Only fallback procedures absent from `SKILL.md` and generated help; no repeated authentication workflow or option catalog.                                |
 
-## TASK: Updating a remote integration
+Documentation is not a work log: no completion reports, verification narratives, or “what I did”
+sections. Report work and checks in the reply. Record new features/fixes concisely in
+`CHANGELOG.md`; update other docs only when their purpose requires it. Delete stale or redundant
+material instead of moving it wholesale into another file.
 
-Remote interfaces change. When adding support for a new or updated page, field, endpoint, filter, or
-workflow:
+Preserve requirement strength when shortening skills: “explicitly requested/asked” must stay
+explicit. Skills must gate reading `low-level.md` on relevant named high-level commands failing to
+provide the required result; do not load fallback guidance in advance.
 
-1. Check auth status before beginning remote investigation.
-2. Prefer existing `api` command for exploration over raw curl
-3. Use the authenticated `playwright-cli` session for network, DOM, or interaction details that the
-   direct API cannot reveal.
+## Remote investigation
 
-Real read-only API calls and actual use of the repository's `playwright-cli` commands are allowed by
-default and are required for many remote-integration tasks; mocks alone are not proof that a changed
-remote interface still works.
+Before contacting Canvas, TalentConnect, or Outlook, run `uv run <cli> auth status` with `canvas`,
+`talent-connect`, or `nus-outlook`. If unauthenticated and access is needed, ask approval before
+`uv run <cli> auth login`; the user completes NUS SSO/MFA. NUSMods is public and needs no login.
 
-Any operation that would exercise real write access on the user's behalf needs the user's explicit
-approval first.
+Prefer the repository's `api` command over raw curl or app connectors. For page/DOM/network details,
+use `<cli> playwright-cli --session <task-name>`; it restores the durable saved login. Continue with
+`playwright-cli -s=<task-name> ...` and close that named session when finished. Avoid separate
+Canvas/TalentConnect app or browser connectors whose login is not persisted for repository commands.
 
-## TASK: Actual check for tool and skill
+Read-only live API and repository browser checks are authorized and needed when changing remote
+interfaces; mocks alone do not validate them. Real remote writes require explicit user approval.
+Never expose saved credentials or whole authenticated network logs.
 
-When asked to test a tool and its skill in real life situation: You'll be given a task, which you
-need to complete first by referring to `src/sk4n/skills/<feature>` only, and not any other code. Do
-not refer to any other user scope or global installations of the tool or the skill. Then apply the
-SKILL.md to do the task, (replace the direct call with uv run, such as `canvas auth status` should
-become `uv run canvas auth status`, and the references `SKILL.md` mentioned is also in that folder).
+## Real-life tool/skill tests
 
-Note down
+When explicitly asked to test a tool and skill on a real task:
 
-1. the direct response for actual's task
-2. any inconsistency or incompleteness of documentations that leads you to run the wrong command and
-   retry, or any undocumented aspects that differ from your assumptions and cause a error and retry
-3. named high level commands failure that you have to use the low-level alternatives to complete the
-   job
-4. other issues for the skill and tool
-
-follow the SKILL.md for authentication and approval rules and stop the inspection right away if not
-logged in.
-
-after the task is done, note down your findings in `temp/actual-test/<feature>.md`
+1. First complete the task using only `src/sk4n/skills/<feature>/` documentation, not implementation
+   code or globally installed copies. Prefix documented CLI calls with `uv run`.
+2. Follow that skill's authentication/approval rules; stop inspection immediately if not logged in.
+3. Write `temp/actual-test/<feature>.md`: the task answer, documentation gaps or wrong assumptions
+   causing retries, named high-level command failures requiring low-level fallback, and other
+   issues.

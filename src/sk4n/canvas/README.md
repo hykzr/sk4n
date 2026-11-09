@@ -1,253 +1,84 @@
-# Canvas CLI
+# Canvas
 
-`canvas` is an authenticated, read-only NUS Canvas CLI with an incremental local cache. Install
-`sk4n` with pip, then inspect the command surface:
+Check your NUS Canvas courses and save course materials for later. These commands read Canvas; they
+do not submit work or change course content.
 
-```bash
-canvas --help
-```
-
-The cache defaults to the `canvas/` directory below the platform-specific SkillKit for NUS user-data
-root. Use `--data-path PATH` for a command-specific override or `SK4N_HOME` to relocate all
-persistent application data.
-
-## Authentication
+## Sign in
 
 ```bash
-canvas auth status
-canvas auth login
-canvas auth login --refresh
-canvas auth logout
+canvas auth login # Complete NUS SSO in the browser
+canvas auth status # Check the saved sign-in
+canvas auth logout # Forget this tool's sign-in; other browsers stay signed in
 ```
 
-Login opens a browser only when the saved `nus_canvas` session is missing, expired, or explicitly
-refreshed. Logout deletes only this CLI's saved session; it does not sign other browsers out of NUS
-SSO. `auth status` also supports `--format json`, `json-full`, `jsonl`, or `plain`.
+Login remembers your sign-in. Add `--refresh` to `auth login` to start a fresh sign-in.
 
-## Student and courses
+## Find a course
 
 ```bash
-canvas student
-canvas list
-canvas list --semester latest
-canvas list -s 2526S1
-canvas list -s ay2526s1
-canvas list -s Y3S1
-canvas list -s Non-Academic
-sk4n calendar --date 2026-08-14
-canvas course CG2028
-canvas course CS1010 -s 2425S1
-canvas course CG2028 home
-canvas course CG2028 path
+canvas student # Show your student profile
+canvas list --semester latest # List courses in the latest academic semester
+canvas course CG2028 # Show course details and available sections
+canvas course CG2028 home # Read the course's Home view
+canvas course CG2028 path # Find the saved course folder
 ```
 
-Course listings include an availability status. Courses that disappear from the authenticated Canvas
-catalog are retained as `retired`; sync skips them, and course commands use their archived cache
-without attempting to fetch inaccessible content.
+A course code can match several enrollments. Add a semester such as `-s 2526S1`, or select an exact
+numeric Canvas course ID such as `62224`. Retired courses remain available from saved copies after
+online access ends. Home can be empty when the lecturer has not published content there.
 
-`sk4n calendar` is a shared command rather than a Canvas command. It maps a Singapore date to its
-NUS academic year, semester, teaching week, week range, and public-holiday status using the public
-NUSMods academic calendar. It does not require Canvas authentication. Use `--refresh` to bypass the
-NUSMods cache or `--no-refresh` for a cache-only lookup; when calendar data is unavailable, the
-command labels its computed semester-start fallback and emits a warning.
+## Read course materials
 
-Semester values are case-insensitive. With no semester, `list` returns every indexed course,
-including retired archived courses. `latest` selects the newest regular academic semester; `2526S1`
-and `AY2526S1` are equivalent. Available irregular terms such as `Non-Academic` can also be selected
-case-insensitively. Study-year forms such as `Y3S1` are resolved from the student's inferred
-enrollment academic year. Canvas does not expose a dedicated NUS matriculation-year field, so the
-CLI labels this value as an inference from the Canvas account creation date.
-
-Course codes are also case-insensitive. A code that matches multiple enrollments is rejected with
-the matching semester, Canvas ID, role, and name instead of silently selecting one. Add
-`-s/--semester` to restrict the match; if that leaves one course, the command proceeds. A numeric
-Canvas course ID is always an exact selection. `course CODE` prints course metadata—including
-student, TA, or other enrollment roles—available content areas, and cache paths, but not the
-course's full cached content. `course CODE path` prints the absolute course cache folder.
-
-## Calendar events, To-Do, and upcoming items
-
-These live, read-only commands query the current user's Canvas activity without writing it to the
-course cache:
+Choose an available section shown by `course`:
 
 ```bash
-canvas calendar-events
-canvas calendar-events --start 2026-08-10 --end 2026-11-15
-canvas calendar-events --type assignment
-canvas todo
-canvas upcoming
+canvas course CG2028 announcements list # Read lecturer announcements
+canvas course CG2028 assignments list # Check assignments and deadlines
+canvas course CG2028 discussions list # Read discussion topics
+canvas course CG2028 files list # Find course files and downloaded copies
+canvas course CG2028 groups list # Check course groups and membership
+canvas course CG2028 modules list # Browse the course's content outline
+canvas course CG2028 pages list # Read published course pages
+canvas course CG2028 people list # View the course roster
+canvas course CG2028 quizzes list # Check available quiz information
+canvas course CG2028 syllabus list # Read the syllabus
 ```
 
-All three support `--format json|json-full|jsonl|plain`. Use `calendar-events` for the Canvas
-calendar; use the separate shared `sk4n calendar` command for NUS instructional-week and holiday
-mapping.
-
-## Course content
-
-The content command shape is:
-
-```text
-canvas course COURSE RESOURCE {list|path|ITEM_ID}
-```
-
-Supported resources are `home`, `announcements`, `assignments`, `discussions`, `files`, `groups`,
-`modules`, `pages`, `people`, `quizzes`, and `syllabus`; singular aliases work too. Omitting the
-last argument defaults to `list`. `home` does not accept a final selector: it resolves the course's
-configured default view to modules, pages, assignments, syllabus, or a cached activity feed. A
-default view remains queryable even when its matching navigation tab is hidden. When Home resolves
-to an empty module list, human output says that no modules have been defined. JSON and JSONL retain
-the stable Home object and `"items": []` so parsers do not need a special case.
+Use an item ID from a list to read its details, or `path` to locate a section's saved material:
 
 ```bash
-canvas course CG2028 announcements list
-canvas course CG2028 announcements 12345
-canvas course CG2028 assignments path
-canvas course 62224 assignments 118925
-canvas course CG2028 quizzes list
-canvas course CG2028 people list
-canvas course CG2028 groups list
-canvas course CG2028 groups 215659
+canvas course CG2028 assignments 118925 # Read one assignment
+canvas course CG2028 files path # Locate the saved file index
 ```
 
-`list` returns compact cached item records. An item ID returns its detailed record when a dedicated
-JSON artifact exists. HTML bodies, assignment JSON, quiz JSON, and downloaded-file fields include
-their absolute local paths. `path` returns the absolute collection JSON path. Every local path
-emitted by the CLI is absolute, although paths persisted inside cache JSON remain relative and
-portable. When every listed item shares one cache file, as with `people`, the human-readable table
-prints that file once above the table instead of repeating it in every row. People derive their
-displayed type from the nested Canvas enrollment role. Groups include the Canvas group set, member
-count, member names, whether the current user belongs to the group, and a visit link for the current
-user's groups.
+Unstarted quizzes and staff-only quiz content are skipped.
 
-All student, list, course, and course-content commands support:
+## Check upcoming work
 
 ```bash
---format json|json-full|jsonl|plain
---refresh
---no-refresh
+canvas upcoming # Show upcoming Canvas activity
+canvas todo # Show your Canvas To-Do items
+canvas calendar-events # Read your Canvas calendar
+sk4n calendar --date 2026-08-14 # Map a date to the NUS academic week
 ```
 
-The default contacts Canvas and performs the same incremental checks as the fetcher: cheap
-list/signature data is checked, unchanged artifacts are reused, and expensive bodies or downloads
-are fetched only when needed. `--refresh` forces the requested scope and is normally unnecessary.
-`--no-refresh` performs a strictly cache-only read. A course-content command syncs only that course
-and content area; it does not sync unrelated courses or tabs. These commands use only read-only
-Canvas HTTP operations, though refreshed results are written to the local cache. Cache mutations are
-serialized across CLI processes, and files are published through process-unique atomic temporary
-paths so concurrent reads never observe partial JSON, HTML, or downloads.
+Canvas's feeds may omit exams, class schedules, or deadlines mentioned only in announcements and
+attachments. Check those materials too. The shared `sk4n calendar` command needs no login.
 
-`--format json` contains useful fields; JSONL uses the same detail, one record per line. Compact
-output keeps IDs, roles, URLs, content paths, deadlines, access errors, current grades/quiz answers,
-and submission-attempt histories with timestamps, status, late flags, grades, and attachment links.
-History summaries omit repeated bodies and grading administration fields. It omits administrative
-settings, duplicate raw payloads, and cache fingerprints. HTML prose becomes text with link targets
-preserved; local content paths stay paths. Use `--format json-full` for full records, including
-configuration, complete submission-history records, and unfiltered quiz session payloads. Compact
-quiz output contains questions, choices, answers, feedback, and scores. Full quiz data also includes
-source session items/results, launch metadata, and rendering details that can duplicate those
-question fields. All JSON formats omit internal `_canvas*` cache metadata. Output formatting does
-not alter cached records. Large collections can still need filtering with `jq`.
-
-## Direct API requests
-
-`api` sends a direct request with the saved Canvas cookies and prints the returned JSON or text
-without field filtering. It does not accept `--format`.
+## Download multiple courses
 
 ```bash
-canvas api /api/v1/users/self/profile
-canvas api '/api/v1/courses?enrollment_state=active'
-canvas api /api/v1/courses/93662/tabs --param 'include[]=external'
-canvas api /api/example -X POST --data '{"key":"value"}'
-canvas api /api/example -H 'Accept:application/json'
+canvas sync --course CG2028 --course CS1010 # Save materials for the selected courses
 ```
 
-The direct `requests` transport is used first; the command does not launch a browser. If the cookies
-are invalid, run `canvas auth login`.
+Run `canvas sync` without course filters to save all accessible courses.
 
-## Low-level authenticated browser sessions
+## Saved copies and more options
 
-Use `playwright-cli` when an API request is not enough to inspect or extend the Canvas integration:
+Normal course reads check for updates and reuse unchanged downloads. Use `--no-refresh` for saved
+copies only; use `--refresh` to force another download when something appears incomplete.
 
-```bash
-canvas playwright-cli
-canvas playwright-cli --url 'https://canvas.nus.edu.sg/courses/12345'
-canvas playwright-cli --headed --session canvas-debug
-```
-
-The command checks the saved login, opens the normal interactive login flow if needed, starts a
-headless `@playwright/cli` session by default, injects the saved authenticated storage state, and
-leaves the session open. `--headed` shows the browser; `--headless` is the explicit form of the
-default. The default session ID is `canvas`, and the default URL is the Canvas root page.
-
-Continue with commands such as `playwright-cli -s=canvas snapshot` and close it when finished with
-`playwright-cli -s=canvas close`. The command fails without the separately installed
-`@playwright/cli` executable, if the browser cannot open, or if that session ID is already running.
-
-## Bulk sync
-
-Use `sync` to fetch multiple courses with selection, refresh, skip, debug, and login-only options:
-
-```bash
-canvas sync
-canvas sync --login-only
-canvas sync --course CG2028 --course 85096
-canvas sync --refresh-course
-canvas sync --refresh-people  # refreshes the People roster and groups
-canvas sync --refresh-pages --refresh-discussions
-canvas sync --refresh-assignments
-canvas sync --refresh-files
-canvas sync --refresh-content
-canvas sync --skip-files
-canvas sync --skip-assignments --skip-files
-```
-
-## Cache layout
-
-Within the configured Canvas data directory, course data is stored under `{term}/{course}`. Academic
-terms such as `2025/2026 Semester 2` normalize to `2526S2`; irregular terms such as `Non-Academic`
-retain a filesystem-safe name. The root contains `index.json` and the privacy-trimmed
-`student.json`. Course folders can contain:
-
-- `course.json` and `cover_image.*`
-- `home.json` when the course uses the activity-feed default view
-- `announcements/announcements.json` and announcement HTML
-- `discussions/discussions.json` and discussion HTML
-- `people.json`
-- `groups.json`
-- `pages/pages.json` and page HTML
-- `syllabus.json` and `syllabus.html`
-- `modules.json`
-- `assignments/assignments.json`, with per-assignment or per-quiz folders
-- `files/files.json` and downloaded Canvas files
-
-Announcement, discussion, page, syllabus, assignment, and quiz HTML is saved as local `.html` files.
-Files referenced by modules or HTML bodies are downloaded even when the Files tab itself is closed.
-File metadata includes a SHA-256 hash. An inaccessible same-course or unscoped file reference
-remains in every output format with its Canvas link and access error. An explicit embed belonging to
-a different Canvas course is ignored rather than fetched under the current course. Assignments can
-also include downloaded submitted files, description images, Classic Quiz review content, and New
-Quizzes result data when Canvas exposes them. Unstarted quizzes are not opened, and TA/staff
-enrollments skip quiz content reads to avoid elevated-access behavior.
-
-Incremental checks compare Canvas summaries and stable signatures. Pages and discussion views fetch
-details only for changed items; files compare metadata and retain verified downloads; assignments
-compare stable assignment, quiz, and self-submission fields; people and groups compare their fetched
-fingerprints and avoid rewriting unchanged caches. Syllabus bodies have no cheap update signal, so
-an existing syllabus remains lazy unless forced.
-
-## Python API
-
-Targeted fetching is also public as `CanvasFetcher`:
-
-```python
-from sk4n.canvas import CanvasFetcher
-
-fetcher = CanvasFetcher()
-student = fetcher.student()
-courses = fetcher.courses(semester="latest")
-course = fetcher.course("CS1010", semester="2425S1")
-announcements = fetcher.content("CG2028", "announcements", "list")
-```
-
-Each method accepts cache/refresh controls appropriate to its scope. `sync_canvas()` is also
-exported for bulk synchronization.
+Run `sk4n paths` to find your data. Put `--data-path PATH` before the subcommand to choose another
+folder. See `canvas --help` and, for example, `canvas course --help` for all options and structured
+output formats. Advanced API/browser procedures are in the
+[low-level guide](../skills/nus-canvas/references/low-level.md).

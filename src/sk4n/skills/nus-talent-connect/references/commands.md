@@ -4,17 +4,10 @@
 
 Fetch and persist NUS TalentConnect jobs from Kinobi.
 
-## Output formats
+Arguments/options follow their command; global options precede it. Positional arguments are listed
+in order. Unmarked arguments are optional; `-h/--help` is available everywhere.
 
-- Omit `--format` for concise human-readable tables or details.
-- Use `--format json` for one compact JSON document containing useful fields.
-- Use `--format jsonl` for the same compact detail, one record per line when the command offers it.
-- Use `--format json-full` for full records, including fields omitted by compact output. Some
-  compact endpoints offer only json.
-- Use `--format plain` for line-oriented `key: value` records suited to shell filtering when the
-  command offers it.
-- Compact formats include useful content and state; json-full includes full records and metadata.
-- Low-level api commands output response data without field filtering and do not accept --format.
+Low-level `api` output is unfiltered response data and has no `--format` option.
 
 ## Environment variables
 
@@ -29,102 +22,115 @@ Fetch and persist NUS TalentConnect jobs from Kinobi.
 
 ## Global options
 
-| Argument                      | Required | Repeatable | Default                                                  | Choices | Description                                                                                            |
-| ----------------------------- | -------- | ---------- | -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ |
-| `-h, --help`                  | no       | no         | `—`                                                      | —       | show this help message and exit                                                                        |
-| `--data-path DATA_PATH`       | no       | no         | `<user-data>/sk4n/talent-connect/talent_connect.sqlite3` | —       | SQLite file or containing directory. Default: `<user-data>/sk4n/talent-connect/talent_connect.sqlite3` |
-| `--api-base-url API_BASE_URL` | no       | no         | `https://nus-talentconnect.server.kinobi.asia`           | —       | Advanced public Kinobi API origin.                                                                     |
-| `--app-base-url APP_BASE_URL` | no       | no         | `https://nus-talentconnect.app.kinobi.asia`              | —       | Advanced authenticated TalentConnect application origin.                                               |
-| `--site-name SITE_NAME`       | no       | no         | `nus_talent_connect`                                     | —       | Advanced saved-session namespace.                                                                      |
-| `--timeout TIMEOUT`           | no       | no         | `30.0`                                                   | —       | HTTP timeout in seconds. Default: 30.                                                                  |
+| Argument                      | Details                                                                                                        |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `--data-path DATA_PATH`       | SQLite file or containing directory. Default: `<user-data>/sk4n/talent-connect/talent_connect.sqlite3`.        |
+| `--api-base-url API_BASE_URL` | Advanced public Kinobi API origin. Default: `https://nus-talentconnect.server.kinobi.asia`.                    |
+| `--app-base-url APP_BASE_URL` | Advanced authenticated TalentConnect application origin. Default: `https://nus-talentconnect.app.kinobi.asia`. |
+| `--site-name SITE_NAME`       | Advanced saved-session namespace. Default: `nus_talent_connect`.                                               |
+| `--timeout TIMEOUT`           | HTTP timeout in seconds. Default: `30.0`.                                                                      |
 
-Global options must appear before the command name.
+Exit codes: 0 success, 1 unauthenticated status, 2 validation, 3 authentication, 4 transport, 5
+remote HTTP/response failure.
 
-## Commands
+## Shared options
 
-- `talent-connect auth` — Manage the saved NUS login.
-- `talent-connect auth status` — Check the saved login.
-- `talent-connect auth login` — Open a browser for NUS login.
-- `talent-connect auth logout` — Delete the CLI's saved session without signing other browsers out
-  of NUS SSO.
-- `talent-connect api` — Send a low-level request through the authenticated Kinobi client.
-- `talent-connect playwright-cli` — Open an authenticated low-level @playwright/cli browser session.
-- `talent-connect fetch` — Search remote jobs, upsert matches, and print them.
-- `talent-connect job` — Show one job by ID or slug.
-- `talent-connect company` — Show a company and its current jobs.
-- `talent-connect search` — Search job or company IDs without dedicated detail requests.
+| Argument                          | Commands                            | Details                                                                                                                                                                                                              |
+| --------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-q, --query QUERY`               | `fetch`, `search`                   | Free-text job query.                                                                                                                                                                                                 |
+| `--company VALUE`                 | `fetch`, `search`                   | Kinobi company filter. Repeat for multiple values.                                                                                                                                                                   |
+| `--company-type VALUE`            | `fetch`, `search`                   | Kinobi company type filter. Repeat for multiple values.                                                                                                                                                              |
+| `--exclude-company-type VALUE`    | `fetch`, `search`                   | Kinobi exclude company type filter. Repeat for multiple values.                                                                                                                                                      |
+| `--employment-type VALUE`         | `fetch`, `search`                   | Kinobi employment type filter. Repeat for multiple values.                                                                                                                                                           |
+| `--exclude-employment-type VALUE` | `fetch`, `search`                   | Kinobi exclude employment type filter. Repeat for multiple values.                                                                                                                                                   |
+| `--work-arrangement VALUE`        | `fetch`, `search`                   | Kinobi work arrangement filter. Repeat for multiple values.                                                                                                                                                          |
+| `--country VALUE`                 | `fetch`, `search`                   | Kinobi country filter. Repeat for multiple values.                                                                                                                                                                   |
+| `--city VALUE`                    | `fetch`, `search`                   | Kinobi city filter. Repeat for multiple values.                                                                                                                                                                      |
+| `--industry VALUE`                | `fetch`, `search`                   | Kinobi industry filter. Repeat for multiple values.                                                                                                                                                                  |
+| `--role VALUE`                    | `fetch`, `search`                   | Kinobi role filter. Repeat for multiple values.                                                                                                                                                                      |
+| `--work-term VALUE`               | `fetch`, `search`                   | Kinobi work term filter. Repeat for multiple values.                                                                                                                                                                 |
+| `--related-work-term VALUE`       | `fetch`, `search`                   | Kinobi related work term filter. Repeat for multiple values.                                                                                                                                                         |
+| `--programme VALUE`               | `fetch`, `search`                   | Kinobi programme filter. Repeat for multiple values.                                                                                                                                                                 |
+| `--internship-programme VALUE`    | `fetch`, `search`                   | Kinobi internship programme filter. Repeat for multiple values.                                                                                                                                                      |
+| `--application-type VALUE`        | `fetch`, `search`                   | Kinobi application type filter. Repeat for multiple values.                                                                                                                                                          |
+| `--hard-skill VALUE`              | `fetch`, `search`                   | Kinobi hard skill filter. Repeat for multiple values.                                                                                                                                                                |
+| `--soft-skill VALUE`              | `fetch`, `search`                   | Kinobi soft skill filter. Repeat for multiple values.                                                                                                                                                                |
+| `--applied`                       | `fetch`, `search`                   | Show jobs the authenticated user has applied to.                                                                                                                                                                     |
+| `--not-applied`                   | `fetch`, `search`                   | Show jobs the authenticated user has not applied to.                                                                                                                                                                 |
+| `--drafted`                       | `fetch`, `search`                   | Show jobs with a saved application draft.                                                                                                                                                                            |
+| `--not-drafted`                   | `fetch`, `search`                   | Show jobs without a saved application draft.                                                                                                                                                                         |
+| `--saved`                         | `fetch`, `search`                   | Show jobs bookmarked by the authenticated user.                                                                                                                                                                      |
+| `--not-saved`                     | `fetch`, `search`                   | Show jobs not bookmarked by the authenticated user.                                                                                                                                                                  |
+| `--recommended`                   | `fetch`, `search`                   | Use Kinobi's authenticated recommended-jobs search.                                                                                                                                                                  |
+| `--not-recommended`               | `fetch`, `search`                   | Use the regular job search (the web UI's Recommended: No behavior).                                                                                                                                                  |
+| `--special-needs`                 | `fetch`, `search`                   | Show roles open to applications from students with special needs.                                                                                                                                                    |
+| `--not-special-needs`             | `fetch`, `search`                   | Show roles not marked open to students with special needs.                                                                                                                                                           |
+| `--qualified`                     | `fetch`, `search`                   | Show only jobs for which Kinobi marks the authenticated user qualified.                                                                                                                                              |
+| `--status STATUS`                 | `fetch`, `search`                   | Profile workflow status. Repeat to form a union. Choices: `withdrawn`, `interviewing`, `declined`, `offered`, `accepted-offer`, `job-history`, `declined-offer`.                                                     |
+| `--posted-after POSTED_AFTER`     | `fetch`, `search`                   | Show jobs published after this ISO-8601 date/datetime. Kinobi does not support this remotely, so the CLI filters all matches.                                                                                        |
+| `--include-expired-if-applied`    | `fetch`, `search`                   | Include expired jobs when the user has applied.                                                                                                                                                                      |
+| `--no-login`                      | `fetch`, `job`, `company`, `search` | Use Kinobi's public job endpoint and omit per-user job fields.                                                                                                                                                       |
+| `--format FORMAT`                 | `fetch`, `job`, `company`, `search` | Omit for human output. json/jsonl are compact (JSONL: one record per line); json-full includes full records; plain emits key: value lines. Cached data is unchanged. Choices: `json`, `json-full`, `jsonl`, `plain`. |
+
+## Shared constraints
+
+| Commands          | Rule                                                                                                                                                                                      |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fetch`, `search` | Mutually exclusive: `--applied` / `--not-applied`.                                                                                                                                        |
+| `fetch`, `search` | Mutually exclusive: `--drafted` / `--not-drafted`.                                                                                                                                        |
+| `fetch`, `search` | Mutually exclusive: `--saved` / `--not-saved`.                                                                                                                                            |
+| `fetch`, `search` | Mutually exclusive: `--recommended` / `--not-recommended`.                                                                                                                                |
+| `fetch`, `search` | Mutually exclusive: `--special-needs` / `--not-special-needs`.                                                                                                                            |
+| `fetch`, `search` | `--no-login` cannot be combined with applied, drafted, saved, `--recommended`, qualified, workflow-status, or `--include-expired-if-applied` filters; `--not-recommended` remains public. |
+| `job`, `company`  | Mutually exclusive: `--refresh` / `--no-refresh`.                                                                                                                                         |
 
 ## `talent-connect auth`
 
 Manage the saved NUS login.
 
-Usage: `talent-connect auth [-h] {status,login,logout} ...`
-
-| Argument     | Required | Repeatable | Default | Choices | Description                     |
-| ------------ | -------- | ---------- | ------- | ------- | ------------------------------- |
-| `-h, --help` | no       | no         | `—`     | —       | show this help message and exit |
+Required subcommand: `status`, `login`, `logout`.
 
 ## `talent-connect auth status`
 
 Check the saved login.
 
-Usage: `talent-connect auth status [-h] [--format {json}]`
-
-| Argument          | Required | Repeatable | Default | Choices | Description                                    |
-| ----------------- | -------- | ---------- | ------- | ------- | ---------------------------------------------- |
-| `-h, --help`      | no       | no         | `—`     | —       | show this help message and exit                |
-| `--format FORMAT` | no       | no         | `—`     | json    | Output machine-readable authentication status. |
+| Argument          | Details                                                         |
+| ----------------- | --------------------------------------------------------------- |
+| `--format FORMAT` | Output machine-readable authentication status. Choices: `json`. |
 
 ## `talent-connect auth login`
 
 Open a browser for NUS login.
 
-Usage: `talent-connect auth login [-h] [--refresh] [--wait-seconds WAIT_SECONDS]`
-
-| Argument                      | Required | Repeatable | Default | Choices | Description                                         |
-| ----------------------------- | -------- | ---------- | ------- | ------- | --------------------------------------------------- |
-| `-h, --help`                  | no       | no         | `—`     | —       | show this help message and exit                     |
-| `--refresh`                   | no       | no         | `false` | —       | Ignore the saved session and perform a fresh login. |
-| `--wait-seconds WAIT_SECONDS` | no       | no         | `300`   | —       | Login detection timeout. Default: 300.              |
+| Argument                      | Details                                             |
+| ----------------------------- | --------------------------------------------------- |
+| `--refresh`                   | Ignore the saved session and perform a fresh login. |
+| `--wait-seconds WAIT_SECONDS` | Login detection timeout. Default: `300`.            |
 
 ## `talent-connect auth logout`
 
 Delete the CLI's saved session without signing other browsers out of NUS SSO.
 
-Usage: `talent-connect auth logout [-h]`
-
-| Argument     | Required | Repeatable | Default | Choices | Description                     |
-| ------------ | -------- | ---------- | ------- | ------- | ------------------------------- |
-| `-h, --help` | no       | no         | `—`     | —       | show this help message and exit |
-
 ## `talent-connect api`
 
 Send a low-level request through the authenticated Kinobi client.
 
-Usage: `talent-connect api [-h] [-X METHOD] [-d JSON] path`
-
-| Argument              | Required | Repeatable | Default | Choices | Description                                                                 |
-| --------------------- | -------- | ---------- | ------- | ------- | --------------------------------------------------------------------------- |
-| `-h, --help`          | no       | no         | `—`     | —       | show this help message and exit                                             |
-| `PATH`                | yes      | no         | `—`     | —       | Kinobi API path beginning with /api/; include query parameters in the path. |
-| `-X, --method METHOD` | no       | no         | `GET`   | —       | HTTP method. Default: GET.                                                  |
-| `-d, --data JSON`     | no       | no         | `—`     | —       | JSON request body.                                                          |
+| Argument              | Details                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `PATH`                | Kinobi API path beginning with /api/; include query parameters in the path. Required. |
+| `-X, --method METHOD` | HTTP method. Default: `GET`.                                                          |
+| `-d, --data JSON`     | JSON request body.                                                                    |
 
 ## `talent-connect playwright-cli`
 
 Open an authenticated low-level @playwright/cli browser session.
 
-Usage: `talent-connect playwright-cli [-h] [--url URL] [--headless | --headed] [-s SESSION]`
-
-| Argument                | Required | Repeatable | Default          | Choices | Description                                          |
-| ----------------------- | -------- | ---------- | ---------------- | ------- | ---------------------------------------------------- |
-| `-h, --help`            | no       | no         | `—`              | —       | show this help message and exit                      |
-| `--url URL`             | no       | no         | `—`              | —       | Initial URL. Default: the TalentConnect root page.   |
-| `--headless`            | no       | no         | `false`          | —       | Run headless (default).                              |
-| `--headed`              | no       | no         | `false`          | —       | Show the browser window.                             |
-| `-s, --session SESSION` | no       | no         | `talent-connect` | —       | @playwright/cli session ID. Default: talent-connect. |
-
-Constraints:
+| Argument                | Details                                                |
+| ----------------------- | ------------------------------------------------------ |
+| `--url URL`             | Initial URL. Default: the TalentConnect root page.     |
+| `--headless`            | Run headless (default).                                |
+| `--headed`              | Show the browser window.                               |
+| `-s, --session SESSION` | @playwright/cli session ID. Default: `talent-connect`. |
 
 - Mutually exclusive: `--headless` / `--headed`.
 
@@ -132,160 +138,65 @@ Constraints:
 
 Search remote jobs, upsert matches, and print them.
 
-Usage:
-`talent-connect fetch [-h] [-q QUERY] [--company VALUE] [--company-type VALUE] [--exclude-company-type VALUE] [--employment-type VALUE] [--exclude-employment-type VALUE] [--work-arrangement VALUE] [--country VALUE] [--city VALUE] [--industry VALUE] [--role VALUE] [--work-term VALUE] [--related-work-term VALUE] [--programme VALUE] [--internship-programme VALUE] [--application-type VALUE] [--hard-skill VALUE] [--soft-skill VALUE] [--applied | --not-applied] [--drafted | --not-drafted] [--saved | --not-saved] [--recommended | --not-recommended] [--special-needs | --not-special-needs] [--qualified] [--status STATUS] [--posted-after POSTED_AFTER] [--include-expired-if-applied] [--no-login] [--cached] [--max-jobs MAX_JOBS] [--page-size PAGE_SIZE] [--no-details] [--refresh-details] [--updated-only] [--format {json,json-full,jsonl,plain}]`
+| Argument                | Details                                                                                                        |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `--cached`              | Search only the local job database; do not contact Kinobi.                                                     |
+| `--max-jobs MAX_JOBS`   | Maximum matching jobs. Default: no limit.                                                                      |
+| `--page-size PAGE_SIZE` | Remote page size. Default: `100`.                                                                              |
+| `--no-details`          | Skip dedicated job-detail requests; persist authenticated list records only.                                   |
+| `--refresh-details`     | Force detail requests for every matched job. By default details refresh only when Kinobi's updated_at changed. |
+| `--updated-only`        | Print only jobs that were new or changed in this remote fetch.                                                 |
 
-| Argument                          | Required | Repeatable | Default | Choices                                                                                 | Description                                                                                                                                       |
-| --------------------------------- | -------- | ---------- | ------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`                      | no       | no         | `—`     | —                                                                                       | show this help message and exit                                                                                                                   |
-| `-q, --query QUERY`               | no       | no         | `—`     | —                                                                                       | Free-text job query.                                                                                                                              |
-| `--company VALUE`                 | no       | yes        | `—`     | —                                                                                       | Kinobi company filter. Repeat for multiple values.                                                                                                |
-| `--company-type VALUE`            | no       | yes        | `—`     | —                                                                                       | Kinobi company type filter. Repeat for multiple values.                                                                                           |
-| `--exclude-company-type VALUE`    | no       | yes        | `—`     | —                                                                                       | Kinobi exclude company type filter. Repeat for multiple values.                                                                                   |
-| `--employment-type VALUE`         | no       | yes        | `—`     | —                                                                                       | Kinobi employment type filter. Repeat for multiple values.                                                                                        |
-| `--exclude-employment-type VALUE` | no       | yes        | `—`     | —                                                                                       | Kinobi exclude employment type filter. Repeat for multiple values.                                                                                |
-| `--work-arrangement VALUE`        | no       | yes        | `—`     | —                                                                                       | Kinobi work arrangement filter. Repeat for multiple values.                                                                                       |
-| `--country VALUE`                 | no       | yes        | `—`     | —                                                                                       | Kinobi country filter. Repeat for multiple values.                                                                                                |
-| `--city VALUE`                    | no       | yes        | `—`     | —                                                                                       | Kinobi city filter. Repeat for multiple values.                                                                                                   |
-| `--industry VALUE`                | no       | yes        | `—`     | —                                                                                       | Kinobi industry filter. Repeat for multiple values.                                                                                               |
-| `--role VALUE`                    | no       | yes        | `—`     | —                                                                                       | Kinobi role filter. Repeat for multiple values.                                                                                                   |
-| `--work-term VALUE`               | no       | yes        | `—`     | —                                                                                       | Kinobi work term filter. Repeat for multiple values.                                                                                              |
-| `--related-work-term VALUE`       | no       | yes        | `—`     | —                                                                                       | Kinobi related work term filter. Repeat for multiple values.                                                                                      |
-| `--programme VALUE`               | no       | yes        | `—`     | —                                                                                       | Kinobi programme filter. Repeat for multiple values.                                                                                              |
-| `--internship-programme VALUE`    | no       | yes        | `—`     | —                                                                                       | Kinobi internship programme filter. Repeat for multiple values.                                                                                   |
-| `--application-type VALUE`        | no       | yes        | `—`     | —                                                                                       | Kinobi application type filter. Repeat for multiple values.                                                                                       |
-| `--hard-skill VALUE`              | no       | yes        | `—`     | —                                                                                       | Kinobi hard skill filter. Repeat for multiple values.                                                                                             |
-| `--soft-skill VALUE`              | no       | yes        | `—`     | —                                                                                       | Kinobi soft skill filter. Repeat for multiple values.                                                                                             |
-| `--applied`                       | no       | no         | `—`     | —                                                                                       | Show jobs the authenticated user has applied to.                                                                                                  |
-| `--not-applied`                   | no       | no         | `—`     | —                                                                                       | Show jobs the authenticated user has not applied to.                                                                                              |
-| `--drafted`                       | no       | no         | `—`     | —                                                                                       | Show jobs with a saved application draft.                                                                                                         |
-| `--not-drafted`                   | no       | no         | `—`     | —                                                                                       | Show jobs without a saved application draft.                                                                                                      |
-| `--saved`                         | no       | no         | `—`     | —                                                                                       | Show jobs bookmarked by the authenticated user.                                                                                                   |
-| `--not-saved`                     | no       | no         | `—`     | —                                                                                       | Show jobs not bookmarked by the authenticated user.                                                                                               |
-| `--recommended`                   | no       | no         | `—`     | —                                                                                       | Use Kinobi's authenticated recommended-jobs search.                                                                                               |
-| `--not-recommended`               | no       | no         | `—`     | —                                                                                       | Use the regular job search (the web UI's Recommended: No behavior).                                                                               |
-| `--special-needs`                 | no       | no         | `—`     | —                                                                                       | Show roles open to applications from students with special needs.                                                                                 |
-| `--not-special-needs`             | no       | no         | `—`     | —                                                                                       | Show roles not marked open to students with special needs.                                                                                        |
-| `--qualified`                     | no       | no         | `false` | —                                                                                       | Show only jobs for which Kinobi marks the authenticated user qualified.                                                                           |
-| `--status STATUS`                 | no       | yes        | `—`     | withdrawn, interviewing, declined, offered, accepted-offer, job-history, declined-offer | Profile workflow status. Repeat to form a union. Values: withdrawn, interviewing, declined, offered, accepted-offer, job-history, declined-offer. |
-| `--posted-after POSTED_AFTER`     | no       | no         | `—`     | —                                                                                       | Show jobs published after this ISO-8601 date/datetime. Kinobi does not support this remotely, so the CLI filters all matches.                     |
-| `--include-expired-if-applied`    | no       | no         | `false` | —                                                                                       | Include expired jobs when the user has applied.                                                                                                   |
-| `--no-login`                      | no       | no         | `false` | —                                                                                       | Use Kinobi's public job endpoint and omit per-user job fields.                                                                                    |
-| `--cached`                        | no       | no         | `false` | —                                                                                       | Search only the local job database; do not contact Kinobi.                                                                                        |
-| `--max-jobs MAX_JOBS`             | no       | no         | `—`     | —                                                                                       | Maximum matching jobs. Default: no limit.                                                                                                         |
-| `--page-size PAGE_SIZE`           | no       | no         | `100`   | —                                                                                       | Remote page size. Default: 100.                                                                                                                   |
-| `--no-details`                    | no       | no         | `false` | —                                                                                       | Skip dedicated job-detail requests; persist authenticated list records only.                                                                      |
-| `--refresh-details`               | no       | no         | `false` | —                                                                                       | Force detail requests for every matched job. By default details refresh only when Kinobi's updated_at changed.                                    |
-| `--updated-only`                  | no       | no         | `false` | —                                                                                       | Print only jobs that were new or changed in this remote fetch.                                                                                    |
-| `--format FORMAT`                 | no       | no         | `—`     | json, json-full, jsonl, plain                                                           | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output.                              |
+Also accepts [shared options](#shared-options): `--query`, `--company`, `--company-type`,
+`--exclude-company-type`, `--employment-type`, `--exclude-employment-type`, `--work-arrangement`,
+`--country`, `--city`, `--industry`, `--role`, `--work-term`, `--related-work-term`, `--programme`,
+`--internship-programme`, `--application-type`, `--hard-skill`, `--soft-skill`, `--applied`,
+`--not-applied`, `--drafted`, `--not-drafted`, `--saved`, `--not-saved`, `--recommended`,
+`--not-recommended`, `--special-needs`, `--not-special-needs`, `--qualified`, `--status`,
+`--posted-after`, `--include-expired-if-applied`, `--no-login`, `--format`.
 
-Constraints:
-
-- Mutually exclusive: `--applied` / `--not-applied`.
-- Mutually exclusive: `--drafted` / `--not-drafted`.
-- Mutually exclusive: `--saved` / `--not-saved`.
-- Mutually exclusive: `--recommended` / `--not-recommended`.
-- Mutually exclusive: `--special-needs` / `--not-special-needs`.
 - `--updated-only` cannot be combined with `--cached`.
-- `--no-login` cannot be combined with applied, drafted, saved, `--recommended`, qualified,
-  workflow-status, or `--include-expired-if-applied` filters; `--not-recommended` remains public.
 
 ## `talent-connect job`
 
 Show one job by ID or slug.
 
-Usage:
-`talent-connect job [-h] [--refresh | --no-refresh] [--no-login] [--format {json,json-full,jsonl,plain}] job_id`
+| Argument       | Details                        |
+| -------------- | ------------------------------ |
+| `JOB_ID`       | Kinobi _id or slug. Required.  |
+| `--refresh`    | Refresh from Kinobi (default). |
+| `--no-refresh` | Use only the stored record.    |
 
-| Argument          | Required | Repeatable | Default | Choices                       | Description                                                                                                          |
-| ----------------- | -------- | ---------- | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`      | no       | no         | `—`     | —                             | show this help message and exit                                                                                      |
-| `JOB_ID`          | yes      | no         | `—`     | —                             | Kinobi _id or slug.                                                                                                  |
-| `--refresh`       | no       | no         | `true`  | —                             | Refresh from Kinobi (default).                                                                                       |
-| `--no-refresh`    | no       | no         | `true`  | —                             | Use only the stored record.                                                                                          |
-| `--no-login`      | no       | no         | `false` | —                             | Use Kinobi's public job endpoint and omit per-user job fields.                                                       |
-| `--format FORMAT` | no       | no         | `—`     | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
-
-Constraints:
-
-- Mutually exclusive: `--refresh` / `--no-refresh`.
+Also accepts [shared options](#shared-options): `--no-login`, `--format`.
 
 ## `talent-connect company`
 
 Show a company and its current jobs.
 
-Usage:
-`talent-connect company [-h] [--refresh | --no-refresh] [--no-login] [--max-jobs MAX_JOBS] [--format {json,json-full,jsonl,plain}] company_id`
+| Argument              | Details                                                 |
+| --------------------- | ------------------------------------------------------- |
+| `COMPANY_ID`          | Kinobi _id, company_id, or slug. Required.              |
+| `--refresh`           | Refresh the company and its jobs from Kinobi (default). |
+| `--no-refresh`        | Use only stored company and job records.                |
+| `--max-jobs MAX_JOBS` | Maximum company jobs. Default: no limit.                |
 
-| Argument              | Required | Repeatable | Default | Choices                       | Description                                                                                                          |
-| --------------------- | -------- | ---------- | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`          | no       | no         | `—`     | —                             | show this help message and exit                                                                                      |
-| `COMPANY_ID`          | yes      | no         | `—`     | —                             | Kinobi _id, company_id, or slug.                                                                                     |
-| `--refresh`           | no       | no         | `true`  | —                             | Refresh the company and its jobs from Kinobi (default).                                                              |
-| `--no-refresh`        | no       | no         | `true`  | —                             | Use only stored company and job records.                                                                             |
-| `--no-login`          | no       | no         | `false` | —                             | Use Kinobi's public job endpoint and omit per-user job fields.                                                       |
-| `--max-jobs MAX_JOBS` | no       | no         | `—`     | —                             | Maximum company jobs. Default: no limit.                                                                             |
-| `--format FORMAT`     | no       | no         | `—`     | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
-
-Constraints:
-
-- Mutually exclusive: `--refresh` / `--no-refresh`.
+Also accepts [shared options](#shared-options): `--no-login`, `--format`.
 
 ## `talent-connect search`
 
 Search job or company IDs without dedicated detail requests.
 
-Usage:
-`talent-connect search [-h] [-q QUERY] [--company VALUE] [--company-type VALUE] [--exclude-company-type VALUE] [--employment-type VALUE] [--exclude-employment-type VALUE] [--work-arrangement VALUE] [--country VALUE] [--city VALUE] [--industry VALUE] [--role VALUE] [--work-term VALUE] [--related-work-term VALUE] [--programme VALUE] [--internship-programme VALUE] [--application-type VALUE] [--hard-skill VALUE] [--soft-skill VALUE] [--applied | --not-applied] [--drafted | --not-drafted] [--saved | --not-saved] [--recommended | --not-recommended] [--special-needs | --not-special-needs] [--qualified] [--status STATUS] [--posted-after POSTED_AFTER] [--include-expired-if-applied] [--cached] [--no-login] [--max-results MAX_RESULTS] [--format {json,json-full,jsonl,plain}] {job,company} search_query`
+| Argument                    | Details                              |
+| --------------------------- | ------------------------------------ |
+| `RESOURCE`                  | Required. Choices: `job`, `company`. |
+| `SEARCH_QUERY`              | Required.                            |
+| `--cached`                  | Search only stored records.          |
+| `--max-results MAX_RESULTS` | Maximum results. Default: `20`.      |
 
-| Argument                          | Required | Repeatable | Default | Choices                                                                                 | Description                                                                                                                                       |
-| --------------------------------- | -------- | ---------- | ------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`                      | no       | no         | `—`     | —                                                                                       | show this help message and exit                                                                                                                   |
-| `RESOURCE`                        | yes      | no         | `—`     | job, company                                                                            | —                                                                                                                                                 |
-| `SEARCH_QUERY`                    | yes      | no         | `—`     | —                                                                                       | —                                                                                                                                                 |
-| `-q, --query QUERY`               | no       | no         | `—`     | —                                                                                       | Free-text job query.                                                                                                                              |
-| `--company VALUE`                 | no       | yes        | `—`     | —                                                                                       | Kinobi company filter. Repeat for multiple values.                                                                                                |
-| `--company-type VALUE`            | no       | yes        | `—`     | —                                                                                       | Kinobi company type filter. Repeat for multiple values.                                                                                           |
-| `--exclude-company-type VALUE`    | no       | yes        | `—`     | —                                                                                       | Kinobi exclude company type filter. Repeat for multiple values.                                                                                   |
-| `--employment-type VALUE`         | no       | yes        | `—`     | —                                                                                       | Kinobi employment type filter. Repeat for multiple values.                                                                                        |
-| `--exclude-employment-type VALUE` | no       | yes        | `—`     | —                                                                                       | Kinobi exclude employment type filter. Repeat for multiple values.                                                                                |
-| `--work-arrangement VALUE`        | no       | yes        | `—`     | —                                                                                       | Kinobi work arrangement filter. Repeat for multiple values.                                                                                       |
-| `--country VALUE`                 | no       | yes        | `—`     | —                                                                                       | Kinobi country filter. Repeat for multiple values.                                                                                                |
-| `--city VALUE`                    | no       | yes        | `—`     | —                                                                                       | Kinobi city filter. Repeat for multiple values.                                                                                                   |
-| `--industry VALUE`                | no       | yes        | `—`     | —                                                                                       | Kinobi industry filter. Repeat for multiple values.                                                                                               |
-| `--role VALUE`                    | no       | yes        | `—`     | —                                                                                       | Kinobi role filter. Repeat for multiple values.                                                                                                   |
-| `--work-term VALUE`               | no       | yes        | `—`     | —                                                                                       | Kinobi work term filter. Repeat for multiple values.                                                                                              |
-| `--related-work-term VALUE`       | no       | yes        | `—`     | —                                                                                       | Kinobi related work term filter. Repeat for multiple values.                                                                                      |
-| `--programme VALUE`               | no       | yes        | `—`     | —                                                                                       | Kinobi programme filter. Repeat for multiple values.                                                                                              |
-| `--internship-programme VALUE`    | no       | yes        | `—`     | —                                                                                       | Kinobi internship programme filter. Repeat for multiple values.                                                                                   |
-| `--application-type VALUE`        | no       | yes        | `—`     | —                                                                                       | Kinobi application type filter. Repeat for multiple values.                                                                                       |
-| `--hard-skill VALUE`              | no       | yes        | `—`     | —                                                                                       | Kinobi hard skill filter. Repeat for multiple values.                                                                                             |
-| `--soft-skill VALUE`              | no       | yes        | `—`     | —                                                                                       | Kinobi soft skill filter. Repeat for multiple values.                                                                                             |
-| `--applied`                       | no       | no         | `—`     | —                                                                                       | Show jobs the authenticated user has applied to.                                                                                                  |
-| `--not-applied`                   | no       | no         | `—`     | —                                                                                       | Show jobs the authenticated user has not applied to.                                                                                              |
-| `--drafted`                       | no       | no         | `—`     | —                                                                                       | Show jobs with a saved application draft.                                                                                                         |
-| `--not-drafted`                   | no       | no         | `—`     | —                                                                                       | Show jobs without a saved application draft.                                                                                                      |
-| `--saved`                         | no       | no         | `—`     | —                                                                                       | Show jobs bookmarked by the authenticated user.                                                                                                   |
-| `--not-saved`                     | no       | no         | `—`     | —                                                                                       | Show jobs not bookmarked by the authenticated user.                                                                                               |
-| `--recommended`                   | no       | no         | `—`     | —                                                                                       | Use Kinobi's authenticated recommended-jobs search.                                                                                               |
-| `--not-recommended`               | no       | no         | `—`     | —                                                                                       | Use the regular job search (the web UI's Recommended: No behavior).                                                                               |
-| `--special-needs`                 | no       | no         | `—`     | —                                                                                       | Show roles open to applications from students with special needs.                                                                                 |
-| `--not-special-needs`             | no       | no         | `—`     | —                                                                                       | Show roles not marked open to students with special needs.                                                                                        |
-| `--qualified`                     | no       | no         | `false` | —                                                                                       | Show only jobs for which Kinobi marks the authenticated user qualified.                                                                           |
-| `--status STATUS`                 | no       | yes        | `—`     | withdrawn, interviewing, declined, offered, accepted-offer, job-history, declined-offer | Profile workflow status. Repeat to form a union. Values: withdrawn, interviewing, declined, offered, accepted-offer, job-history, declined-offer. |
-| `--posted-after POSTED_AFTER`     | no       | no         | `—`     | —                                                                                       | Show jobs published after this ISO-8601 date/datetime. Kinobi does not support this remotely, so the CLI filters all matches.                     |
-| `--include-expired-if-applied`    | no       | no         | `false` | —                                                                                       | Include expired jobs when the user has applied.                                                                                                   |
-| `--cached`                        | no       | no         | `false` | —                                                                                       | Search only stored records.                                                                                                                       |
-| `--no-login`                      | no       | no         | `false` | —                                                                                       | Use Kinobi's public job endpoint and omit per-user job fields.                                                                                    |
-| `--max-results MAX_RESULTS`       | no       | no         | `20`    | —                                                                                       | Maximum results. Default: 20.                                                                                                                     |
-| `--format FORMAT`                 | no       | no         | `—`     | json, json-full, jsonl, plain                                                           | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output.                              |
-
-Constraints:
-
-- Mutually exclusive: `--applied` / `--not-applied`.
-- Mutually exclusive: `--drafted` / `--not-drafted`.
-- Mutually exclusive: `--saved` / `--not-saved`.
-- Mutually exclusive: `--recommended` / `--not-recommended`.
-- Mutually exclusive: `--special-needs` / `--not-special-needs`.
-- `--no-login` cannot be combined with applied, drafted, saved, `--recommended`, qualified,
-  workflow-status, or `--include-expired-if-applied` filters; `--not-recommended` remains public.
+Also accepts [shared options](#shared-options): `--query`, `--company`, `--company-type`,
+`--exclude-company-type`, `--employment-type`, `--exclude-employment-type`, `--work-arrangement`,
+`--country`, `--city`, `--industry`, `--role`, `--work-term`, `--related-work-term`, `--programme`,
+`--internship-programme`, `--application-type`, `--hard-skill`, `--soft-skill`, `--applied`,
+`--not-applied`, `--drafted`, `--not-drafted`, `--saved`, `--not-saved`, `--recommended`,
+`--not-recommended`, `--special-needs`, `--not-special-needs`, `--qualified`, `--status`,
+`--posted-after`, `--include-expired-if-applied`, `--no-login`, `--format`.

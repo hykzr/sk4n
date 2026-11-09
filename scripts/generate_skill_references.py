@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import sys
+from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -57,10 +58,6 @@ SERVICES = (
         constraints={
             "nus-outlook api": (
                 "Only /owa/service.svc with a supported read action, POST /searchservice/api/v2/query (mail), or POST /search/api/v2/query (people) is accepted; state-changing actions are rejected.",
-                "Use the named high-level commands for authorized mail changes. The low-level api command remains read-only; sending requires an existing draft via draft send.",
-            ),
-            "nus-outlook draft send": (
-                "Only an existing draft ID is accepted. A successful submission is reported even if the follow-up cache read fails. Check Sent Items before retrying any uncertain send.",
             ),
         },
     ),
@@ -226,6 +223,10 @@ def _argument_name(action: argparse.Action) -> str:
             metavar = action.metavar or action.dest.upper()
             if isinstance(metavar, tuple):
                 metavar = " ".join(metavar)
+            if action.nargs in ("*", "+"):
+                metavar = f"{metavar} [{metavar} ...]"
+            elif action.nargs == "?":
+                metavar = f"[{metavar}]"
             name = f"{name} {metavar}"
         return name
 
@@ -266,16 +267,25 @@ def _render_default(action: argparse.Action, service: Service) -> str:
     return str(action.default)
 
 
-def _render_choices(action: argparse.Action) -> str:
-    if action.choices is None:
-        return "—"
-    return ", ".join(map(str, action.choices))
-
-
 def _render_help(action: argparse.Action, service: Service) -> str:
     if action.help == argparse.SUPPRESS:
         return service.hidden_help.get(action.dest, "Advanced internal option.")
     help_text = action.help or "—"
+    if action.dest == "format" and action.choices and "json-full" in action.choices:
+        help_text = (
+            "Omit for human output. json/jsonl are compact (JSONL: one record per line); "
+            "json-full includes full records; plain emits key: value lines. Cached data is unchanged."
+        )
+    # Remove only redundant trailing labels, preserving any following instructions.
+    if action.default is not None:
+        defaults = {str(action.default)}
+        if isinstance(action.default, float):
+            defaults.add(f"{action.default:g}")
+        for default in defaults:
+            help_text = re.sub(rf"\s*Default:\s*{re.escape(default)}\.?$", "", help_text).strip()
+    if action.choices is not None:
+        choices = ", ".join(map(str, action.choices))
+        help_text = re.sub(rf"\s*Values:\s*{re.escape(choices)}\.?$", "", help_text).strip()
     if action.dest in service.default_labels:
         help_text = help_text.replace(str(action.default), service.default_labels[action.dest])
     help_text = " ".join(help_text.split())
@@ -293,36 +303,89 @@ def _render_help(action: argparse.Action, service: Service) -> str:
     )
 
 
-def _argument_table(parser: argparse.ArgumentParser, service: Service) -> list[str]:
-    action_rows = [
-        action for action in parser._actions if action.__class__.__name__ != "_SubParsersAction"
+def _arguments(parser: argparse.ArgumentParser) -> list[argparse.Action]:
+    return [
+        action
+        for action in parser._actions
+        if action.dest != "help" and action.__class__.__name__ != "_SubParsersAction"
     ]
-    if not action_rows:
-        return ["This command has no arguments."]
-    lines = [
-        "| Argument | Required | Repeatable | Default | Choices | Description |",
-        "| --- | --- | --- | --- | --- | --- |",
+
+
+def _argument_details(action: argparse.Action, service: Service) -> str:
+    help_text = _render_help(action, service) if action.help else ""
+    details = [help_text] if help_text else []
+    if _required(action):
+        details.append("Required.")
+    if _repeatable(action) and "repeat" not in help_text.lower():
+        details.append("Repeatable.")
+    default = _render_default(action, service)
+    if default != "—" and action.nargs != 0 and "Default:" not in help_text:
+        details.append(f"Default: `{default}`.")
+    if action.choices is not None:
+        details.append("Choices: " + ", ".join(f"`{choice}`" for choice in action.choices) + ".")
+    return " ".join(details) or "Optional."
+
+
+def _argument_key(action: argparse.Action, service: Service) -> tuple[str, ...]:
+    # Keep variants distinct when a flag's grammar, behavior, or default differs by command.
+    return (
+        _argument_name(action),
+        _argument_details(action, service),
+        action.__class__.__name__,
+        str(action.nargs),
+        repr(action.type),
+        repr(action.const),
+        _render_default(action, service),
+    )
+
+
+def _shared_arguments(
+    parsers: Sequence[argparse.ArgumentParser], service: Service
+) -> dict[tuple[str, ...], argparse.Action]:
+    actions = [
+        action for parser in parsers for action in _arguments(parser) if action.option_strings
     ]
-    for action in action_rows:
-        values = (
-            f"`{_argument_name(action)}`",
-            "yes" if _required(action) else "no",
-            "yes" if _repeatable(action) else "no",
-            f"`{_render_default(action, service)}`",
-            _render_choices(action),
-            _render_help(action, service),
-        )
-        lines.append("| " + " | ".join(_markdown(value) for value in values) + " |")
+    counts = Counter(_argument_key(action, service) for action in actions)
+    shared: dict[tuple[str, ...], argparse.Action] = {}
+    for action in actions:
+        key = _argument_key(action, service)
+        if counts[key] > 1:
+            shared[key] = action
+    return shared
+
+
+def _argument_table(
+    actions: Iterable[argparse.Action],
+    service: Service,
+    scopes: Mapping[tuple[str, ...], str] | None = None,
+    global_arguments: Sequence[argparse.Action] = (),
+) -> list[str]:
+    lines = (
+        ["| Argument | Commands | Details |", "| --- | --- | --- |"]
+        if scopes is not None
+        else ["| Argument | Details |", "| --- | --- |"]
+    )
+    global_definitions = {
+        (_argument_name(action), _argument_details(action, service)) for action in global_arguments
+    }
+    for action in actions:
+        scope = f" {scopes[_argument_key(action, service)]} |" if scopes is not None else ""
+        details = _argument_details(action, service)
+        if (_argument_name(action), details) in global_definitions:
+            details = "See [global options](#global-options); also accepted here."
+        lines.append(f"| `{_markdown(_argument_name(action))}` |{scope} {_markdown(details)} |")
     return lines
 
 
 def _mutual_exclusions(parser: argparse.ArgumentParser) -> list[str]:
     exclusions: list[str] = []
     for group in parser._mutually_exclusive_groups:
-        names = [_argument_name(action).split(" ", 1)[0] for action in group._group_actions]
+        names = [action.option_strings[-1] for action in group._group_actions]
         if len(names) > 1:
             exclusions.append(
-                "Mutually exclusive: " + " / ".join(f"`{name}`" for name in names) + "."
+                ("Choose exactly one: " if group.required else "Mutually exclusive: ")
+                + " / ".join(f"`{name}`" for name in names)
+                + "."
             )
     return exclusions
 
@@ -331,7 +394,12 @@ def _render_service(service: Service) -> str:
     parser = _build_parser(service)
     prog = parser.prog
     commands = list(_commands(parser, (prog,)))
-    structured_output_note = "- Compact formats include useful content and state; json-full includes full records and metadata."
+    shared = _shared_arguments([child for _path, child, _help in commands], service)
+    constraints_by_command = {
+        " ".join(path): [*_mutual_exclusions(child), *service.constraints.get(" ".join(path), ())]
+        for path, child, _help in commands
+    }
+    constraint_counts = Counter(rule for rules in constraints_by_command.values() for rule in rules)
     lines = [
         f"# `{prog}` command reference",
         "",
@@ -339,17 +407,11 @@ def _render_service(service: Service) -> str:
         "",
         parser.description or "",
         "",
-        "## Output formats",
-        "",
-        "- Omit `--format` for concise human-readable tables or details.",
-        "- Use `--format json` for one compact JSON document containing useful fields.",
-        "- Use `--format jsonl` for the same compact detail, one record per line when the command offers it.",
-        "- Use `--format json-full` for full records, including fields omitted by compact output. Some compact endpoints offer only json.",
-        "- Use `--format plain` for line-oriented `key: value` records suited to shell filtering when the command offers it.",
-        structured_output_note,
+        "Arguments/options follow their command; global options precede it. Positional arguments are listed in order. Unmarked arguments are optional; `-h/--help` is available everywhere.",
         *(
             [
-                "- Low-level api commands output response data without field filtering and do not accept --format."
+                "",
+                "Low-level `api` output is unfiltered response data and has no `--format` option.",
             ]
             if service.skill_name != "nusmods"
             else []
@@ -364,41 +426,64 @@ def _render_service(service: Service) -> str:
         f"| `{name}` | {_markdown(description)} |" for name, description in service.environment
     )
     lines.extend(["", "## Global options", ""])
-    lines.extend(_argument_table(parser, service))
-    lines.extend(
-        [
-            "",
-            "Global options must appear before the command name.",
-            "",
-            "## Commands",
-            "",
-        ]
-    )
-    lines.extend(
-        f"- `{' '.join(path)}` — {_markdown(help_text) or 'No description.'}"
-        for path, _child, help_text in commands
-    )
+    lines.extend(_argument_table(_arguments(parser), service))
+    if parser.epilog:
+        lines.extend(["", _markdown(parser.epilog)])
+    if shared:
+        lines.extend(["", "## Shared options", ""])
+        scopes = {
+            key: ", ".join(
+                f"`{' '.join(path[1:])}`"
+                for path, child, _help in commands
+                if any(_argument_key(action, service) == key for action in _arguments(child))
+            )
+            for key in shared
+        }
+        lines.extend(_argument_table(shared.values(), service, scopes, _arguments(parser)))
+    if any(count > 1 for count in constraint_counts.values()):
+        lines.extend(["", "## Shared constraints", "", "| Commands | Rule |", "| --- | --- |"])
+        for rule, count in constraint_counts.items():
+            if count > 1:
+                scopes = ", ".join(
+                    f"`{name.removeprefix(prog + ' ')}`"
+                    for name, rules in constraints_by_command.items()
+                    if rule in rules
+                )
+                lines.append(f"| {scopes} | {_markdown(rule)} |")
 
     for path, child, help_text in commands:
         command_name = " ".join(path)
         lines.extend(["", f"## `{command_name}`", ""])
         if help_text:
             lines.extend([_markdown(help_text), ""])
-        usage = " ".join(child.format_usage().removeprefix("usage: ").split())
-        lines.extend([f"Usage: `{usage}`", ""])
-        lines.extend(_argument_table(child, service))
+        subcommands = _subparser_action(child)
+        if subcommands is not None:
+            choices = ", ".join(
+                f"`{name}`"
+                for name in cast(Mapping[str, argparse.ArgumentParser], subcommands.choices)
+            )
+            label = "Required subcommand" if subcommands.required else "Optional subcommand"
+            lines.extend([f"{label}: {choices}.", ""])
+        local = [
+            action for action in _arguments(child) if _argument_key(action, service) not in shared
+        ]
+        if local:
+            lines.extend(_argument_table(local, service, global_arguments=_arguments(parser)))
+        common = [
+            action for action in _arguments(child) if _argument_key(action, service) in shared
+        ]
+        if common:
+            names = ", ".join(f"`{action.option_strings[-1]}`" for action in common)
+            lines.extend(["", f"Also accepts [shared options](#shared-options): {names}."])
         constraints = [
-            *_mutual_exclusions(child),
-            *service.constraints.get(command_name, ()),
+            rule for rule in constraints_by_command[command_name] if constraint_counts[rule] == 1
         ]
         if constraints:
-            lines.extend(["", "Constraints:", ""])
+            lines.append("")
             lines.extend(f"- {constraint}" for constraint in constraints)
         if child.epilog:
-            lines.extend(["", "Notes:", "", _markdown(child.epilog)])
-    # Python 3.14 argparse can color ``format_usage()`` based on the caller's
-    # terminal and PYTHON_COLORS setting. Generated Markdown must be identical
-    # in interactive terminals, redirected commands, and CI.
+            lines.extend(["", _markdown(child.epilog)])
+    # Parser descriptions/help can contain ANSI escapes supplied by the environment.
     return ANSI_ESCAPE_RE.sub("", "\n".join(lines)).rstrip() + "\n"
 
 

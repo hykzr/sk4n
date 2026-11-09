@@ -2,38 +2,19 @@
 
 ## Unreleased
 
-### Structured output
-
-- Make `--format json` compact across Canvas, TalentConnect, NUSMods, and Outlook; JSONL uses the
-  same detail level. Keep useful IDs, links, content, paths, dates, and user state while omitting
-  transport metadata, administrative settings, and duplicate payloads where applicable.
-- Add `--format json-full` for the previous JSON detail level without changing stored cache data.
-  Already compact results stay unchanged. Low-level API commands output unfiltered response data and
-  do not accept `--format`.
-
-### NUS Outlook (`nus-outlook`)
-
-- Add the `nus-outlook` CLI and installable `nus-outlook` agent skill for reading, caching, and
-  managing NUS Outlook mail.
-- Persist NUS SSO/MFA browser authentication (including IndexedDB and student `@u.nus.edu` / staff
-  `@nus.edu.sg` login hints) with silent token renewal.
-- Incrementally cache folder mappings and returned mail metadata, with on-demand full bodies and
-  attachments, single-request default lists/searches, folder-name/path and `--folder-id` selectors,
-  stable Outlook web deep links, and `--refresh` / `--no-refresh` modes.
-- Look up people's names, email addresses, and affiliation details in the NUS directory with
-  `nus-outlook people`.
-- Support authorized item-scoped mailbox management (`flag`, `unflag`, `mark-read`, `mark-unread`,
-  `move`) and draft workflows (`draft create`, `reply`, `edit`, `send`, `remove`) with repeatable
-  `--attach` file uploads and immediate cache reconciliation.
-- Capture write-blocked Outlook web screenshots of drafts and messages with `nus-outlook preview`,
-  caching revision-verified `preview.png` artifacts locally with optional `--output` export.
-- Provide read-only `nus-outlook api` endpoint access and authenticated `nus-outlook playwright-cli`
-  inspection sessions.
+- Make `--format json` and `jsonl` more compact across all four services. Use `json-full` for full
+  records; saved data is unchanged. Direct API output remains unfiltered.
+- Add NUS Outlook tools and an assistant skill: sign in with NUS SSO/MFA, read/search mail without
+  marking it read, download attachments, and look up NUS email addresses.
+- Remember Outlook sign-in and renew it automatically when Microsoft permits; keep local mail copies
+  for faster repeated reads and offline access.
+- Support Outlook flags, read/unread changes, message moves, and drafts with attachments. Preview
+  drafts before sending; sending requires an existing draft and user authorization.
+- Add Outlook screenshot previews, direct read-only API access, and signed-in browser inspection.
 
 ## [0.1.0]
 
-- Initial public release.
-- Provide Canvas, NUSMods, TalentConnect, and shared `sk4n` command-line tools.
-- Bundle agent skills for the supported NUS services. Provide cli commands to skill management
+- Initial release with Canvas, NUSMods, TalentConnect, and shared `sk4n` tools.
+- Include assistant skills and commands to install and manage them.
 
 [0.1.0]: https://github.com/hykzr/sk4n/releases/tag/v0.1.0

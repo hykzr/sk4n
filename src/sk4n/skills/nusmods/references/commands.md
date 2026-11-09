@@ -4,16 +4,8 @@
 
 Search public NUSMods course data and manage a local timetable.
 
-## Output formats
-
-- Omit `--format` for concise human-readable tables or details.
-- Use `--format json` for one compact JSON document containing useful fields.
-- Use `--format jsonl` for the same compact detail, one record per line when the command offers it.
-- Use `--format json-full` for full records, including fields omitted by compact output. Some
-  compact endpoints offer only json.
-- Use `--format plain` for line-oriented `key: value` records suited to shell filtering when the
-  command offers it.
-- Compact formats include useful content and state; json-full includes full records and metadata.
+Arguments/options follow their command; global options precede it. Positional arguments are listed
+in order. Unmarked arguments are optional; `-h/--help` is available everywhere.
 
 ## Environment variables
 
@@ -27,202 +19,132 @@ Search public NUSMods course data and manage a local timetable.
 
 ## Global options
 
-| Argument                      | Required | Repeatable | Default                         | Choices | Description                                                               |
-| ----------------------------- | -------- | ---------- | ------------------------------- | ------- | ------------------------------------------------------------------------- |
-| `-h, --help`                  | no       | no         | `—`                             | —       | show this help message and exit                                           |
-| `--data-path DATA_PATH`       | no       | no         | `<user-data>/sk4n/nusmods`      | —       | Schedule and API cache directory. Default: `<user-data>/sk4n/nusmods`     |
-| `--academic-year YYYY/YYYY`   | no       | no         | `current NUSMods academic year` | —       | Course-data academic year. Default: current NUSMods year.                 |
-| `--api-base-url API_BASE_URL` | no       | no         | `https://api.nusmods.com/v2`    | —       | Advanced public NUSMods API origin.                                       |
-| `--timeout TIMEOUT`           | no       | no         | `30.0`                          | —       | HTTP timeout in seconds. Default: 30.                                     |
-| `--cache-ttl SECONDS`         | no       | no         | `86400`                         | —       | API cache lifetime. Default: 86400 (one day).                             |
-| `--refresh`                   | no       | no         | `default`                       | —       | Bypass cached reads, fetch every required resource, and update its cache. |
-| `--no-refresh`                | no       | no         | `default`                       | —       | Use cached resources of any age and never make a network request.         |
+| Argument                      | Details                                                                    |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| `--data-path DATA_PATH`       | Schedule and API cache directory. Default: `<user-data>/sk4n/nusmods`.     |
+| `--academic-year YYYY/YYYY`   | Course-data academic year. Default: current NUSMods year.                  |
+| `--api-base-url API_BASE_URL` | Advanced public NUSMods API origin. Default: `https://api.nusmods.com/v2`. |
+| `--timeout TIMEOUT`           | HTTP timeout in seconds. Default: `30.0`.                                  |
+| `--cache-ttl SECONDS`         | API cache lifetime. Default: 86400 (one day).                              |
+| `--refresh`                   | Bypass cached reads, fetch every required resource, and update its cache.  |
+| `--no-refresh`                | Use cached resources of any age and never make a network request.          |
 
-Global options must appear before the command name.
+## Shared options
 
-## Commands
+| Argument          | Commands                                                                                                                | Details                                                                                                                                                                                                              |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--refresh`       | `search`, `course`, `schedule`, `schedule import`, `schedule add`, `schedule today`, `schedule edit`, `schedule status` | See [global options](#global-options); also accepted here.                                                                                                                                                           |
+| `--no-refresh`    | `search`, `course`, `schedule`, `schedule import`, `schedule add`, `schedule today`, `schedule edit`, `schedule status` | See [global options](#global-options); also accepted here.                                                                                                                                                           |
+| `--format FORMAT` | `search`, `course`, `schedule`, `schedule today`, `schedule edit`, `schedule status`                                    | Omit for human output. json/jsonl are compact (JSONL: one record per line); json-full includes full records; plain emits key: value lines. Cached data is unchanged. Choices: `json`, `json-full`, `jsonl`, `plain`. |
+| `--sem s1\|s2`    | `schedule`, `schedule export`, `schedule add`, `schedule edit`, `schedule delete`                                       | Semester. Default: the current NUSMods semester.                                                                                                                                                                     |
 
-- `nusmods search` — Search courses using the same facets as the NUSMods finder.
-- `nusmods course` — Show full course details and timetable slots.
-- `nusmods schedule` — Manage the locally stored timetable.
-- `nusmods schedule import` — Replace one semester with a NUSMods share URL.
-- `nusmods schedule export` — Print the current semester as a NUSMods share URL.
-- `nusmods schedule add` — Add a course to the timetable.
-- `nusmods schedule today` — Show lessons to attend today or on a supplied date.
-- `nusmods schedule edit` — Change a course's semester, role, visibility, or selected slots.
-- `nusmods schedule delete` — Delete a course from a semester.
-- `nusmods schedule status` — Show today's date, current semester, courses, and non-TA units.
+## Shared constraints
+
+| Commands                                                                                                                | Rule                                              |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `search`, `course`, `schedule`, `schedule import`, `schedule add`, `schedule today`, `schedule edit`, `schedule status` | Mutually exclusive: `--refresh` / `--no-refresh`. |
 
 ## `nusmods search`
 
 Search courses using the same facets as the NUSMods finder.
 
-Usage:
-`nusmods search [-h] [--sem SEM] [--no-exam] [--no-exam-clash SEM] [--level LEVEL] [--units N] [--min-units N] [--max-units N] [--faculty NAME] [--department NAME] [--grading BASIS] [--attribute KEY] [--limit LIMIT] [--refresh | --no-refresh] [--format {json,json-full,jsonl,plain}] query`
+| Argument              | Details                                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `QUERY`               | Text matched against code, title, description, and metadata. Required.                                                     |
+| `--sem SEM`           | Offered semester (s1, s2, st1, or st2). Repeat for OR.                                                                     |
+| `--no-exam`           | Only courses with no exam in any offered semester.                                                                         |
+| `--no-exam-clash SEM` | Exclude exams clashing with the stored timetable in SEM. Repeatable.                                                       |
+| `--level LEVEL`       | Course level, for example 1 or 1000. Repeat for OR.                                                                        |
+| `--units N`           | Exact unit value. Repeat for OR.                                                                                           |
+| `--min-units N`       | Optional.                                                                                                                  |
+| `--max-units N`       | Optional.                                                                                                                  |
+| `--faculty NAME`      | Faculty name (case-insensitive substring). Repeat for OR.                                                                  |
+| `--department NAME`   | Department name (case-insensitive substring). Repeat for OR.                                                               |
+| `--grading BASIS`     | Grading basis (case-insensitive substring). Repeat for OR.                                                                 |
+| `--attribute KEY`     | Course attribute. Repeatable. Choices: `year`, `su`, `grsu`, `ssgf`, `sfs`, `lab`, `ism`, `urop`, `fyp`, `mpes1`, `mpes2`. |
+| `--limit LIMIT`       | Maximum matches. Default: no limit.                                                                                        |
 
-| Argument              | Required | Repeatable | Default     | Choices                                                      | Description                                                                                                          |
-| --------------------- | -------- | ---------- | ----------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`          | no       | no         | `—`         | —                                                            | show this help message and exit                                                                                      |
-| `QUERY`               | yes      | no         | `—`         | —                                                            | Text matched against code, title, description, and metadata.                                                         |
-| `--sem SEM`           | no       | yes        | `—`         | —                                                            | Offered semester (s1, s2, st1, or st2). Repeat for OR.                                                               |
-| `--no-exam`           | no       | no         | `false`     | —                                                            | Only courses with no exam in any offered semester.                                                                   |
-| `--no-exam-clash SEM` | no       | yes        | `—`         | —                                                            | Exclude exams clashing with the stored timetable in SEM. Repeatable.                                                 |
-| `--level LEVEL`       | no       | yes        | `—`         | —                                                            | Course level, for example 1 or 1000. Repeat for OR.                                                                  |
-| `--units N`           | no       | yes        | `—`         | —                                                            | Exact unit value. Repeat for OR.                                                                                     |
-| `--min-units N`       | no       | no         | `—`         | —                                                            | —                                                                                                                    |
-| `--max-units N`       | no       | no         | `—`         | —                                                            | —                                                                                                                    |
-| `--faculty NAME`      | no       | yes        | `—`         | —                                                            | Faculty name (case-insensitive substring). Repeat for OR.                                                            |
-| `--department NAME`   | no       | yes        | `—`         | —                                                            | Department name (case-insensitive substring). Repeat for OR.                                                         |
-| `--grading BASIS`     | no       | yes        | `—`         | —                                                            | Grading basis (case-insensitive substring). Repeat for OR.                                                           |
-| `--attribute KEY`     | no       | yes        | `—`         | year, su, grsu, ssgf, sfs, lab, ism, urop, fyp, mpes1, mpes2 | Course attribute. Values: year, su, grsu, ssgf, sfs, lab, ism, urop, fyp, mpes1, mpes2.                              |
-| `--limit LIMIT`       | no       | no         | `—`         | —                                                            | Maximum matches. Default: no limit.                                                                                  |
-| `--refresh`           | no       | no         | `inherited` | —                                                            | Bypass cached reads, fetch every required resource, and update its cache.                                            |
-| `--no-refresh`        | no       | no         | `inherited` | —                                                            | Use cached resources of any age and never make a network request.                                                    |
-| `--format FORMAT`     | no       | no         | `—`         | json, json-full, jsonl, plain                                | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
-
-Constraints:
-
-- Mutually exclusive: `--refresh` / `--no-refresh`.
+Also accepts [shared options](#shared-options): `--refresh`, `--no-refresh`, `--format`.
 
 ## `nusmods course`
 
 Show full course details and timetable slots.
 
-Usage:
-`nusmods course [-h] [--sem SEM] [--comments] [--refresh | --no-refresh] [--format {json,json-full,jsonl,plain}] course_code`
+| Argument      | Details                                                            |
+| ------------- | ------------------------------------------------------------------ |
+| `COURSE_CODE` | Required.                                                          |
+| `--sem SEM`   | Show slots for one semester only. Default: every offered semester. |
+| `--comments`  | Include public NUSMods/Disqus course reviews.                      |
 
-| Argument          | Required | Repeatable | Default     | Choices                       | Description                                                                                                          |
-| ----------------- | -------- | ---------- | ----------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`      | no       | no         | `—`         | —                             | show this help message and exit                                                                                      |
-| `COURSE_CODE`     | yes      | no         | `—`         | —                             | —                                                                                                                    |
-| `--sem SEM`       | no       | no         | `—`         | —                             | Show slots for one semester only. Default: every offered semester.                                                   |
-| `--comments`      | no       | no         | `false`     | —                             | Include public NUSMods/Disqus course reviews.                                                                        |
-| `--refresh`       | no       | no         | `inherited` | —                             | Bypass cached reads, fetch every required resource, and update its cache.                                            |
-| `--no-refresh`    | no       | no         | `inherited` | —                             | Use cached resources of any age and never make a network request.                                                    |
-| `--format FORMAT` | no       | no         | `—`         | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
-
-Constraints:
-
-- Mutually exclusive: `--refresh` / `--no-refresh`.
+Also accepts [shared options](#shared-options): `--refresh`, `--no-refresh`, `--format`.
 
 ## `nusmods schedule`
 
 Manage the locally stored timetable.
 
-Usage:
-`nusmods schedule [-h] [--sem s1|s2] [--refresh | --no-refresh] [--format {json,json-full,jsonl,plain}] {import,export,add,today,edit,delete,status} ...`
+Optional subcommand: `import`, `export`, `add`, `today`, `edit`, `delete`, `status`.
 
-| Argument          | Required | Repeatable | Default     | Choices                       | Description                                                                                                          |
-| ----------------- | -------- | ---------- | ----------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`      | no       | no         | `—`         | —                             | show this help message and exit                                                                                      |
-| `--sem s1\|s2`    | no       | no         | `—`         | —                             | Semester. Default: the current NUSMods semester.                                                                     |
-| `--refresh`       | no       | no         | `inherited` | —                             | Bypass cached reads, fetch every required resource, and update its cache.                                            |
-| `--no-refresh`    | no       | no         | `inherited` | —                             | Use cached resources of any age and never make a network request.                                                    |
-| `--format FORMAT` | no       | no         | `—`         | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
-
-Constraints:
-
-- Mutually exclusive: `--refresh` / `--no-refresh`.
+Also accepts [shared options](#shared-options): `--sem`, `--refresh`, `--no-refresh`, `--format`.
 
 ## `nusmods schedule import`
 
 Replace one semester with a NUSMods share URL.
 
-Usage: `nusmods schedule import [-h] [--refresh | --no-refresh] url`
+| Argument | Details   |
+| -------- | --------- |
+| `URL`    | Required. |
 
-| Argument       | Required | Repeatable | Default     | Choices | Description                                                               |
-| -------------- | -------- | ---------- | ----------- | ------- | ------------------------------------------------------------------------- |
-| `-h, --help`   | no       | no         | `—`         | —       | show this help message and exit                                           |
-| `URL`          | yes      | no         | `—`         | —       | —                                                                         |
-| `--refresh`    | no       | no         | `inherited` | —       | Bypass cached reads, fetch every required resource, and update its cache. |
-| `--no-refresh` | no       | no         | `inherited` | —       | Use cached resources of any age and never make a network request.         |
-
-Constraints:
-
-- Mutually exclusive: `--refresh` / `--no-refresh`.
+Also accepts [shared options](#shared-options): `--refresh`, `--no-refresh`.
 
 ## `nusmods schedule export`
 
 Print the current semester as a NUSMods share URL.
 
-Usage: `nusmods schedule export [-h] [--sem s1|s2]`
-
-| Argument       | Required | Repeatable | Default | Choices | Description                                      |
-| -------------- | -------- | ---------- | ------- | ------- | ------------------------------------------------ |
-| `-h, --help`   | no       | no         | `—`     | —       | show this help message and exit                  |
-| `--sem s1\|s2` | no       | no         | `—`     | —       | Semester. Default: the current NUSMods semester. |
+Also accepts [shared options](#shared-options): `--sem`.
 
 ## `nusmods schedule add`
 
 Add a course to the timetable.
 
-Usage: `nusmods schedule add [-h] [--ta] [--sem s1|s2] [--refresh | --no-refresh] course_code`
+| Argument      | Details                                                        |
+| ------------- | -------------------------------------------------------------- |
+| `COURSE_CODE` | Required.                                                      |
+| `--ta`        | Add as a TA course with independently selectable lesson slots. |
 
-| Argument       | Required | Repeatable | Default     | Choices | Description                                                               |
-| -------------- | -------- | ---------- | ----------- | ------- | ------------------------------------------------------------------------- |
-| `-h, --help`   | no       | no         | `—`         | —       | show this help message and exit                                           |
-| `COURSE_CODE`  | yes      | no         | `—`         | —       | —                                                                         |
-| `--ta`         | no       | no         | `false`     | —       | Add as a TA course with independently selectable lesson slots.            |
-| `--sem s1\|s2` | no       | no         | `—`         | —       | Semester. Default: the current NUSMods semester.                          |
-| `--refresh`    | no       | no         | `inherited` | —       | Bypass cached reads, fetch every required resource, and update its cache. |
-| `--no-refresh` | no       | no         | `inherited` | —       | Use cached resources of any age and never make a network request.         |
-
-Constraints:
-
-- Mutually exclusive: `--refresh` / `--no-refresh`.
+Also accepts [shared options](#shared-options): `--sem`, `--refresh`, `--no-refresh`.
 
 ## `nusmods schedule today`
 
 Show lessons to attend today or on a supplied date.
 
-Usage:
-`nusmods schedule today [-h] [--date DATE] [--refresh | --no-refresh] [--format {json,json-full,jsonl,plain}]`
+| Argument      | Details                                |
+| ------------- | -------------------------------------- |
+| `--date DATE` | ISO date. Default: today in Singapore. |
 
-| Argument          | Required | Repeatable | Default     | Choices                       | Description                                                                                                          |
-| ----------------- | -------- | ---------- | ----------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`      | no       | no         | `—`         | —                             | show this help message and exit                                                                                      |
-| `--date DATE`     | no       | no         | `—`         | —                             | ISO date. Default: today in Singapore.                                                                               |
-| `--refresh`       | no       | no         | `inherited` | —                             | Bypass cached reads, fetch every required resource, and update its cache.                                            |
-| `--no-refresh`    | no       | no         | `inherited` | —                             | Use cached resources of any age and never make a network request.                                                    |
-| `--format FORMAT` | no       | no         | `—`         | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
-
-Constraints:
-
-- Mutually exclusive: `--refresh` / `--no-refresh`.
+Also accepts [shared options](#shared-options): `--refresh`, `--no-refresh`, `--format`.
 
 ## `nusmods schedule edit`
 
 Change a course's semester, role, visibility, or selected slots.
 
-Usage:
-`nusmods schedule edit [-h] [--sem s1|s2] [--move-to s1|s2] [--ta | --student] [--hidden | --visible] [--set TYPE=SELECTORS] [--add-slot TYPE=SELECTORS] [--remove-slot TYPE=SELECTORS] [--clear TYPE] [--list-slots] [--refresh | --no-refresh] [--format {json,json-full,jsonl,plain}] course_code`
+| Argument                       | Details                                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------ |
+| `COURSE_CODE`                  | Required.                                                                      |
+| `--move-to s1\|s2`             | Move the course to another semester and select its first available groups.     |
+| `--ta`                         | Enable TA mode; current class groups become individual slots.                  |
+| `--student`                    | Disable TA mode; keep the closest selected class group per type.               |
+| `--hidden`                     | Optional.                                                                      |
+| `--visible`                    | Optional.                                                                      |
+| `--set TYPE=SELECTORS`         | Replace a type's selection. Repeatable. Default: `[]`.                         |
+| `--add-slot TYPE=SELECTORS`    | Add TA slots without replacing existing selections. Repeatable. Default: `[]`. |
+| `--remove-slot TYPE=SELECTORS` | Remove TA slots. Repeatable. Default: `[]`.                                    |
+| `--clear TYPE`                 | Select zero slots for a TA lesson type. Repeatable. Default: `[]`.             |
+| `--list-slots`                 | Print every @N selector after applying changes.                                |
 
-| Argument                       | Required | Repeatable | Default     | Choices                       | Description                                                                                                          |
-| ------------------------------ | -------- | ---------- | ----------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`                   | no       | no         | `—`         | —                             | show this help message and exit                                                                                      |
-| `COURSE_CODE`                  | yes      | no         | `—`         | —                             | —                                                                                                                    |
-| `--sem s1\|s2`                 | no       | no         | `—`         | —                             | Semester. Default: the current NUSMods semester.                                                                     |
-| `--move-to s1\|s2`             | no       | no         | `—`         | —                             | Move the course to another semester and select its first available groups.                                           |
-| `--ta`                         | no       | no         | `—`         | —                             | Enable TA mode; current class groups become individual slots.                                                        |
-| `--student`                    | no       | no         | `—`         | —                             | Disable TA mode; keep the closest selected class group per type.                                                     |
-| `--hidden`                     | no       | no         | `—`         | —                             | —                                                                                                                    |
-| `--visible`                    | no       | no         | `—`         | —                             | —                                                                                                                    |
-| `--set TYPE=SELECTORS`         | no       | yes        | `[]`        | —                             | Replace a type's selection. Repeatable.                                                                              |
-| `--add-slot TYPE=SELECTORS`    | no       | yes        | `[]`        | —                             | Add TA slots without replacing existing selections. Repeatable.                                                      |
-| `--remove-slot TYPE=SELECTORS` | no       | yes        | `[]`        | —                             | Remove TA slots. Repeatable.                                                                                         |
-| `--clear TYPE`                 | no       | yes        | `[]`        | —                             | Select zero slots for a TA lesson type. Repeatable.                                                                  |
-| `--list-slots`                 | no       | no         | `false`     | —                             | Print every @N selector after applying changes.                                                                      |
-| `--refresh`                    | no       | no         | `inherited` | —                             | Bypass cached reads, fetch every required resource, and update its cache.                                            |
-| `--no-refresh`                 | no       | no         | `inherited` | —                             | Use cached resources of any age and never make a network request.                                                    |
-| `--format FORMAT`              | no       | no         | `—`         | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
-
-Constraints:
+Also accepts [shared options](#shared-options): `--sem`, `--refresh`, `--no-refresh`, `--format`.
 
 - Mutually exclusive: `--ta` / `--student`.
 - Mutually exclusive: `--hidden` / `--visible`.
-- Mutually exclusive: `--refresh` / `--no-refresh`.
-
-Notes:
 
 Selectors use TYPE=value. Examples: --set TUT=03; --ta --set LAB=@1,@3; --set LEC=all; --set
 TUT=none. Run edit with no mutations (or --list-slots) to see @N selectors.
@@ -231,28 +153,14 @@ TUT=none. Run edit with no mutations (or --list-slots) to see @N selectors.
 
 Delete a course from a semester.
 
-Usage: `nusmods schedule delete [-h] [--sem s1|s2] course_code`
+| Argument      | Details   |
+| ------------- | --------- |
+| `COURSE_CODE` | Required. |
 
-| Argument       | Required | Repeatable | Default | Choices | Description                                      |
-| -------------- | -------- | ---------- | ------- | ------- | ------------------------------------------------ |
-| `-h, --help`   | no       | no         | `—`     | —       | show this help message and exit                  |
-| `COURSE_CODE`  | yes      | no         | `—`     | —       | —                                                |
-| `--sem s1\|s2` | no       | no         | `—`     | —       | Semester. Default: the current NUSMods semester. |
+Also accepts [shared options](#shared-options): `--sem`.
 
 ## `nusmods schedule status`
 
 Show today's date, current semester, courses, and non-TA units.
 
-Usage:
-`nusmods schedule status [-h] [--refresh | --no-refresh] [--format {json,json-full,jsonl,plain}]`
-
-| Argument          | Required | Repeatable | Default     | Choices                       | Description                                                                                                          |
-| ----------------- | -------- | ---------- | ----------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`      | no       | no         | `—`         | —                             | show this help message and exit                                                                                      |
-| `--refresh`       | no       | no         | `inherited` | —                             | Bypass cached reads, fetch every required resource, and update its cache.                                            |
-| `--no-refresh`    | no       | no         | `inherited` | —                             | Use cached resources of any age and never make a network request.                                                    |
-| `--format FORMAT` | no       | no         | `—`         | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
-
-Constraints:
-
-- Mutually exclusive: `--refresh` / `--no-refresh`.
+Also accepts [shared options](#shared-options): `--refresh`, `--no-refresh`, `--format`.

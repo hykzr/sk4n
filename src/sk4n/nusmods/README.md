@@ -1,186 +1,52 @@
-# NUSMods CLI
+# NUSMods
 
-Search NUSMods' public course API and manage a local timetable that imports and exports native
-NUSMods share URLs. No NUS login is required.
+Find courses, read reviews, and keep a local timetable that you can share through NUSMods. No NUS
+login is needed. Timetable edits do not register for or drop official NUS courses.
 
-```bash
-nusmods --help
-```
-
-The default schedule and one-day API/review cache are stored in the `nusmods/` directory below the
-platform-specific SkillKit for NUS user-data root. Use `--data-path PATH` for a command-specific
-override, `SK4N_HOME` to relocate all persistent application data, or `--cache-ttl SECONDS` to
-change cache expiry. The active academic year is inferred the same way as the timetable site (the
-upcoming year becomes active in July); override it with `--academic-year 2025/2026`.
-
-Cache behavior can be selected globally or after commands that read remote data:
+## Explore courses
 
 ```bash
-# Ignore cached reads, fetch now, and replace the affected cache entries
-nusmods course CG2028 --comments --refresh
-
-# Accept cached entries of any age and never contact NUSMods or Disqus
-nusmods search security --no-refresh
-nusmods schedule today --no-refresh
+nusmods search circuits --sem s1 --level 2000 --min-units 4 # Find courses matching your interests
+nusmods course CG2028 --comments # Read course details, lesson slots, and public reviews
 ```
 
-With neither flag, fresh entries are used for `--cache-ttl` seconds. Expired entries are refreshed,
-with stale entries retained as an offline fallback if the request fails. `--no-refresh` returns a
-clear cache-miss error when a required resource has never been cached.
+Course details include prerequisites, workload, and exams. Reviews come from public Disqus comments;
+large threads may be incomplete. Repeating a search filter includes any of its values; different
+filter categories combine. `--no-exam-clash s1` compares exams with your saved timetable.
 
-## Search courses
+The academic year switches to the upcoming year in July. To choose another year, put
+`--academic-year 2025/2026` before the subcommand.
+
+## Keep a timetable
 
 ```bash
-nusmods search "machine learning"
-nusmods search circuits --sem s1 --level 2000 --min-units 4
-nusmods search programming --faculty Computing --department Computer
-nusmods search design --grading graded --attribute su
-nusmods search data --no-exam
-nusmods search algorithms --no-exam-clash s1
-nusmods search security --format json
+nusmods schedule import 'https://nusmods.com/timetable/sem-1/share?...' # Replace one semester from a share link
+nusmods schedule --sem s1 # Show your saved timetable
+nusmods schedule add CG2028 --sem s1 # Add a course with its first available class groups
+nusmods schedule edit CG2028 --sem s1 --set LAB=02 --set TUT=01 # Choose class groups
+nusmods schedule delete CG2028 --sem s1 # Remove a course from the local timetable
+nusmods schedule export --sem s1 # Get a portable NUSMods share link
+nusmods schedule today # Show today's lessons that have not ended
+nusmods schedule status # Show the date, semester, courses, and non-TA units
 ```
 
-The filters cover the NUSMods course finder's Web UI facets:
+Replace the example URL with your NUSMods share link. Import replaces that semester's local
+timetable. Run `schedule edit COURSE --sem s1` without changes to see available choices before
+selecting your own. Today's view uses the NUS academic calendar and public holidays; add
+`--date YYYY-MM-DD` to inspect another day.
 
-- offered semester (`--sem`, repeatable);
-- no exam and no clash with a stored semester;
-- course level;
-- exact, minimum, and maximum units;
-- faculty, department, and grading basis;
-- all NUSMods attribute flags (`year`, `su`, `grsu`, `ssgf`, `sfs`, `lab`, `ism`, `urop`, `fyp`,
-  `mpes1`, and `mpes2`).
+For TA timetables, add `--ta` when adding or editing a course. TA mode allows individual lessons:
+for example, `schedule edit CG2028 --ta --set LAB=@1,@3`. Use selectors printed by the edit view;
+`all`, `none`, `--add-slot`, and `--remove-slot` support broader changes. Edit also supports moving
+between semesters (`--move-to s2`), switching back to student mode (`--student`), and hiding/showing
+a course (`--hidden`/`--visible`).
 
-Repeated semester, level, unit, faculty, department, grading, and attribute filters are OR
-conditions, matching the Web UI. Different filter categories combine with AND. Faculty, department,
-and grading values are case-insensitive substrings, so the exact dropdown label is not required.
+## Saved data and more options
 
-## Course details and reviews
+Course data is normally cached for one day. Expired data is refreshed, with older saved data as a
+fallback if the network fails. Use `--refresh` to force an update or `--no-refresh` for saved data
+only; missing saved data produces an error.
 
-```bash
-nusmods course CG2028
-nusmods course CG2028 --sem s1
-nusmods course CG2028 --comments
-nusmods course CG2028 --comments --format json
-```
-
-Course output includes requisites, workload, grading, exam data, and every
-lecture/tutorial/lab/other timetable slot, including class number, venue, weeks, and the API's class
-`size` when supplied. `--comments` reads the public reviews payload embedded by NUSMods' Disqus
-thread; no Disqus login is used. The normalized review payload is cached with the course/API data
-and obeys `--refresh`, `--no-refresh`, and `--cache-ttl`. If Disqus paginates a very large thread,
-JSON output marks `hasMore: true`.
-
-`workload` describes estimated hours per week, usually as five numbers in this order: lectures,
-tutorials, laboratory, projects/assignments, and preparation. For example, `[2, 1, 0, 3, 4]` means
-10 hours per week in total. Some courses supply a text description instead. See the
-[NUSMods API documentation](https://api.nusmods.com/v2/).
-
-## Timetable management
-
-```bash
-# Import/export the exact share-link representation
-nusmods schedule import 'https://nusmods.com/timetable/sem-1/share?...'
-nusmods schedule export --sem s1
-
-# Add, view, and remove
-nusmods schedule add CG2028
-nusmods schedule add EG2401A --ta --sem s1
-nusmods schedule --sem s1
-nusmods schedule delete CG2028 --sem s1
-
-# Daily and summary views
-nusmods schedule today
-nusmods schedule today --date 2026-08-11
-nusmods schedule status
-```
-
-`schedule add` selects the first available class group for each lesson type. `--ta` expands those
-groups into individual lessons, matching NUSMods' TA timetable representation. Untimetabled courses
-remain in the schedule with no slots.
-
-Today's view follows NUSMods' academic-calendar start dates and public-holiday list. On the actual
-current date it displays only lessons that have not ended, as NUSMods' Today page does. A supplied
-non-current date displays the whole day.
-
-## Editing slots, role, and semester
-
-Run edit without mutations to list stable `TYPE@N` selectors and current selections:
-
-```bash
-nusmods schedule edit CG2028 --sem s1
-```
-
-Student courses select one class group for every lesson type:
-
-```bash
-nusmods schedule edit CG2028 --set LAB=02 --set TUT=01
-```
-
-TA courses can select zero through all individual lessons for each type:
-
-```bash
-# Convert the current student groups to TA slots
-nusmods schedule edit CG2028 --ta
-
-# Replace, add, remove, select all, or select none
-nusmods schedule edit CG2028 --set LAB=@1,@3
-nusmods schedule edit CG2028 --add-slot LEC=@2
-nusmods schedule edit CG2028 --remove-slot LEC=@1
-nusmods schedule edit CG2028 --set TUT=all
-nusmods schedule edit CG2028 --set LAB=none
-# Equivalent zero-selection spelling
-nusmods schedule edit CG2028 --clear LAB
-```
-
-A class number can be used instead of `@N`; in TA mode it expands to every individual meeting in
-that class group. Full NUSMods lesson IDs are also accepted for lossless automation.
-
-```bash
-nusmods schedule edit CG2028 --student
-nusmods schedule edit CG2028 --move-to s2
-nusmods schedule edit CG2028 --hidden
-nusmods schedule edit CG2028 --visible --list-slots
-```
-
-Converting TA to student mode chooses the class group containing the most currently selected TA
-lessons, which is NUSMods' own conversion rule. Moving semesters keeps the student/TA role and
-initializes valid groups from the destination semester.
-
-## Stored shape
-
-`data/nusmods/schedule.json` uses a small, readable schema:
-
-```json
-{
-  "schemaVersion": 1,
-  "academicYear": "2026/2027",
-  "semesters": {
-    "1": {
-      "courses": {
-        "CG2028": {
-          "isTa": false,
-          "hidden": false,
-          "selections": {
-            "Laboratory": ["02"],
-            "Lecture": ["01"],
-            "Tutorial": ["01"]
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-Student selections are class numbers. TA selections are NUSMods' serialized full lesson IDs, so
-multiple meetings with the same class number can still be selected independently and exported
-without loss.
-
-All read commands support `--format json`, `jsonl`, and `json-full`. JSON and JSONL use the same
-compact detail. Search returns course identity, units, faculty/department, grading, attributes, and
-semester/exam summaries; use `course CODE` for descriptions and prerequisites. Course details keep
-every timetable slot and requested review, omitting obsolete COVID zones and machine rules already
-represented by prerequisite/preclusion prose. Schedule results use the same detail in all JSON
-formats. `json-full` returns full course records, including search descriptions/workload. Output
-formatting does not alter cached records. Structured output writes only data to stdout, while errors
-go to stderr with exit code 2.
+Run `sk4n paths` to find your timetable and cached data. Put `--data-path PATH` before the
+subcommand to use another folder. See `nusmods --help` and `nusmods schedule edit --help` for all
+filters, slot options, and output formats.

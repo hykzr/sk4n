@@ -4,17 +4,10 @@
 
 Query and incrementally cache NUS Canvas data.
 
-## Output formats
+Arguments/options follow their command; global options precede it. Positional arguments are listed
+in order. Unmarked arguments are optional; `-h/--help` is available everywhere.
 
-- Omit `--format` for concise human-readable tables or details.
-- Use `--format json` for one compact JSON document containing useful fields.
-- Use `--format jsonl` for the same compact detail, one record per line when the command offers it.
-- Use `--format json-full` for full records, including fields omitted by compact output. Some
-  compact endpoints offer only json.
-- Use `--format plain` for line-oriented `key: value` records suited to shell filtering when the
-  command offers it.
-- Compact formats include useful content and state; json-full includes full records and metadata.
-- Low-level api commands output response data without field filtering and do not accept --format.
+Low-level `api` output is unfiltered response data and has no `--format` option.
 
 ## Environment variables
 
@@ -29,203 +22,137 @@ Query and incrementally cache NUS Canvas data.
 
 ## Global options
 
-| Argument                                  | Required | Repeatable | Default                     | Choices | Description                                           |
-| ----------------------------------------- | -------- | ---------- | --------------------------- | ------- | ----------------------------------------------------- |
-| `-h, --help`                              | no       | no         | `—`                         | —       | show this help message and exit                       |
-| `--base-url BASE_URL`                     | no       | no         | `https://canvas.nus.edu.sg` | —       | Canvas base URL. Default: `https://canvas.nus.edu.sg` |
-| `--site-name SITE_NAME`                   | no       | no         | `nus_canvas`                | —       | Advanced saved-session namespace.                     |
-| `--data-path DATA_PATH`                   | no       | no         | `<user-data>/sk4n/canvas`   | —       | Cache folder. Default: `<user-data>/sk4n/canvas`      |
-| `--timeout TIMEOUT`                       | no       | no         | `30`                        | —       | HTTP timeout in seconds. Default: 30.                 |
-| `--login-wait-seconds LOGIN_WAIT_SECONDS` | no       | no         | `300`                       | —       | Advanced default login-detection timeout in seconds.  |
+| Argument                                  | Details                                                              |
+| ----------------------------------------- | -------------------------------------------------------------------- |
+| `--base-url BASE_URL`                     | Canvas base URL. Default: `https://canvas.nus.edu.sg`.               |
+| `--site-name SITE_NAME`                   | Advanced saved-session namespace. Default: `nus_canvas`.             |
+| `--data-path DATA_PATH`                   | Cache folder. Default: `<user-data>/sk4n/canvas`.                    |
+| `--timeout TIMEOUT`                       | HTTP timeout in seconds. Default: `30`.                              |
+| `--login-wait-seconds LOGIN_WAIT_SECONDS` | Advanced default login-detection timeout in seconds. Default: `300`. |
 
-Global options must appear before the command name.
+Exit codes: 0 success, 1 unauthenticated status, 2 validation, 3 authentication, 4 transport, 5
+remote HTTP/response failure.
 
-## Commands
+## Shared options
 
-- `canvas auth` — Manage the saved NUS Canvas login.
-- `canvas auth status` — Check the saved login.
-- `canvas auth login` — Open a browser for NUS login.
-- `canvas auth logout` — Delete the CLI's saved session without signing other browsers out of NUS
-  SSO.
-- `canvas sync` — Synchronize multiple Canvas courses.
-- `canvas student` — Show the current Canvas student.
-- `canvas list` — List Canvas courses, including retired courses retained in the cache.
-- `canvas calendar-events` — List the current user's Canvas calendar events.
-- `canvas todo` — List the current user's Canvas To-Do items.
-- `canvas upcoming` — List the current user's upcoming Canvas events.
-- `canvas course` — Show a course or one cached content area.
-- `canvas api` — Send a direct low-level request with the saved Canvas session.
-- `canvas playwright-cli` — Open an authenticated low-level @playwright/cli browser session.
+| Argument          | Commands                                                                          | Details                                                                                                                                                                                                              |
+| ----------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--format FORMAT` | `auth status`, `student`, `list`, `calendar-events`, `todo`, `upcoming`, `course` | Omit for human output. json/jsonl are compact (JSONL: one record per line); json-full includes full records; plain emits key: value lines. Cached data is unchanged. Choices: `json`, `json-full`, `jsonl`, `plain`. |
+| `--refresh`       | `student`, `list`, `course`                                                       | Force refresh the requested remote data and local artifacts.                                                                                                                                                         |
+| `--no-refresh`    | `student`, `list`, `course`                                                       | Read only from the local cache.                                                                                                                                                                                      |
+
+## Shared constraints
+
+| Commands                    | Rule                                              |
+| --------------------------- | ------------------------------------------------- |
+| `student`, `list`, `course` | Mutually exclusive: `--refresh` / `--no-refresh`. |
 
 ## `canvas auth`
 
 Manage the saved NUS Canvas login.
 
-Usage: `canvas auth [-h] {status,login,logout} ...`
-
-| Argument     | Required | Repeatable | Default | Choices | Description                     |
-| ------------ | -------- | ---------- | ------- | ------- | ------------------------------- |
-| `-h, --help` | no       | no         | `—`     | —       | show this help message and exit |
+Required subcommand: `status`, `login`, `logout`.
 
 ## `canvas auth status`
 
 Check the saved login.
 
-Usage: `canvas auth status [-h] [--format {json,json-full,jsonl,plain}]`
-
-| Argument          | Required | Repeatable | Default | Choices                       | Description                                                                                                          |
-| ----------------- | -------- | ---------- | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`      | no       | no         | `—`     | —                             | show this help message and exit                                                                                      |
-| `--format FORMAT` | no       | no         | `—`     | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
+Also accepts [shared options](#shared-options): `--format`.
 
 ## `canvas auth login`
 
 Open a browser for NUS login.
 
-Usage: `canvas auth login [-h] [--refresh] [--wait-seconds WAIT_SECONDS]`
-
-| Argument                      | Required | Repeatable | Default | Choices | Description                                         |
-| ----------------------------- | -------- | ---------- | ------- | ------- | --------------------------------------------------- |
-| `-h, --help`                  | no       | no         | `—`     | —       | show this help message and exit                     |
-| `--refresh`                   | no       | no         | `false` | —       | Ignore the saved session and perform a fresh login. |
-| `--wait-seconds WAIT_SECONDS` | no       | no         | `—`     | —       | Login detection timeout. Default: 300.              |
+| Argument                      | Details                                             |
+| ----------------------------- | --------------------------------------------------- |
+| `--refresh`                   | Ignore the saved session and perform a fresh login. |
+| `--wait-seconds WAIT_SECONDS` | Login detection timeout. Default: 300.              |
 
 ## `canvas auth logout`
 
 Delete the CLI's saved session without signing other browsers out of NUS SSO.
 
-Usage: `canvas auth logout [-h]`
-
-| Argument     | Required | Repeatable | Default | Choices | Description                     |
-| ------------ | -------- | ---------- | ------- | ------- | ------------------------------- |
-| `-h, --help` | no       | no         | `—`     | —       | show this help message and exit |
-
 ## `canvas sync`
 
 Synchronize multiple Canvas courses.
 
-Usage:
-`canvas sync [-h] [--max-courses MAX_COURSES] [--course COURSE [COURSE ...]] [--refresh-course] [--refresh-people] [--refresh-content] [--refresh-announcements] [--refresh-discussions] [--refresh-pages] [--refresh-syllabus] [--refresh-modules] [--refresh-assignments] [--refresh-files] [--skip-announcements] [--skip-discussions] [--skip-people] [--skip-pages] [--skip-syllabus] [--skip-modules] [--skip-assignments] [--skip-files] [--login-only]`
-
-| Argument                    | Required | Repeatable | Default | Choices | Description                                                            |
-| --------------------------- | -------- | ---------- | ------- | ------- | ---------------------------------------------------------------------- |
-| `-h, --help`                | no       | no         | `—`     | —       | show this help message and exit                                        |
-| `--max-courses MAX_COURSES` | no       | no         | `—`     | —       | Optional debugging limit for the number of courses to sync.            |
-| `--course COURSE`           | no       | yes        | `[]`    | —       | Sync only matching course IDs or course codes. Can be repeated.        |
-| `--refresh-course`          | no       | no         | `false` | —       | Refresh existing course metadata, tabs, cover image, and syllabus.     |
-| `--refresh-people`          | no       | no         | `false` | —       | Force refresh people and groups.                                       |
-| `--refresh-content`         | no       | no         | `false` | —       | Force refresh content.                                                 |
-| `--refresh-announcements`   | no       | no         | `false` | —       | Force refresh announcements.                                           |
-| `--refresh-discussions`     | no       | no         | `false` | —       | Force refresh discussions.                                             |
-| `--refresh-pages`           | no       | no         | `false` | —       | Force refresh pages.                                                   |
-| `--refresh-syllabus`        | no       | no         | `false` | —       | Force refresh syllabus.                                                |
-| `--refresh-modules`         | no       | no         | `false` | —       | Force refresh modules.                                                 |
-| `--refresh-assignments`     | no       | no         | `false` | —       | Force refresh assignments.                                             |
-| `--refresh-files`           | no       | no         | `false` | —       | Force refresh files.                                                   |
-| `--skip-announcements`      | no       | no         | `false` | —       | Skip syncing announcements.                                            |
-| `--skip-discussions`        | no       | no         | `false` | —       | Skip syncing discussions.                                              |
-| `--skip-people`             | no       | no         | `false` | —       | Skip syncing people and groups.                                        |
-| `--skip-pages`              | no       | no         | `false` | —       | Skip syncing pages.                                                    |
-| `--skip-syllabus`           | no       | no         | `false` | —       | Skip syncing syllabus.                                                 |
-| `--skip-modules`            | no       | no         | `false` | —       | Skip syncing modules.                                                  |
-| `--skip-assignments`        | no       | no         | `false` | —       | Skip syncing assignments.                                              |
-| `--skip-files`              | no       | no         | `false` | —       | Skip syncing files.                                                    |
-| `--login-only`              | no       | no         | `false` | —       | Validate or refresh the saved Canvas login, then exit without syncing. |
+| Argument                       | Details                                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------ |
+| `--max-courses MAX_COURSES`    | Optional debugging limit for the number of courses to sync.                    |
+| `--course COURSE [COURSE ...]` | Sync only matching course IDs or course codes. Can be repeated. Default: `[]`. |
+| `--refresh-course`             | Refresh existing course metadata, tabs, cover image, and syllabus.             |
+| `--refresh-people`             | Force refresh people and groups.                                               |
+| `--refresh-content`            | Force refresh content.                                                         |
+| `--refresh-announcements`      | Force refresh announcements.                                                   |
+| `--refresh-discussions`        | Force refresh discussions.                                                     |
+| `--refresh-pages`              | Force refresh pages.                                                           |
+| `--refresh-syllabus`           | Force refresh syllabus.                                                        |
+| `--refresh-modules`            | Force refresh modules.                                                         |
+| `--refresh-assignments`        | Force refresh assignments.                                                     |
+| `--refresh-files`              | Force refresh files.                                                           |
+| `--skip-announcements`         | Skip syncing announcements.                                                    |
+| `--skip-discussions`           | Skip syncing discussions.                                                      |
+| `--skip-people`                | Skip syncing people and groups.                                                |
+| `--skip-pages`                 | Skip syncing pages.                                                            |
+| `--skip-syllabus`              | Skip syncing syllabus.                                                         |
+| `--skip-modules`               | Skip syncing modules.                                                          |
+| `--skip-assignments`           | Skip syncing assignments.                                                      |
+| `--skip-files`                 | Skip syncing files.                                                            |
+| `--login-only`                 | Validate or refresh the saved Canvas login, then exit without syncing.         |
 
 ## `canvas student`
 
 Show the current Canvas student.
 
-Usage: `canvas student [-h] [--refresh | --no-refresh] [--format {json,json-full,jsonl,plain}]`
-
-| Argument          | Required | Repeatable | Default   | Choices                       | Description                                                                                                          |
-| ----------------- | -------- | ---------- | --------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`      | no       | no         | `—`       | —                             | show this help message and exit                                                                                      |
-| `--refresh`       | no       | no         | `default` | —                             | Force refresh the requested remote data and local artifacts.                                                         |
-| `--no-refresh`    | no       | no         | `default` | —                             | Read only from the local cache.                                                                                      |
-| `--format FORMAT` | no       | no         | `—`       | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
-
-Constraints:
-
-- Mutually exclusive: `--refresh` / `--no-refresh`.
+Also accepts [shared options](#shared-options): `--refresh`, `--no-refresh`, `--format`.
 
 ## `canvas list`
 
 List Canvas courses, including retired courses retained in the cache.
 
-Usage:
-`canvas list [-h] [-s SEM] [--refresh | --no-refresh] [--format {json,json-full,jsonl,plain}]`
+| Argument             | Details                                                       |
+| -------------------- | ------------------------------------------------------------- |
+| `-s, --semester SEM` | Case-insensitive semester: latest, 2526S1, AY2526S1, or Y3S1. |
 
-| Argument             | Required | Repeatable | Default   | Choices                       | Description                                                                                                          |
-| -------------------- | -------- | ---------- | --------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`         | no       | no         | `—`       | —                             | show this help message and exit                                                                                      |
-| `-s, --semester SEM` | no       | no         | `—`       | —                             | Case-insensitive semester: latest, 2526S1, AY2526S1, or Y3S1.                                                        |
-| `--refresh`          | no       | no         | `default` | —                             | Force refresh the requested remote data and local artifacts.                                                         |
-| `--no-refresh`       | no       | no         | `default` | —                             | Read only from the local cache.                                                                                      |
-| `--format FORMAT`    | no       | no         | `—`       | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
-
-Constraints:
-
-- Mutually exclusive: `--refresh` / `--no-refresh`.
+Also accepts [shared options](#shared-options): `--refresh`, `--no-refresh`, `--format`.
 
 ## `canvas calendar-events`
 
 List the current user's Canvas calendar events.
 
-Usage:
-`canvas calendar-events [-h] [--start YYYY-MM-DD] [--end YYYY-MM-DD] [--type {event,assignment}] [--format {json,json-full,jsonl,plain}]`
+| Argument             | Details                                                                      |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--start YYYY-MM-DD` | Inclusive start date in Canvas time. Default: Canvas endpoint default.       |
+| `--end YYYY-MM-DD`   | Inclusive end date in Canvas time. Default: Canvas endpoint default.         |
+| `--type EVENT_TYPE`  | Canvas calendar item type. Default: `event`. Choices: `event`, `assignment`. |
 
-| Argument             | Required | Repeatable | Default | Choices                       | Description                                                                                                          |
-| -------------------- | -------- | ---------- | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`         | no       | no         | `—`     | —                             | show this help message and exit                                                                                      |
-| `--start YYYY-MM-DD` | no       | no         | `—`     | —                             | Inclusive start date in Canvas time. Default: Canvas endpoint default.                                               |
-| `--end YYYY-MM-DD`   | no       | no         | `—`     | —                             | Inclusive end date in Canvas time. Default: Canvas endpoint default.                                                 |
-| `--type EVENT_TYPE`  | no       | no         | `event` | event, assignment             | Canvas calendar item type. Default: event.                                                                           |
-| `--format FORMAT`    | no       | no         | `—`     | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
+Also accepts [shared options](#shared-options): `--format`.
 
 ## `canvas todo`
 
 List the current user's Canvas To-Do items.
 
-Usage: `canvas todo [-h] [--format {json,json-full,jsonl,plain}]`
-
-| Argument          | Required | Repeatable | Default | Choices                       | Description                                                                                                          |
-| ----------------- | -------- | ---------- | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`      | no       | no         | `—`     | —                             | show this help message and exit                                                                                      |
-| `--format FORMAT` | no       | no         | `—`     | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
+Also accepts [shared options](#shared-options): `--format`.
 
 ## `canvas upcoming`
 
 List the current user's upcoming Canvas events.
 
-Usage: `canvas upcoming [-h] [--format {json,json-full,jsonl,plain}]`
-
-| Argument          | Required | Repeatable | Default | Choices                       | Description                                                                                                          |
-| ----------------- | -------- | ---------- | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`      | no       | no         | `—`     | —                             | show this help message and exit                                                                                      |
-| `--format FORMAT` | no       | no         | `—`     | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
+Also accepts [shared options](#shared-options): `--format`.
 
 ## `canvas course`
 
 Show a course or one cached content area.
 
-Usage:
-`canvas course [-h] [-s SEM] [--refresh | --no-refresh] [--format {json,json-full,jsonl,plain}] course_code [resource] [item]`
+| Argument             | Details                                                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `COURSE_CODE`        | Course code or Canvas course ID. Required.                                                                        |
+| `-s, --semester SEM` | Restrict course-code matches to a semester, including Non-Academic.                                               |
+| `[RESOURCE]`         | path, home, announcements, assignments, discussions, files, groups, modules, pages, people, quizzes, or syllabus. |
+| `[ITEM]`             | For a resource: list, path, or an item ID. Default: `list`.                                                       |
 
-| Argument             | Required | Repeatable | Default   | Choices                       | Description                                                                                                          |
-| -------------------- | -------- | ---------- | --------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`         | no       | no         | `—`       | —                             | show this help message and exit                                                                                      |
-| `COURSE_CODE`        | yes      | no         | `—`       | —                             | Course code or Canvas course ID.                                                                                     |
-| `-s, --semester SEM` | no       | no         | `—`       | —                             | Restrict course-code matches to a semester, including Non-Academic.                                                  |
-| `[RESOURCE]`         | no       | no         | `—`       | —                             | path, home, announcements, assignments, discussions, files, groups, modules, pages, people, quizzes, or syllabus.    |
-| `[ITEM]`             | no       | no         | `list`    | —                             | For a resource: list, path, or an item ID.                                                                           |
-| `--refresh`          | no       | no         | `default` | —                             | Force refresh the requested remote data and local artifacts.                                                         |
-| `--no-refresh`       | no       | no         | `default` | —                             | Read only from the local cache.                                                                                      |
-| `--format FORMAT`    | no       | no         | `—`       | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
+Also accepts [shared options](#shared-options): `--refresh`, `--no-refresh`, `--format`.
 
-Constraints:
-
-- Mutually exclusive: `--refresh` / `--no-refresh`.
 - The `path` resource does not accept an item selector.
 - The `home` resource does not accept an item selector.
 
@@ -233,31 +160,23 @@ Constraints:
 
 Send a direct low-level request with the saved Canvas session.
 
-Usage: `canvas api [-h] [-X METHOD] [-d JSON] [--param NAME=VALUE] [-H NAME:VALUE] url`
-
-| Argument                  | Required | Repeatable | Default | Choices | Description                                                                    |
-| ------------------------- | -------- | ---------- | ------- | ------- | ------------------------------------------------------------------------------ |
-| `-h, --help`              | no       | no         | `—`     | —       | show this help message and exit                                                |
-| `URL`                     | yes      | no         | `—`     | —       | Canvas API path or same-origin absolute URL; query parameters may be included. |
-| `-X, --method METHOD`     | no       | no         | `GET`   | —       | HTTP method. Default: GET.                                                     |
-| `-d, --data JSON`         | no       | no         | `—`     | —       | JSON request body.                                                             |
-| `--param NAME=VALUE`      | no       | yes        | `[]`    | —       | Query parameter. Repeat for multiple values.                                   |
-| `-H, --header NAME:VALUE` | no       | yes        | `[]`    | —       | Request header. Repeat for multiple headers.                                   |
+| Argument                  | Details                                                                                  |
+| ------------------------- | ---------------------------------------------------------------------------------------- |
+| `URL`                     | Canvas API path or same-origin absolute URL; query parameters may be included. Required. |
+| `-X, --method METHOD`     | HTTP method. Default: `GET`.                                                             |
+| `-d, --data JSON`         | JSON request body.                                                                       |
+| `--param NAME=VALUE`      | Query parameter. Repeat for multiple values. Default: `[]`.                              |
+| `-H, --header NAME:VALUE` | Request header. Repeat for multiple headers. Default: `[]`.                              |
 
 ## `canvas playwright-cli`
 
 Open an authenticated low-level @playwright/cli browser session.
 
-Usage: `canvas playwright-cli [-h] [--url URL] [--headless | --headed] [-s SESSION]`
-
-| Argument                | Required | Repeatable | Default  | Choices | Description                                  |
-| ----------------------- | -------- | ---------- | -------- | ------- | -------------------------------------------- |
-| `-h, --help`            | no       | no         | `—`      | —       | show this help message and exit              |
-| `--url URL`             | no       | no         | `—`      | —       | Initial URL. Default: the Canvas root page.  |
-| `--headless`            | no       | no         | `false`  | —       | Run headless (default).                      |
-| `--headed`              | no       | no         | `false`  | —       | Show the browser window.                     |
-| `-s, --session SESSION` | no       | no         | `canvas` | —       | @playwright/cli session ID. Default: canvas. |
-
-Constraints:
+| Argument                | Details                                        |
+| ----------------------- | ---------------------------------------------- |
+| `--url URL`             | Initial URL. Default: the Canvas root page.    |
+| `--headless`            | Run headless (default).                        |
+| `--headed`              | Show the browser window.                       |
+| `-s, --session SESSION` | @playwright/cli session ID. Default: `canvas`. |
 
 - Mutually exclusive: `--headless` / `--headed`.
