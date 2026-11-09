@@ -34,22 +34,22 @@ def html_text(value: str) -> str:
         element.decompose()
     code_blocks = {}
     for index, element in enumerate(soup.find_all("pre")):
-        marker = f"SK4N_CODE_BLOCK_{index}"
+        marker = f"SK4N_CODE_BLOCK_{index}_"
         while marker in value:
             marker += "_"
         code_blocks[marker] = element.get_text().strip("\n")
         element.replace_with(f"\n{marker}\n")
-    for link in soup.find_all("a", href=True):
-        target = str(link["href"])
-        label = link.get_text(" ", strip=True)
-        if target and not target.lower().startswith(("javascript:", "data:")):
-            link.replace_with(f"{label} ({target})" if label and label != target else target)
     for image in soup.find_all("img"):
         label, target = image.get("alt"), str(image.get("src") or "")
         if target and not target.lower().startswith(("javascript:", "data:")):
             image.replace_with(f"{label or 'Image'} ({target})")
         elif label:
             image.replace_with(str(label))
+    for link in soup.find_all("a", href=True):
+        target = str(link["href"])
+        label = link.get_text(" ", strip=True)
+        if target and not target.lower().startswith(("javascript:", "data:")):
+            link.replace_with(f"{label} ({target})" if label and label != target else target)
     for element in soup.find_all(["br", "p", "div", "li", "tr", "h1", "h2", "h3", "h4"]):
         element.insert_before("\n")
         element.insert_after("\n")

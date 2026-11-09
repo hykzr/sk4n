@@ -442,3 +442,18 @@ def test_html_text_keeps_prose_links_and_line_boundaries() -> None:
         html_text('<p><img src="images/formula.png" alt="x + y"></p>')
         == "x + y (images/formula.png)"
     )
+
+
+def test_html_text_preserves_ten_or_more_code_blocks() -> None:
+    blocks = [f"block_{index}_line_1\n    block_{index}_line_2" for index in range(12)]
+    html = "".join(f"<pre>{block}</pre>" for block in blocks)
+    assert html_text(html) == "\n".join(blocks)
+
+
+def test_html_text_preserves_image_inside_link() -> None:
+    assert (
+        html_text(
+            '<p><a href="https://example.test/full"><img src="images/chart.png" alt="Chart"></a></p>'
+        )
+        == "Chart (images/chart.png) (https://example.test/full)"
+    )

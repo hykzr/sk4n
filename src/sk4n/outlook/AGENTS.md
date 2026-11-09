@@ -3,7 +3,7 @@
 Outlook web endpoints are private and can change independently of this package. Start with
 `client.py` for reads, `actions.py` for item writes, `fetcher.py`/`storage.py` for cache semantics,
 and `preview.py` for guarded UI capture. When updating write access commands, capture the exact
-shape from playwright before constructing api calls
+shape from playwright before constructing api calls.
 
 ## Remote contracts and reasons
 

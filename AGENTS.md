@@ -18,7 +18,7 @@ just check    # Run tests, lint/type checks, and generated-reference checks
 For live sign-in/browser investigation, also install the two browser tools:
 
 ```bash
-uv run sk4n doctor # Run the commands below if the two browser is not installed
+uv run sk4n doctor # Run the commands below if the two browsers are not installed
 uv run sk4n browser install chromium  # Browser used by the integrations for NUS sign-in
 npm install -g @playwright/cli@latest # Separate agent browser inspection tool
 playwright-cli install-browser
