@@ -187,12 +187,10 @@ jobs:
 
       - name: Verify that TestPyPI served the original wheel
         run: >-
-          python -c
-          "from pathlib import Path;
+          python -c "from pathlib import Path;
           original=list(Path('release-dist').glob('sk4n-*.whl'));
-          published=list(Path('test-dist').glob('sk4n-*.whl'));
-          assert len(original) == len(published) == 1;
-          assert original[0].read_bytes() == published[0].read_bytes()"
+          published=list(Path('test-dist').glob('sk4n-*.whl')); assert len(original) ==
+          len(published) == 1; assert original[0].read_bytes() == published[0].read_bytes()"
 
       - name: Install the TestPyPI wheel with dependencies from PyPI
         shell: bash
