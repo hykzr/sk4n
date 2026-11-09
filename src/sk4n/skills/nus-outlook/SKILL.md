@@ -25,12 +25,17 @@ command is not yet installed on `PATH`.
    email from a name or assume the first match is the intended person. Refine the query or ask the
    user when the identity remains ambiguous. Missing directory entries or affiliation fields do not
    prove someone is absent from NUS or holds a particular course role.
-4. Use `--format json` or `jsonl` when parsing records. Listing and reading messages do not mark
-   them as read. Mail defaults to the inbox. For folder-specific search, list available folders
-   first. Use `--folder` for case-insensitive names, full paths, or distinguished names, and
-   `--folder-id` for an exact ID. These selectors are mutually exclusive. Mail JSON exposes
-   `ItemId.Id`, `ItemId.ChangeKey`, `IsRead`, `Flag.FlagStatus`, and `FolderId.Id`. Quote IDs when
-   passing them to the shell.
+4. Use `--format json` or `jsonl` for the same compact useful fields, including recipients, dates,
+   read/flag/draft state, body or preview, attachment links, and `_outlook` cache/preview paths.
+   `--format json-full` returns full Outlook records, including Exchange headers and revision
+   metadata; use it only when those omitted fields are needed. Output formatting does not alter
+   cached records. Listing and reading messages do not mark them as read. Mail defaults to the inbox
+   and search is scoped to one folder. Pass common distinguished names such as `inbox`, `sentitems`,
+   `drafts`, `archive`, or `deleteditems` directly; use `folders` to discover custom folders. Use
+   `--folder` for case-insensitive names, full paths, or distinguished names, and `--folder-id` for
+   an exact ID. These selectors are mutually exclusive. Mail JSON exposes `ItemId.Id`, `IsRead`,
+   `Flag.FlagStatus`, and `FolderId.Id`; `ItemId.ChangeKey` is in json-full. Quote IDs when passing
+   them to the shell.
 5. Mailbox writes require the user's explicit request or approval for that action: `flag`, `unflag`,
    `mark-read`, `mark-unread`, `move`, and `draft create|reply|edit|remove|send`. Draft
    create/reply/edit support repeatable `--attach PATH`; edit replaces only specified fields
@@ -63,7 +68,9 @@ a limit of 20, without per-message body or revision requests. Use `message ID` f
 `--body` on `messages`/`search` to request result bodies explicitly. Complete bodies are downloaded
 and reused as needed; `_outlook.body_downloaded` reports whether one is cached and
 `_outlook.body_current` flags a known later revision change. `preview ID` caches `preview.png`
-beside that email's `message.json` and reuses it while unchanged; `--refresh` recaptures,
+beside that email's `message.json` and reuses it while unchanged. `_outlook.path` points to that
+full cache record; `_outlook.preview_path`, `preview_reused`, `preview_viewport_only`, and
+`preview_output_path` describe the screenshot and any exported copy. `--refresh` recaptures,
 `--no-refresh` uses only local cache, and `--output` exports a copy. Mailbox writes invalidate the
 cached preview. `folders` refreshes the name/ID mapping by default. Named filters reuse it and
 refresh once when the name is absent or its folder no longer exists. `--folder-id` bypasses name

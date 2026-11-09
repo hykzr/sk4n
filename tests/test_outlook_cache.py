@@ -906,7 +906,15 @@ def test_cli_cache_only_needs_no_login_and_never_contacts_outlook(
     )
     assert (
         cli.main(
-            ["--data-path", str(tmp_path), "message", "one", "--no-refresh", "--format", "json"]
+            [
+                "--data-path",
+                str(tmp_path),
+                "message",
+                "one",
+                "--no-refresh",
+                "--format",
+                "json-full",
+            ]
         )
         == 0
     )

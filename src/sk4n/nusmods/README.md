@@ -70,6 +70,11 @@ thread; no Disqus login is used. The normalized review payload is cached with th
 and obeys `--refresh`, `--no-refresh`, and `--cache-ttl`. If Disqus paginates a very large thread,
 JSON output marks `hasMore: true`.
 
+`workload` describes estimated hours per week, usually as five numbers in this order: lectures,
+tutorials, laboratory, projects/assignments, and preparation. For example, `[2, 1, 0, 3, 4]` means
+10 hours per week in total. Some courses supply a text description instead. See the
+[NUSMods API documentation](https://api.nusmods.com/v2/).
+
 ## Timetable management
 
 ```bash
@@ -171,5 +176,11 @@ Student selections are class numbers. TA selections are NUSMods' serialized full
 multiple meetings with the same class number can still be selected independently and exported
 without loss.
 
-All read commands support `--format json`; searches additionally work well as `jsonl`. Structured
-output writes only data to stdout, while errors go to stderr with exit code 2.
+All read commands support `--format json`, `jsonl`, and `json-full`. JSON and JSONL use the same
+compact detail. Search returns course identity, units, faculty/department, grading, attributes, and
+semester/exam summaries; use `course CODE` for descriptions and prerequisites. Course details keep
+every timetable slot and requested review, omitting obsolete COVID zones and machine rules already
+represented by prerequisite/preclusion prose. Schedule results use the same detail in all JSON
+formats. `json-full` returns full course records, including search descriptions/workload. Output
+formatting does not alter cached records. Structured output writes only data to stdout, while errors
+go to stderr with exit code 2.

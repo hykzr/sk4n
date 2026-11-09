@@ -7,11 +7,14 @@ Fetch and persist NUS TalentConnect jobs from Kinobi.
 ## Output formats
 
 - Omit `--format` for concise human-readable tables or details.
-- Use `--format json` for one complete JSON document.
-- Use `--format jsonl` for one complete JSON record per line when the command offers it.
+- Use `--format json` for one compact JSON document containing useful fields.
+- Use `--format jsonl` for the same compact detail, one record per line when the command offers it.
+- Use `--format json-full` for full records, including fields omitted by compact output. Some
+  compact endpoints offer only json.
 - Use `--format plain` for line-oriented `key: value` records suited to shell filtering when the
   command offers it.
-- Structured formats preserve full records and may be substantially larger than human output.
+- Compact formats include useful content and state; json-full includes full records and metadata.
+- Low-level api commands output response data without field filtering and do not accept --format.
 
 ## Environment variables
 
@@ -130,7 +133,7 @@ Constraints:
 Search remote jobs, upsert matches, and print them.
 
 Usage:
-`talent-connect fetch [-h] [-q QUERY] [--company VALUE] [--company-type VALUE] [--exclude-company-type VALUE] [--employment-type VALUE] [--exclude-employment-type VALUE] [--work-arrangement VALUE] [--country VALUE] [--city VALUE] [--industry VALUE] [--role VALUE] [--work-term VALUE] [--related-work-term VALUE] [--programme VALUE] [--internship-programme VALUE] [--application-type VALUE] [--hard-skill VALUE] [--soft-skill VALUE] [--applied | --not-applied] [--drafted | --not-drafted] [--saved | --not-saved] [--recommended | --not-recommended] [--special-needs | --not-special-needs] [--qualified] [--status STATUS] [--posted-after POSTED_AFTER] [--include-expired-if-applied] [--no-login] [--cached] [--max-jobs MAX_JOBS] [--page-size PAGE_SIZE] [--no-details] [--refresh-details] [--updated-only] [--format {json,jsonl,plain}]`
+`talent-connect fetch [-h] [-q QUERY] [--company VALUE] [--company-type VALUE] [--exclude-company-type VALUE] [--employment-type VALUE] [--exclude-employment-type VALUE] [--work-arrangement VALUE] [--country VALUE] [--city VALUE] [--industry VALUE] [--role VALUE] [--work-term VALUE] [--related-work-term VALUE] [--programme VALUE] [--internship-programme VALUE] [--application-type VALUE] [--hard-skill VALUE] [--soft-skill VALUE] [--applied | --not-applied] [--drafted | --not-drafted] [--saved | --not-saved] [--recommended | --not-recommended] [--special-needs | --not-special-needs] [--qualified] [--status STATUS] [--posted-after POSTED_AFTER] [--include-expired-if-applied] [--no-login] [--cached] [--max-jobs MAX_JOBS] [--page-size PAGE_SIZE] [--no-details] [--refresh-details] [--updated-only] [--format {json,json-full,jsonl,plain}]`
 
 | Argument                          | Required | Repeatable | Default | Choices                                                                                 | Description                                                                                                                                       |
 | --------------------------------- | -------- | ---------- | ------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -174,7 +177,7 @@ Usage:
 | `--no-details`                    | no       | no         | `false` | —                                                                                       | Skip dedicated job-detail requests; persist authenticated list records only.                                                                      |
 | `--refresh-details`               | no       | no         | `false` | —                                                                                       | Force detail requests for every matched job. By default details refresh only when Kinobi's updated_at changed.                                    |
 | `--updated-only`                  | no       | no         | `false` | —                                                                                       | Print only jobs that were new or changed in this remote fetch.                                                                                    |
-| `--format FORMAT`                 | no       | no         | `—`     | json, jsonl, plain                                                                      | Output format. Default: human-friendly rich output.                                                                                               |
+| `--format FORMAT`                 | no       | no         | `—`     | json, json-full, jsonl, plain                                                           | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output.                              |
 
 Constraints:
 
@@ -192,16 +195,16 @@ Constraints:
 Show one job by ID or slug.
 
 Usage:
-`talent-connect job [-h] [--refresh | --no-refresh] [--no-login] [--format {json,jsonl,plain}] job_id`
+`talent-connect job [-h] [--refresh | --no-refresh] [--no-login] [--format {json,json-full,jsonl,plain}] job_id`
 
-| Argument          | Required | Repeatable | Default | Choices            | Description                                                    |
-| ----------------- | -------- | ---------- | ------- | ------------------ | -------------------------------------------------------------- |
-| `-h, --help`      | no       | no         | `—`     | —                  | show this help message and exit                                |
-| `JOB_ID`          | yes      | no         | `—`     | —                  | Kinobi _id or slug.                                            |
-| `--refresh`       | no       | no         | `true`  | —                  | Refresh from Kinobi (default).                                 |
-| `--no-refresh`    | no       | no         | `true`  | —                  | Use only the stored record.                                    |
-| `--no-login`      | no       | no         | `false` | —                  | Use Kinobi's public job endpoint and omit per-user job fields. |
-| `--format FORMAT` | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly rich output.            |
+| Argument          | Required | Repeatable | Default | Choices                       | Description                                                                                                          |
+| ----------------- | -------- | ---------- | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `-h, --help`      | no       | no         | `—`     | —                             | show this help message and exit                                                                                      |
+| `JOB_ID`          | yes      | no         | `—`     | —                             | Kinobi _id or slug.                                                                                                  |
+| `--refresh`       | no       | no         | `true`  | —                             | Refresh from Kinobi (default).                                                                                       |
+| `--no-refresh`    | no       | no         | `true`  | —                             | Use only the stored record.                                                                                          |
+| `--no-login`      | no       | no         | `false` | —                             | Use Kinobi's public job endpoint and omit per-user job fields.                                                       |
+| `--format FORMAT` | no       | no         | `—`     | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
 
 Constraints:
 
@@ -212,17 +215,17 @@ Constraints:
 Show a company and its current jobs.
 
 Usage:
-`talent-connect company [-h] [--refresh | --no-refresh] [--no-login] [--max-jobs MAX_JOBS] [--format {json,jsonl,plain}] company_id`
+`talent-connect company [-h] [--refresh | --no-refresh] [--no-login] [--max-jobs MAX_JOBS] [--format {json,json-full,jsonl,plain}] company_id`
 
-| Argument              | Required | Repeatable | Default | Choices            | Description                                                    |
-| --------------------- | -------- | ---------- | ------- | ------------------ | -------------------------------------------------------------- |
-| `-h, --help`          | no       | no         | `—`     | —                  | show this help message and exit                                |
-| `COMPANY_ID`          | yes      | no         | `—`     | —                  | Kinobi _id, company_id, or slug.                               |
-| `--refresh`           | no       | no         | `true`  | —                  | Refresh the company and its jobs from Kinobi (default).        |
-| `--no-refresh`        | no       | no         | `true`  | —                  | Use only stored company and job records.                       |
-| `--no-login`          | no       | no         | `false` | —                  | Use Kinobi's public job endpoint and omit per-user job fields. |
-| `--max-jobs MAX_JOBS` | no       | no         | `—`     | —                  | Maximum company jobs. Default: no limit.                       |
-| `--format FORMAT`     | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly rich output.            |
+| Argument              | Required | Repeatable | Default | Choices                       | Description                                                                                                          |
+| --------------------- | -------- | ---------- | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `-h, --help`          | no       | no         | `—`     | —                             | show this help message and exit                                                                                      |
+| `COMPANY_ID`          | yes      | no         | `—`     | —                             | Kinobi _id, company_id, or slug.                                                                                     |
+| `--refresh`           | no       | no         | `true`  | —                             | Refresh the company and its jobs from Kinobi (default).                                                              |
+| `--no-refresh`        | no       | no         | `true`  | —                             | Use only stored company and job records.                                                                             |
+| `--no-login`          | no       | no         | `false` | —                             | Use Kinobi's public job endpoint and omit per-user job fields.                                                       |
+| `--max-jobs MAX_JOBS` | no       | no         | `—`     | —                             | Maximum company jobs. Default: no limit.                                                                             |
+| `--format FORMAT`     | no       | no         | `—`     | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
 
 Constraints:
 
@@ -233,7 +236,7 @@ Constraints:
 Search job or company IDs without dedicated detail requests.
 
 Usage:
-`talent-connect search [-h] [-q QUERY] [--company VALUE] [--company-type VALUE] [--exclude-company-type VALUE] [--employment-type VALUE] [--exclude-employment-type VALUE] [--work-arrangement VALUE] [--country VALUE] [--city VALUE] [--industry VALUE] [--role VALUE] [--work-term VALUE] [--related-work-term VALUE] [--programme VALUE] [--internship-programme VALUE] [--application-type VALUE] [--hard-skill VALUE] [--soft-skill VALUE] [--applied | --not-applied] [--drafted | --not-drafted] [--saved | --not-saved] [--recommended | --not-recommended] [--special-needs | --not-special-needs] [--qualified] [--status STATUS] [--posted-after POSTED_AFTER] [--include-expired-if-applied] [--cached] [--no-login] [--max-results MAX_RESULTS] [--format {json,jsonl,plain}] {job,company} search_query`
+`talent-connect search [-h] [-q QUERY] [--company VALUE] [--company-type VALUE] [--exclude-company-type VALUE] [--employment-type VALUE] [--exclude-employment-type VALUE] [--work-arrangement VALUE] [--country VALUE] [--city VALUE] [--industry VALUE] [--role VALUE] [--work-term VALUE] [--related-work-term VALUE] [--programme VALUE] [--internship-programme VALUE] [--application-type VALUE] [--hard-skill VALUE] [--soft-skill VALUE] [--applied | --not-applied] [--drafted | --not-drafted] [--saved | --not-saved] [--recommended | --not-recommended] [--special-needs | --not-special-needs] [--qualified] [--status STATUS] [--posted-after POSTED_AFTER] [--include-expired-if-applied] [--cached] [--no-login] [--max-results MAX_RESULTS] [--format {json,json-full,jsonl,plain}] {job,company} search_query`
 
 | Argument                          | Required | Repeatable | Default | Choices                                                                                 | Description                                                                                                                                       |
 | --------------------------------- | -------- | ---------- | ------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -275,7 +278,7 @@ Usage:
 | `--cached`                        | no       | no         | `false` | —                                                                                       | Search only stored records.                                                                                                                       |
 | `--no-login`                      | no       | no         | `false` | —                                                                                       | Use Kinobi's public job endpoint and omit per-user job fields.                                                                                    |
 | `--max-results MAX_RESULTS`       | no       | no         | `20`    | —                                                                                       | Maximum results. Default: 20.                                                                                                                     |
-| `--format FORMAT`                 | no       | no         | `—`     | json, jsonl, plain                                                                      | Output format. Default: human-friendly rich output.                                                                                               |
+| `--format FORMAT`                 | no       | no         | `—`     | json, json-full, jsonl, plain                                                           | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output.                              |
 
 Constraints:
 

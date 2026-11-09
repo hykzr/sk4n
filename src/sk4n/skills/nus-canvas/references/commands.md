@@ -7,12 +7,14 @@ Query and incrementally cache NUS Canvas data.
 ## Output formats
 
 - Omit `--format` for concise human-readable tables or details.
-- Use `--format json` for one complete JSON document.
-- Use `--format jsonl` for one complete JSON record per line when the command offers it.
+- Use `--format json` for one compact JSON document containing useful fields.
+- Use `--format jsonl` for the same compact detail, one record per line when the command offers it.
+- Use `--format json-full` for full records, including fields omitted by compact output. Some
+  compact endpoints offer only json.
 - Use `--format plain` for line-oriented `key: value` records suited to shell filtering when the
   command offers it.
-- JSON and JSONL omit internal `_canvas*` cache metadata but remaining records may still be
-  substantially larger than human output.
+- Compact formats include useful content and state; json-full includes full records and metadata.
+- Low-level api commands output response data without field filtering and do not accept --format.
 
 ## Environment variables
 
@@ -69,12 +71,12 @@ Usage: `canvas auth [-h] {status,login,logout} ...`
 
 Check the saved login.
 
-Usage: `canvas auth status [-h] [--format {json,jsonl,plain}]`
+Usage: `canvas auth status [-h] [--format {json,json-full,jsonl,plain}]`
 
-| Argument          | Required | Repeatable | Default | Choices            | Description                                         |
-| ----------------- | -------- | ---------- | ------- | ------------------ | --------------------------------------------------- |
-| `-h, --help`      | no       | no         | `—`     | —                  | show this help message and exit                     |
-| `--format FORMAT` | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly rich output. |
+| Argument          | Required | Repeatable | Default | Choices                       | Description                                                                                                          |
+| ----------------- | -------- | ---------- | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `-h, --help`      | no       | no         | `—`     | —                             | show this help message and exit                                                                                      |
+| `--format FORMAT` | no       | no         | `—`     | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
 
 ## `canvas auth login`
 
@@ -134,14 +136,14 @@ Usage:
 
 Show the current Canvas student.
 
-Usage: `canvas student [-h] [--refresh | --no-refresh] [--format {json,jsonl,plain}]`
+Usage: `canvas student [-h] [--refresh | --no-refresh] [--format {json,json-full,jsonl,plain}]`
 
-| Argument          | Required | Repeatable | Default   | Choices            | Description                                                  |
-| ----------------- | -------- | ---------- | --------- | ------------------ | ------------------------------------------------------------ |
-| `-h, --help`      | no       | no         | `—`       | —                  | show this help message and exit                              |
-| `--refresh`       | no       | no         | `default` | —                  | Force refresh the requested remote data and local artifacts. |
-| `--no-refresh`    | no       | no         | `default` | —                  | Read only from the local cache.                              |
-| `--format FORMAT` | no       | no         | `—`       | json, jsonl, plain | Output format. Default: human-friendly rich output.          |
+| Argument          | Required | Repeatable | Default   | Choices                       | Description                                                                                                          |
+| ----------------- | -------- | ---------- | --------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `-h, --help`      | no       | no         | `—`       | —                             | show this help message and exit                                                                                      |
+| `--refresh`       | no       | no         | `default` | —                             | Force refresh the requested remote data and local artifacts.                                                         |
+| `--no-refresh`    | no       | no         | `default` | —                             | Read only from the local cache.                                                                                      |
+| `--format FORMAT` | no       | no         | `—`       | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
 
 Constraints:
 
@@ -151,15 +153,16 @@ Constraints:
 
 List Canvas courses, including retired courses retained in the cache.
 
-Usage: `canvas list [-h] [-s SEM] [--refresh | --no-refresh] [--format {json,jsonl,plain}]`
+Usage:
+`canvas list [-h] [-s SEM] [--refresh | --no-refresh] [--format {json,json-full,jsonl,plain}]`
 
-| Argument             | Required | Repeatable | Default   | Choices            | Description                                                   |
-| -------------------- | -------- | ---------- | --------- | ------------------ | ------------------------------------------------------------- |
-| `-h, --help`         | no       | no         | `—`       | —                  | show this help message and exit                               |
-| `-s, --semester SEM` | no       | no         | `—`       | —                  | Case-insensitive semester: latest, 2526S1, AY2526S1, or Y3S1. |
-| `--refresh`          | no       | no         | `default` | —                  | Force refresh the requested remote data and local artifacts.  |
-| `--no-refresh`       | no       | no         | `default` | —                  | Read only from the local cache.                               |
-| `--format FORMAT`    | no       | no         | `—`       | json, jsonl, plain | Output format. Default: human-friendly rich output.           |
+| Argument             | Required | Repeatable | Default   | Choices                       | Description                                                                                                          |
+| -------------------- | -------- | ---------- | --------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `-h, --help`         | no       | no         | `—`       | —                             | show this help message and exit                                                                                      |
+| `-s, --semester SEM` | no       | no         | `—`       | —                             | Case-insensitive semester: latest, 2526S1, AY2526S1, or Y3S1.                                                        |
+| `--refresh`          | no       | no         | `default` | —                             | Force refresh the requested remote data and local artifacts.                                                         |
+| `--no-refresh`       | no       | no         | `default` | —                             | Read only from the local cache.                                                                                      |
+| `--format FORMAT`    | no       | no         | `—`       | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
 
 Constraints:
 
@@ -170,55 +173,55 @@ Constraints:
 List the current user's Canvas calendar events.
 
 Usage:
-`canvas calendar-events [-h] [--start YYYY-MM-DD] [--end YYYY-MM-DD] [--type {event,assignment}] [--format {json,jsonl,plain}]`
+`canvas calendar-events [-h] [--start YYYY-MM-DD] [--end YYYY-MM-DD] [--type {event,assignment}] [--format {json,json-full,jsonl,plain}]`
 
-| Argument             | Required | Repeatable | Default | Choices            | Description                                                            |
-| -------------------- | -------- | ---------- | ------- | ------------------ | ---------------------------------------------------------------------- |
-| `-h, --help`         | no       | no         | `—`     | —                  | show this help message and exit                                        |
-| `--start YYYY-MM-DD` | no       | no         | `—`     | —                  | Inclusive start date in Canvas time. Default: Canvas endpoint default. |
-| `--end YYYY-MM-DD`   | no       | no         | `—`     | —                  | Inclusive end date in Canvas time. Default: Canvas endpoint default.   |
-| `--type EVENT_TYPE`  | no       | no         | `event` | event, assignment  | Canvas calendar item type. Default: event.                             |
-| `--format FORMAT`    | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly rich output.                    |
+| Argument             | Required | Repeatable | Default | Choices                       | Description                                                                                                          |
+| -------------------- | -------- | ---------- | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `-h, --help`         | no       | no         | `—`     | —                             | show this help message and exit                                                                                      |
+| `--start YYYY-MM-DD` | no       | no         | `—`     | —                             | Inclusive start date in Canvas time. Default: Canvas endpoint default.                                               |
+| `--end YYYY-MM-DD`   | no       | no         | `—`     | —                             | Inclusive end date in Canvas time. Default: Canvas endpoint default.                                                 |
+| `--type EVENT_TYPE`  | no       | no         | `event` | event, assignment             | Canvas calendar item type. Default: event.                                                                           |
+| `--format FORMAT`    | no       | no         | `—`     | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
 
 ## `canvas todo`
 
 List the current user's Canvas To-Do items.
 
-Usage: `canvas todo [-h] [--format {json,jsonl,plain}]`
+Usage: `canvas todo [-h] [--format {json,json-full,jsonl,plain}]`
 
-| Argument          | Required | Repeatable | Default | Choices            | Description                                         |
-| ----------------- | -------- | ---------- | ------- | ------------------ | --------------------------------------------------- |
-| `-h, --help`      | no       | no         | `—`     | —                  | show this help message and exit                     |
-| `--format FORMAT` | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly rich output. |
+| Argument          | Required | Repeatable | Default | Choices                       | Description                                                                                                          |
+| ----------------- | -------- | ---------- | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `-h, --help`      | no       | no         | `—`     | —                             | show this help message and exit                                                                                      |
+| `--format FORMAT` | no       | no         | `—`     | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
 
 ## `canvas upcoming`
 
 List the current user's upcoming Canvas events.
 
-Usage: `canvas upcoming [-h] [--format {json,jsonl,plain}]`
+Usage: `canvas upcoming [-h] [--format {json,json-full,jsonl,plain}]`
 
-| Argument          | Required | Repeatable | Default | Choices            | Description                                         |
-| ----------------- | -------- | ---------- | ------- | ------------------ | --------------------------------------------------- |
-| `-h, --help`      | no       | no         | `—`     | —                  | show this help message and exit                     |
-| `--format FORMAT` | no       | no         | `—`     | json, jsonl, plain | Output format. Default: human-friendly rich output. |
+| Argument          | Required | Repeatable | Default | Choices                       | Description                                                                                                          |
+| ----------------- | -------- | ---------- | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `-h, --help`      | no       | no         | `—`     | —                             | show this help message and exit                                                                                      |
+| `--format FORMAT` | no       | no         | `—`     | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
 
 ## `canvas course`
 
 Show a course or one cached content area.
 
 Usage:
-`canvas course [-h] [-s SEM] [--refresh | --no-refresh] [--format {json,jsonl,plain}] course_code [resource] [item]`
+`canvas course [-h] [-s SEM] [--refresh | --no-refresh] [--format {json,json-full,jsonl,plain}] course_code [resource] [item]`
 
-| Argument             | Required | Repeatable | Default   | Choices            | Description                                                                                                       |
-| -------------------- | -------- | ---------- | --------- | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `-h, --help`         | no       | no         | `—`       | —                  | show this help message and exit                                                                                   |
-| `COURSE_CODE`        | yes      | no         | `—`       | —                  | Course code or Canvas course ID.                                                                                  |
-| `-s, --semester SEM` | no       | no         | `—`       | —                  | Restrict course-code matches to a semester, including Non-Academic.                                               |
-| `[RESOURCE]`         | no       | no         | `—`       | —                  | path, home, announcements, assignments, discussions, files, groups, modules, pages, people, quizzes, or syllabus. |
-| `[ITEM]`             | no       | no         | `list`    | —                  | For a resource: list, path, or an item ID.                                                                        |
-| `--refresh`          | no       | no         | `default` | —                  | Force refresh the requested remote data and local artifacts.                                                      |
-| `--no-refresh`       | no       | no         | `default` | —                  | Read only from the local cache.                                                                                   |
-| `--format FORMAT`    | no       | no         | `—`       | json, jsonl, plain | Output format. Default: human-friendly rich output.                                                               |
+| Argument             | Required | Repeatable | Default   | Choices                       | Description                                                                                                          |
+| -------------------- | -------- | ---------- | --------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `-h, --help`         | no       | no         | `—`       | —                             | show this help message and exit                                                                                      |
+| `COURSE_CODE`        | yes      | no         | `—`       | —                             | Course code or Canvas course ID.                                                                                     |
+| `-s, --semester SEM` | no       | no         | `—`       | —                             | Restrict course-code matches to a semester, including Non-Academic.                                                  |
+| `[RESOURCE]`         | no       | no         | `—`       | —                             | path, home, announcements, assignments, discussions, files, groups, modules, pages, people, quizzes, or syllabus.    |
+| `[ITEM]`             | no       | no         | `list`    | —                             | For a resource: list, path, or an item ID.                                                                           |
+| `--refresh`          | no       | no         | `default` | —                             | Force refresh the requested remote data and local artifacts.                                                         |
+| `--no-refresh`       | no       | no         | `default` | —                             | Read only from the local cache.                                                                                      |
+| `--format FORMAT`    | no       | no         | `—`       | json, json-full, jsonl, plain | Output format: json/jsonl contain useful fields; json-full includes the full record. Default: human-friendly output. |
 
 Constraints:
 

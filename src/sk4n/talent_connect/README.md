@@ -228,16 +228,28 @@ record.
 
 With no `--format`, commands use human-friendly Rich tables and detail views.
 
-- `--format json` writes one JSON value.
-- `--format jsonl` writes one job or company record per line.
+- `--format json` writes one compact JSON value. Search/fetch and a company's jobs contain summaries
+  with identifiers, URLs, salary, dates, qualification, and application/offer state. `job ID` adds
+  descriptions, responsibilities, requirements, contacts, and programme eligibility summaries;
+  `company ID` includes the company description. HTML prose becomes text with link targets
+  preserved. Repeated company data, administrative configuration, and large restriction tables are
+  omitted.
+- `--format jsonl` uses the same compact detail, one job or company record per line. Company results
+  retain their `record_type` tags.
+- `--format json-full` writes full records, including stored job details in fetch/cached results and
+  restriction/configuration fields. The format selects displayed fields; fetching follows the
+  command's detail options. The local database retains full records.
 - `--format plain` writes each top-level field as `field: value`, with records separated by a dashed
   line. Nested values stay as compact JSON on that same line, which is convenient for agents and
   shell pipelines.
 
+The low-level `api` command outputs the returned response data without field filtering and does not
+accept `--format`.
+
 ## Eligibility IDs
 
-`restriction.academic_majors` contains opaque IDs from NUS's tenant-specific academic directory. The
-same IDs appear as `field_value` entries in
+In `--format json-full`, `restriction.academic_majors` contains opaque IDs from NUS's
+tenant-specific academic directory. The same IDs appear as `field_value` entries in
 `eligible_internship_programme_versions[].student_eligibility_criteria` when a programme requires
 particular majors. A criterion also carries `field_variable`, `field_comparator`, and `operator`,
 which describe what the IDs constrain.

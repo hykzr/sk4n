@@ -331,12 +331,7 @@ def _render_service(service: Service) -> str:
     parser = _build_parser(service)
     prog = parser.prog
     commands = list(_commands(parser, (prog,)))
-    structured_output_note = (
-        "- JSON and JSONL omit internal `_canvas*` cache metadata but remaining "
-        "records may still be substantially larger than human output."
-        if service.skill_name == "nus-canvas"
-        else "- Structured formats preserve full records and may be substantially larger than human output."
-    )
+    structured_output_note = "- Compact formats include useful content and state; json-full includes full records and metadata."
     lines = [
         f"# `{prog}` command reference",
         "",
@@ -347,10 +342,18 @@ def _render_service(service: Service) -> str:
         "## Output formats",
         "",
         "- Omit `--format` for concise human-readable tables or details.",
-        "- Use `--format json` for one complete JSON document.",
-        "- Use `--format jsonl` for one complete JSON record per line when the command offers it.",
+        "- Use `--format json` for one compact JSON document containing useful fields.",
+        "- Use `--format jsonl` for the same compact detail, one record per line when the command offers it.",
+        "- Use `--format json-full` for full records, including fields omitted by compact output. Some compact endpoints offer only json.",
         "- Use `--format plain` for line-oriented `key: value` records suited to shell filtering when the command offers it.",
         structured_output_note,
+        *(
+            [
+                "- Low-level api commands output response data without field filtering and do not accept --format."
+            ]
+            if service.skill_name != "nusmods"
+            else []
+        ),
         "",
         "## Environment variables",
         "",

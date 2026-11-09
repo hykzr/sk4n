@@ -94,11 +94,28 @@ the read flag. Search defaults to the inbox; select another folder with `--folde
 case-insensitive. Duplicate folder names require a full path such as `Projects/Reports` or
 `--folder-id ID`. `--folder` selects names/paths or distinguished names; `--folder-id` selects an
 exact ID and bypasses name lookup. These options are mutually exclusive. With neither option, the
-inbox is selected. JSON output retains Outlook fields and adds `_outlook.path` and
-`_outlook.attachments` with local paths and download status. Search normalizes `ItemId.Id` to
-Outlook's stable immutable ID; the raw search ID remains in `ItemRestId` and `Id`.
-`_outlook.body_downloaded` reports whether a complete body has been cached; `_outlook.body_current`
-becomes false if later metadata shows that body is stale.
+inbox is selected. Common distinguished names (`inbox`, `sentitems`, `drafts`, `archive`,
+`deleteditems`) can be passed directly without listing folders first. Search covers the selected
+folder only.
+
+`--format json` returns compact Outlook fields; JSONL uses the same detail, one record per line.
+Mail retains `ItemId.Id`, subject, URL, sender/recipients, dates, read/flag/draft state, body or
+preview, attachment metadata, and action results. Exchange transport headers, duplicate identifiers,
+permissions, and rendering metadata are omitted. HTML bodies become text with link targets
+preserved. Folders retain names, IDs, types, and message counts; directory results retain
+identity/contact and affiliation fields. `--format json-full` returns full Outlook records,
+including `ItemId.ChangeKey` and `InternetMessageHeaders`. The low-level `api` command outputs the
+returned response data without field filtering and does not accept `--format`. Cache files remain
+complete regardless of output format.
+
+Message output adds `_outlook.path` and `_outlook.attachments` with local paths and download status.
+Search normalizes `ItemId.Id` to Outlook's stable immutable ID; the raw search ID remains in
+`ItemRestId` and `Id` in json-full. `_outlook.body_downloaded` reports whether a complete body has
+been cached; `_outlook.body_current` becomes false if later metadata shows that body is stale.
+
+`_outlook.preview_path`, `preview_reused`, `preview_viewport_only`, and `preview_output_path`
+describe the cached screenshot, whether it was reused, its viewport limitation, and any exported
+copy.
 
 Every email has a `url` for opening it in Outlook. Attachment metadata includes `Attachments[].url`,
 and `_outlook.attachments[]` pairs each `url` with its local `path` when downloaded. These URLs are

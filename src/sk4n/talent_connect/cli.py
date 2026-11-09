@@ -24,6 +24,7 @@ from rich.table import Table
 
 from sk4n.errors import exit_code_for_error
 from sk4n.paths import talent_connect_database_path
+from sk4n.tools.output import FORMAT_HELP, OUTPUT_FORMATS
 from sk4n.tools.playwright_cli import (
     ensure_session_available,
     open_authenticated_session,
@@ -46,6 +47,7 @@ from .client import (
     KinobiAuthError,
     KinobiClient,
 )
+from .output import compact
 from .storage import (
     TalentConnectStore,
     UpsertStats,
@@ -86,7 +88,6 @@ PERSONAL_FILTER_KEYS = {
     "is_recommended",
     "talent_connect_statuses",
 }
-OUTPUT_FORMATS = ("json", "jsonl", "plain")
 
 
 def positive_int(value: str) -> int:
@@ -254,7 +255,7 @@ def add_format_argument(parser: argparse.ArgumentParser) -> None:
         "--format",
         choices=OUTPUT_FORMATS,
         default=None,
-        help="Output format. Default: human-friendly rich output.",
+        help=f"{FORMAT_HELP} Default: human-friendly output.",
     )
 
 
@@ -572,8 +573,16 @@ def print_formatted(
     output_format: str,
     *,
     jsonl_records: Sequence[Mapping[str, Any]] | None = None,
+    detail: bool = True,
 ) -> None:
-    if output_format == "json":
+    if output_format in {"json", "jsonl"}:
+        value = compact(value, detail=detail)
+        if jsonl_records is not None:
+            jsonl_records = [
+                compact(record, detail=record.get("record_type") != "job")
+                for record in jsonl_records
+            ]
+    if output_format in {"json", "json-full"}:
         print(_json_text(value))
         return
     records = list(jsonl_records) if jsonl_records is not None else _plain_records(value)
@@ -1023,7 +1032,7 @@ def handle_fetch(args: argparse.Namespace, store: TalentConnectStore) -> int:
         else:
             shown_jobs = [store.get_job(str(job.get("_id") or "")) or job for job in jobs]
     if args.format:
-        print_formatted(shown_jobs, args.format)
+        print_formatted(shown_jobs, args.format, detail=False)
     else:
         title = (
             "Cached jobs"
@@ -1171,7 +1180,7 @@ def handle_search(args: argparse.Namespace, store: TalentConnectStore) -> int:
             )
             store.upsert_companies(results, detail_level=1)
         if args.format:
-            print_formatted(results, args.format)
+            print_formatted(results, args.format, detail=False)
         else:
             print_companies(results, title="Company search")
         return 0
@@ -1189,7 +1198,7 @@ def handle_search(args: argparse.Namespace, store: TalentConnectStore) -> int:
         results = [summarize_job(job) for job in full_records]
         store.upsert_jobs(results, detail_level=0)
     if args.format:
-        print_formatted(results, args.format)
+        print_formatted(results, args.format, detail=False)
     else:
         print_jobs(results, title="Job search")
     return 0

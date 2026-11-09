@@ -21,9 +21,12 @@ Use the installed `canvas` command for deterministic, authenticated NUS Canvas r
 4. Prefer the narrowest high-level command. Refresh one course or content area instead of running
    bulk `canvas sync` unless the user asks for a full sync.
 5. Use human output for a simple check, `--format json` or `jsonl` for parsing, and `--format plain`
-   for line-oriented shell filtering. JSON and JSONL omit internal `_canvas*` metadata but can still
-   be large. For a large result, redirect JSON to a file and inspect only the required fields with
-   `jq` instead of loading the entire response into context.
+   for line-oriented shell filtering. JSON and JSONL contain the same compact fields: IDs, links,
+   content paths, roles, deadlines, access errors, current grades/answers, and submission-attempt
+   histories (attempt numbers, timestamps, status, late flags, grades, and attachment links). Use
+   `--format json-full` only when omitted configuration, complete history records, or unfiltered
+   quiz session payloads are needed. Output formatting does not alter cached records. Large
+   collections can still need filtering with `jq`.
 6. Use `canvas api` only when a high-level command is insufficient. Require explicit approval
    immediately before any request that can change remote state.
 7. Read [references/low-level.md](references/low-level.md) and use an authenticated `playwright-cli`

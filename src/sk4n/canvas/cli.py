@@ -16,6 +16,7 @@ from rich.table import Table
 
 from sk4n.errors import exit_code_for_error
 from sk4n.paths import canvas_data_dir
+from sk4n.tools.output import FORMAT_HELP, OUTPUT_FORMATS
 from sk4n.tools.playwright_cli import (
     ensure_session_available,
     open_authenticated_session,
@@ -31,12 +32,12 @@ from .auth import (
 )
 from .client import CanvasAPIError, CanvasAuthError, CanvasClient
 from .fetcher import CanvasFetcher
+from .output import compact
 from .sync import sync_canvas
 from .utils import DEFAULT_BASE_URL, DEFAULT_SITE_NAME
 
 console = Console()
 error_console = Console(stderr=True)
-OUTPUT_FORMATS = ("json", "jsonl", "plain")
 
 
 def positive_int(value: str) -> int:
@@ -81,7 +82,7 @@ def add_format_argument(parser: argparse.ArgumentParser) -> None:
         "--format",
         choices=OUTPUT_FORMATS,
         default=None,
-        help="Output format. Default: human-friendly rich output.",
+        help=f"{FORMAT_HELP} Default: human-friendly output.",
     )
 
 
@@ -413,7 +414,9 @@ def _without_canvas_metadata(value: Any) -> Any:
 
 
 def print_formatted(value: Any, output_format: str) -> None:
-    if output_format == "json":
+    if output_format in {"json", "jsonl"}:
+        value = compact(value)
+    if output_format in {"json", "json-full"}:
         print(_json_text(_without_canvas_metadata(value)))
         return
     records = _records(_without_canvas_metadata(value) if output_format == "jsonl" else value)

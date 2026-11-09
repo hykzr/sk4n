@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Structured output
+
+- Make `--format json` compact across Canvas, TalentConnect, NUSMods, and Outlook; JSONL uses the
+  same detail level. Keep useful IDs, links, content, paths, dates, and user state while omitting
+  transport metadata, administrative settings, and duplicate payloads where applicable.
+- Add `--format json-full` for the previous JSON detail level without changing stored cache data.
+  Already compact results stay unchanged. Low-level API commands output unfiltered response data and
+  do not accept `--format`.
+
 ### NUS Outlook (`nus-outlook`)
 
 - Add the `nus-outlook` CLI and installable `nus-outlook` agent skill for reading, caching, and

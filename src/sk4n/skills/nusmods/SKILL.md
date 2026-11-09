@@ -21,8 +21,11 @@ request authentication; NUSMods data is public.
    cannot answer a public-data question. Consult `playwright-cli --help` first. If the skill for it
    is ALREADY installed you can refer to that as well.
 4. Use human output for a simple check, `--format json` or `jsonl` for parsing, and `--format plain`
-   for line-oriented shell filtering. Expect JSON formats to contain complete records and
-   potentially be large.
+   for line-oriented shell filtering. JSON and JSONL use the same compact detail: search returns
+   course summaries including semester/exam data; `course CODE` retains the description,
+   prerequisites, reviews when requested, and every timetable slot. Use `--format json-full` to
+   include fields omitted by compact output, such as search descriptions and workload. Schedule
+   results use the same detail in all JSON formats.
 5. Inspect the current schedule before `schedule import`, `add`, `edit`, or `delete` when the
    request does not already identify the affected semester, course, or slots.
 6. Treat `schedule import` as replacement of one semester. Surface that effect before executing an

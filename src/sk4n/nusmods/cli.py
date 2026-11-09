@@ -15,6 +15,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from sk4n.paths import nusmods_data_dir
+from sk4n.tools.output import FORMAT_HELP, OUTPUT_FORMATS
 
 from .client import (
     DEFAULT_API_BASE_URL,
@@ -23,6 +24,7 @@ from .client import (
     NUSModsClient,
     normalize_academic_year,
 )
+from .output import compact
 from .schedule import (
     SEMESTER_NAMES,
     SINGAPORE_TZ,
@@ -48,7 +50,6 @@ from .schedule import (
 console = Console()
 error_console = Console(stderr=True)
 
-OUTPUT_FORMATS = ("json", "jsonl", "plain")
 ATTRIBUTE_DESCRIPTIONS = {
     "year": "Year long course",
     "su": "Has S/U option for Undergraduate students only",
@@ -133,7 +134,7 @@ def add_format_argument(parser: argparse.ArgumentParser) -> None:
         "--format",
         choices=OUTPUT_FORMATS,
         default=None,
-        help="Structured output format. Default: human-friendly tables.",
+        help=f"{FORMAT_HELP} Default: human-friendly output.",
     )
 
 
@@ -451,8 +452,10 @@ def _json_text(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
 
 
-def print_formatted(value: Any, output_format: str) -> None:
-    if output_format == "json":
+def print_formatted(value: Any, output_format: str, *, summary: bool = False) -> None:
+    if output_format in {"json", "jsonl"}:
+        value = compact(value, summary=summary)
+    if output_format in {"json", "json-full"}:
         print(_json_text(value))
         return
     records = value if isinstance(value, list) else [value]
@@ -602,7 +605,7 @@ def handle_search(args: argparse.Namespace) -> int:
     sorted_matches = [module for _, module in sorted(ranked, key=lambda item: item[0])]
     matches = sorted_matches[: args.limit] if args.limit is not None else sorted_matches
     if args.format:
-        print_formatted(matches, args.format)
+        print_formatted(matches, args.format, summary=True)
         return 0
 
     table = Table(title=f"NUSMods course search — AY{client.academic_year}")

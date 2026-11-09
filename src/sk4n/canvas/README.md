@@ -22,7 +22,7 @@ canvas auth logout
 
 Login opens a browser only when the saved `nus_canvas` session is missing, expired, or explicitly
 refreshed. Logout deletes only this CLI's saved session; it does not sign other browsers out of NUS
-SSO. `auth status` also supports `--format json`, `jsonl`, or `plain`.
+SSO. `auth status` also supports `--format json`, `json-full`, `jsonl`, or `plain`.
 
 ## Student and courses
 
@@ -78,8 +78,9 @@ canvas todo
 canvas upcoming
 ```
 
-All three support `--format json|jsonl|plain`. Use `calendar-events` for the Canvas calendar; use
-the separate shared `sk4n calendar` command for NUS instructional-week and holiday mapping.
+All three support `--format json|json-full|jsonl|plain`. Use `calendar-events` for the Canvas
+calendar; use the separate shared `sk4n calendar` command for NUS instructional-week and holiday
+mapping.
 
 ## Course content
 
@@ -121,7 +122,7 @@ user's groups.
 All student, list, course, and course-content commands support:
 
 ```bash
---format json|jsonl|plain
+--format json|json-full|jsonl|plain
 --refresh
 --no-refresh
 ```
@@ -135,13 +136,22 @@ Canvas HTTP operations, though refreshed results are written to the local cache.
 serialized across CLI processes, and files are published through process-unique atomic temporary
 paths so concurrent reads never observe partial JSON, HTML, or downloads.
 
-JSON and JSONL omit internal `_canvas*` cache metadata. File listings can still be large; redirect
-`--format json` to a file and use `jq` when the complete record set would overwhelm the terminal or
-an agent context.
+`--format json` contains useful fields; JSONL uses the same detail, one record per line. Compact
+output keeps IDs, roles, URLs, content paths, deadlines, access errors, current grades/quiz answers,
+and submission-attempt histories with timestamps, status, late flags, grades, and attachment links.
+History summaries omit repeated bodies and grading administration fields. It omits administrative
+settings, duplicate raw payloads, and cache fingerprints. HTML prose becomes text with link targets
+preserved; local content paths stay paths. Use `--format json-full` for full records, including
+configuration, complete submission-history records, and unfiltered quiz session payloads. Compact
+quiz output contains questions, choices, answers, feedback, and scores. Full quiz data also includes
+source session items/results, launch metadata, and rendering details that can duplicate those
+question fields. All JSON formats omit internal `_canvas*` cache metadata. Output formatting does
+not alter cached records. Large collections can still need filtering with `jq`.
 
 ## Direct API requests
 
-`api` sends a direct request with the saved Canvas cookies and prints JSON or text responses:
+`api` sends a direct request with the saved Canvas cookies and prints the returned JSON or text
+without field filtering. It does not accept `--format`.
 
 ```bash
 canvas api /api/v1/users/self/profile

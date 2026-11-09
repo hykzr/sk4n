@@ -13,6 +13,7 @@ from playwright.async_api import Error as PlaywrightError
 
 from sk4n.errors import exit_code_for_error
 from sk4n.paths import ensure_private_directory, outlook_data_dir
+from sk4n.tools.output import FORMAT_HELP, OUTPUT_FORMATS
 from sk4n.tools.playwright_cli import (
     PlaywrightCLIError,
     ensure_session_available,
@@ -26,6 +27,7 @@ from .auth import DEFAULT_LOGIN_WAIT_SECONDS, check_auth_status, login, logout
 from .browser import validate_base_url
 from .client import DEFAULT_BASE_URL, DEFAULT_SITE_NAME, OutlookClient, OutlookError
 from .fetcher import OutlookFetcher
+from .output import compact
 from .preview import OutlookPreview
 from .storage import OutlookStore
 
@@ -47,9 +49,9 @@ def json_argument(value: str) -> Any:
 def add_format_argument(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--format",
-        choices=("json", "jsonl", "plain"),
+        choices=OUTPUT_FORMATS,
         default=None,
-        help="Output format. Default: human-friendly details.",
+        help=f"{FORMAT_HELP} Default: human-friendly output.",
     )
 
 
@@ -355,7 +357,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def print_result(value: Any, output_format: str | None) -> None:
-    if output_format == "json":
+    if output_format in {"json", "jsonl"}:
+        value = compact(value)
+    if output_format in {"json", "json-full"}:
         print(json.dumps(value, ensure_ascii=False, sort_keys=True))
         return
     records = value if isinstance(value, list) else [value]
@@ -487,11 +491,12 @@ def run(args: argparse.Namespace) -> int:
         value = client.people(args.query, limit=args.limit)
     elif args.command == "api":
         value = client.request(args.method, args.path, args.data)
+        json.dump(value, sys.stdout, indent=2, ensure_ascii=False)
+        sys.stdout.write("\n")
+        return 0
     else:
         raise AssertionError(args.command)
-    print_result(
-        value, getattr(args, "format", None) or ("json" if args.command == "api" else None)
-    )
+    print_result(value, getattr(args, "format", None))
     return 0
 
 

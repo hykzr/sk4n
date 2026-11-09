@@ -24,8 +24,12 @@ Use the installed `talent-connect` command for NUS TalentConnect/Kinobi reads an
 5. `--posted-after` is applied locally and may require scanning all remote matches before
    `--max-jobs` or `--max-results` can limit the result.
 6. Use human output for a simple check, `--format json` or `jsonl` for parsing, and `--format plain`
-   for line-oriented shell filtering. Expect JSON formats to expose complete records and potentially
-   be large.
+   for line-oriented shell filtering. JSON and JSONL use the same compact detail. Search/fetch
+   return job/company summaries with IDs, URLs, salary, deadlines, qualification, and workflow
+   state. Use `job ID` or `company ID` for descriptions and requirements. Use `--format json-full`
+   only for omitted fields such as full eligibility restrictions, application forms, or
+   administrative settings. Full records remain in the local database; output formatting does not
+   change fetching.
 7. Use `talent-connect api` only when high-level commands are insufficient. Require explicit
    approval immediately before any request that can change remote state.
 8. Read [references/low-level.md](references/low-level.md) and use an authenticated `playwright-cli`
