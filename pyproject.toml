@@ -22,11 +22,13 @@ classifiers = [
 ]
 dependencies = [
     "beautifulsoup4>=4.14.3",
+    "certifi>=2026.10.19",
     "platformdirs>=4.5.1",
     "playwright>=1.60.0",
     "requests>=2.34.2",
     "rich>=15.0.0",
-    "urllib3>=2.7.0",
+    "soupsieve>=2.9.0",
+    "urllib3>=2.8.0",
 ]
 
 [project.urls]
@@ -55,6 +57,7 @@ dev = [
     "pip-audit>=2.10.1",
     "pyright>=1.1.414",
     "pytest>=9.1.1",
+    "pyyaml>=6.0.3",
     "ruff>=0.16.6",
     "twine>=7.0.0",
 ]

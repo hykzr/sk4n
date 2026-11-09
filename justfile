@@ -28,9 +28,13 @@ format *flags:
 references *flags:
     uv run python scripts/generate_skill_references.py {{flags}}
 
-# Audit both the locked environment and the currently resolvable runtime range
+# Audit Python, npm, and GitHub Actions against current vulnerability reports
 audit:
+    uv run --locked python scripts/audit_github_actions.py
+    npm audit
+    # Check the installed runtime and development dependencies.
     uv run --locked pip-audit --local --skip-editable --progress-spinner off
+    # Check a fresh resolution of the runtime requirements from pyproject.toml.
     uv run --locked pip-audit --strict --progress-spinner off .
 
 # Build and validate the wheel and source distribution metadata
