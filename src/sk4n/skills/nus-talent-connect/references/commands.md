@@ -24,6 +24,7 @@ Low-level `api` output is unfiltered response data and has no `--format` option.
 
 | Argument                      | Details                                                                                                        |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `--version, -v`               | Show the package version and Python executable, then exit.                                                     |
 | `--data-path DATA_PATH`       | SQLite file or containing directory. Default: `<user-data>/sk4n/talent-connect/talent_connect.sqlite3`.        |
 | `--api-base-url API_BASE_URL` | Advanced public Kinobi API origin. Default: `https://nus-talentconnect.server.kinobi.asia`.                    |
 | `--app-base-url APP_BASE_URL` | Advanced authenticated TalentConnect application origin. Default: `https://nus-talentconnect.app.kinobi.asia`. |

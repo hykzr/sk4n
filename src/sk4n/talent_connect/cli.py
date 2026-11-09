@@ -30,6 +30,7 @@ from sk4n.tools.playwright_cli import (
     open_authenticated_session,
     playwright_cli_executable,
 )
+from sk4n.version import add_version_argument
 
 from .auth import (
     DEFAULT_LOGIN_WAIT_SECONDS,
@@ -299,6 +300,7 @@ def build_parser() -> argparse.ArgumentParser:
             "3 authentication, 4 transport, 5 remote HTTP/response failure."
         ),
     )
+    add_version_argument(parser)
     parser.add_argument(
         "--data-path",
         type=Path,

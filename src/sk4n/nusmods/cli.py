@@ -16,6 +16,7 @@ from rich.table import Table
 
 from sk4n.paths import nusmods_data_dir
 from sk4n.tools.output import FORMAT_HELP, OUTPUT_FORMATS
+from sk4n.version import add_version_argument
 
 from .client import (
     DEFAULT_API_BASE_URL,
@@ -179,6 +180,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="nusmods",
         description="Search public NUSMods course data and manage a local timetable.",
     )
+    add_version_argument(parser)
     parser.add_argument(
         "--data-path",
         type=Path,

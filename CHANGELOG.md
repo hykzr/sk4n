@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+- Add `-v`/`--version` to all five commands, showing the package version and Python executable.
+- Fix `sk4n doctor` false errors for pipx on MacOS for Python version check
+
 ## [0.1.1] - 2026-11-10
 
 ### NUS Outlook

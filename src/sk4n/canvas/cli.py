@@ -23,6 +23,7 @@ from sk4n.tools.playwright_cli import (
     playwright_cli_executable,
 )
 from sk4n.tools.shared import exclusive_file_lock
+from sk4n.version import add_version_argument
 
 from .auth import (
     DEFAULT_LOGIN_WAIT_SECONDS,
@@ -189,6 +190,7 @@ def build_parser() -> argparse.ArgumentParser:
             "3 authentication, 4 transport, 5 remote HTTP/response failure."
         ),
     )
+    add_version_argument(parser)
     parser.add_argument(
         "--base-url",
         default=os.getenv("CANVAS_BASE_URL", DEFAULT_BASE_URL),
