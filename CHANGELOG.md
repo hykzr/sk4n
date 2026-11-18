@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Dropped Python 3.11 support due to Soup Sieve vulnerability
 - Add `-v`/`--version` to all five commands, showing the package version and Python executable.
 - Fix `sk4n doctor` false errors for pipx on MacOS for Python version check
 - Add `sk4n doctor --skip-external` to check the package without Playwright, Chromium, or Node.js.

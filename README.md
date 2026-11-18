@@ -10,7 +10,7 @@ If installation feels unfamiliar, ask your assistant:
 
 > Help me install <https://github.com/hykzr/sk4n/> and set it up for my AI assistant.
 
-To install it yourself, you need Python 3.11 or newer. Open a terminal and run:
+To install it yourself, you need Python 3.12 or newer. Open a terminal and run:
 
 ```bash
 python -m pip install sk4n
