@@ -477,7 +477,9 @@ def _safe_check(identifier: str, factory: Callable[[], Check]) -> Check:
         )
 
 
-def build_doctor_report(*, browser_smoke: bool = False) -> dict[str, Any]:
+def build_doctor_report(
+    *, browser_smoke: bool = False, skip_external: bool = False
+) -> dict[str, Any]:
     checks = [
         Check(
             "runtime",
@@ -491,12 +493,17 @@ def build_doctor_report(*, browser_smoke: bool = False) -> dict[str, Any]:
         ),
         _safe_check("console_scripts", _console_script_check),
         _safe_check("data_directories", _data_directory_check),
-        _safe_check("python_playwright", python_playwright_check),
-        _safe_check("node", _node_check),
-        _safe_check("playwright_cli", _playwright_cli_check),
-        _safe_check("nus_skills", skills_check),
     ]
-    if browser_smoke:
+    if not skip_external:
+        checks.extend(
+            [
+                _safe_check("python_playwright", python_playwright_check),
+                _safe_check("node", _node_check),
+                _safe_check("playwright_cli", _playwright_cli_check),
+            ]
+        )
+    checks.append(_safe_check("nus_skills", skills_check))
+    if browser_smoke and not skip_external:
         checks.append(_safe_check("browser_smoke", browser_smoke_check))
     serialized = [asdict(check) for check in checks]
     return {

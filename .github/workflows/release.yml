@@ -203,11 +203,12 @@ jobs:
           SK4N_HOME: ${{ runner.temp }}/sk4n-release-smoke
         run: |
           python -c 'import os; from importlib.metadata import version; assert version("sk4n") == os.environ["PACKAGE_VERSION"]'
-          sk4n --help
-          canvas --help
-          nusmods --help
-          talent-connect --help
-          nus-outlook --help
+          for command in sk4n canvas nusmods talent-connect nus-outlook; do
+            for flag in -h --help -v --version; do
+              "$command" "$flag"
+            done
+          done
+          sk4n doctor --skip-external
 
   publish-pypi:
     name: Publish to PyPI

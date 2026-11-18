@@ -86,6 +86,7 @@ def validate_install(artifact: Path, *, name: str, root: Path, outside: Path) ->
     python = bin_dir / ("python.exe" if os.name == "nt" else "python")
     env = os.environ.copy()
     env["SK4N_HOME"] = str(root / "user-data")
+    env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
 
     run(
         [str(python), "-m", "pip", "install", "--disable-pip-version-check", str(artifact)],
@@ -107,7 +108,10 @@ def validate_install(artifact: Path, *, name: str, root: Path, outside: Path) ->
     )
     for script in CONSOLE_SCRIPTS:
         executable = bin_dir / (f"{script}.exe" if os.name == "nt" else script)
-        run([str(executable), "--help"], cwd=outside, env=env)
+        for flag in ("-h", "--help", "-v", "--version"):
+            run([str(executable), flag], cwd=outside, env=env)
+    sk4n = bin_dir / ("sk4n.exe" if os.name == "nt" else "sk4n")
+    run([str(sk4n), "doctor", "--skip-external"], cwd=outside, env=env)
 
 
 def validate_package(dist_dir: Path) -> None:
