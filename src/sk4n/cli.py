@@ -96,10 +96,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     doctor_parser = commands.add_parser("doctor", help="Diagnose the local installation.")
     doctor_parser.add_argument("--format", choices=OUTPUT_FORMATS, default="human")
-    doctor_parser.add_argument(
+    doctor_checks = doctor_parser.add_mutually_exclusive_group()
+    doctor_checks.add_argument(
         "--browser-smoke",
         action="store_true",
         help="Open and close a temporary playwright-cli browser session.",
+    )
+    doctor_checks.add_argument(
+        "--skip-external",
+        action="store_true",
+        help="Skip Playwright, Chromium, and Node.js checks.",
     )
 
     paths_parser = commands.add_parser("paths", help="Show application data paths.")
@@ -253,7 +259,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command == "doctor":
-        report = build_doctor_report(browser_smoke=args.browser_smoke)
+        report = build_doctor_report(
+            browser_smoke=args.browser_smoke, skip_external=args.skip_external
+        )
         print_doctor_report(report, output_format=args.format)
         return 0 if report["ok"] else 1
     if args.command == "paths":

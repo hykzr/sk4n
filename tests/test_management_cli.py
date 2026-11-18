@@ -20,6 +20,8 @@ def test_management_parser_exposes_phase_one_commands() -> None:
 
     assert parser.parse_args(["doctor", "--format", "json"]).format == "json"
     assert parser.parse_args(["doctor", "--browser-smoke"]).browser_smoke is True
+    assert parser.parse_args(["doctor", "--skip-external"]).skip_external is True
+    assert parser.parse_args(["doctor"]).skip_external is False
     assert parser.parse_args(["paths", "--format", "json"]).command == "paths"
     calendar = parser.parse_args(
         [
@@ -144,6 +146,60 @@ def test_doctor_json_and_exit_status(
 
     assert management_cli.main(["doctor", "--format", "json"]) == 1
     assert json.loads(capsys.readouterr().out) == report
+
+
+@pytest.mark.parametrize(
+    "python_executable",
+    [
+        "/Applications/Python installations/" + "long directory/" * 8 + "bin/python3",
+        r"C:\Program Files\Python installations\Python314\python.exe",
+    ],
+)
+def test_console_script_check_parses_python_paths_with_spaces(
+    python_executable: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(doctor.sys, "executable", python_executable)
+    monkeypatch.setattr(doctor.shutil, "which", lambda name: name)
+
+    def fake_run(command: list[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(command)
+        return subprocess.CompletedProcess(
+            command, 0, f"{command[0]} 1.2.3\nPython: {python_executable}\n", ""
+        )
+
+    monkeypatch.setattr(doctor, "_run", fake_run)
+
+    check = doctor._console_script_check()  # pyright: ignore[reportPrivateUsage]
+
+    assert check.status == "ok"
+    assert calls == [[name, "-v"] for name in doctor.CONSOLE_SCRIPTS[1:]]
+    assert all(
+        script["python_executable"] == python_executable and script["compatible"]
+        for script in check.details["scripts"].values()
+    )
+
+
+def test_console_script_check_reports_a_different_python(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(doctor.sys, "executable", "/runtime/python")
+    monkeypatch.setattr(doctor.shutil, "which", lambda name: name)
+    monkeypatch.setattr(
+        doctor,
+        "_run",
+        lambda command: subprocess.CompletedProcess(
+            command, 0, f"{command[0]} 1.2.3\nPython: /other/python\n", ""
+        ),
+    )
+
+    check = doctor._console_script_check()  # pyright: ignore[reportPrivateUsage]
+
+    assert check.status == "error"
+    assert "use another Python installation" in check.summary
+    assert check.details["scripts"]["canvas"]["python_executable"] == "/other/python"
+    assert check.details["scripts"]["canvas"]["compatible"] is False
 
 
 def test_browser_install_uses_current_python(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -59,6 +59,11 @@ jobs:
       - name: Run unit tests
         run: uv run --locked pytest -q
 
+      - name: Run package diagnostics
+        env:
+          SK4N_HOME: ${{ runner.temp }}/sk4n-ci-doctor
+        run: uv run --locked sk4n doctor --skip-external
+
   source-checks:
     name: Source checks
     runs-on: ubuntu-latest
