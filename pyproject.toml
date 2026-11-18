@@ -11,23 +11,20 @@ authors = [{ name = "hykzr" }]
 maintainers = [{ name = "hykzr" }]
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
     "beautifulsoup4>=4.14.3",
-    "certifi>=2026.10.19",
     "platformdirs>=4.5.1",
     "playwright>=1.60.0",
     "requests>=2.34.2",
     "rich>=15.0.0",
-    "soupsieve>=2.9.0",
     "urllib3>=2.8.0",
 ]
 
@@ -64,7 +61,7 @@ dev = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["F", "E", "W", "I", "B", "UP", "C4", "SIM", "A", "RUF", "PLC0415"]

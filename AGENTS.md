@@ -6,7 +6,7 @@ assistants; do not use them as maintainer instructions.
 ## Dependencies and initial setup
 
 Install Git, [uv](https://docs.astral.sh/uv/getting-started/installation/), Node.js 22+ with npm,
-and [just](https://github.com/casey/just#installation). Python 3.11+ is required; uv can provision
+and [just](https://github.com/casey/just#installation). Python 3.12+ is required; uv can provision
 it. From the repository root:
 
 ```bash
