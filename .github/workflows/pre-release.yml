@@ -1,0 +1,114 @@
+name: Pre-release checks
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - pyproject.toml
+  push:
+    branches:
+      - main
+    paths:
+      - pyproject.toml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pre-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  version-change:
+    name: Check for a package version change
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.version.outputs.run }}
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Check out the source
+        uses: actions/checkout@v7
+        with:
+          # PRs default to a merge commit; pushes and manual runs use the default ref.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.15"
+
+      - name: Compare package versions
+        id: version
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+          import tomllib
+          from pathlib import Path
+
+          current = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          base = os.environ["BASE_SHA"]
+          if os.environ["GITHUB_EVENT_NAME"] == "pull_request":
+              base = subprocess.check_output(
+                  ["git", "merge-base", base, "HEAD"], text=True
+              ).strip()
+          previous = None
+          if base and base.strip("0"):
+              previous = tomllib.loads(
+                  subprocess.check_output(["git", "show", f"{base}:pyproject.toml"], text=True)
+              )["project"]["version"]
+          changed = str(current != previous).lower()
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"run={changed}\nversion={current}\n")
+          print(f"Package version: {previous} -> {current}; run checks: {changed}")
+          PY
+
+  audit:
+    name: Audit dependencies before release
+    needs:
+      - version-change
+    if: needs.version-change.outputs.run == 'true'
+    uses: ./.github/workflows/audit.yml
+
+  smoke:
+    name: Test installed commands (${{ matrix.os }})
+    needs:
+      - version-change
+    if: needs.version-change.outputs.run == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+
+    steps:
+      - name: Check out the source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.15"
+
+      - name: Install the checked-out package globally with dependencies from PyPI
+        shell: bash
+        run: python -m pip install --disable-pip-version-check .
+
+      - name: Exercise the installed package and console scripts
+        uses: ./.github/actions/smoke-installed-package
+        with:
+          package-version: ${{ needs.version-change.outputs.version }}
