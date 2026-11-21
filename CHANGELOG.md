@@ -1,11 +1,11 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.2] - 2026-11-21
 
 - Add Python 3.15 support.
-- Dropped Python 3.11 support due to Soup Sieve vulnerability
+- Drop Python 3.11 support to avoid a Soup Sieve vulnerability.
 - Add `-v`/`--version` to all five commands, showing the package version and Python executable.
-- Fix `sk4n doctor` false errors for pipx on MacOS for Python version check
+- Fix Python version checks in `sk4n doctor` for pipx installations on macOS.
 - Add `sk4n doctor --skip-external` to check the package without Playwright, Chromium, or Node.js.
 
 ## [0.1.1] - 2026-11-10
@@ -31,5 +31,6 @@
 - Initial release with Canvas, NUSMods, TalentConnect, and shared `sk4n` tools.
 - Include assistant skills and commands to install and manage them.
 
+[0.1.2]: https://github.com/hykzr/sk4n/releases/tag/v0.1.2
 [0.1.1]: https://github.com/hykzr/sk4n/releases/tag/v0.1.1
 [0.1.0]: https://github.com/hykzr/sk4n/releases/tag/v0.1.0
