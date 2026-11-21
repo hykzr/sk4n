@@ -29,9 +29,9 @@ Use `uv run` for repository commands; no manual virtual-environment activation i
 
 Run `just audit` before releasing. It checks Python dependencies with `pip-audit`, npm dependencies
 with `npm audit`, and GitHub Actions against the GitHub Advisory Database. Install the GitHub CLI
-(`gh`) and run `gh auth login` first. The `Dependency audit` workflow runs manually or as a release
-prerequisite, using its read-only GitHub token. The Actions check resolves workflow action
-tags/SHAs, so fixes can pass before alerts on `main` close.
+(`gh`) and run `gh auth login` first. The `Dependency audit` workflow runs manually and during
+pre-release checks and releases, using its read-only GitHub token. The Actions check resolves
+workflow action tags/SHAs, so fixes can pass before alerts on `main` close.
 
 ## Structure and formatting
 

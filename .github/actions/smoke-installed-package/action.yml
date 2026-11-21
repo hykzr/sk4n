@@ -1,0 +1,25 @@
+name: Smoke-test installed package
+description: Check the globally installed package version and all console commands.
+
+inputs:
+  package-version:
+    description: Expected installed version of sk4n.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Exercise the installed package and console scripts
+      shell: bash
+      working-directory: ${{ runner.temp }}
+      env:
+        PACKAGE_VERSION: ${{ inputs.package-version }}
+        SK4N_HOME: ${{ runner.temp }}/sk4n-release-smoke
+      run: |
+        python -c 'import os; from importlib.metadata import version; assert version("sk4n") == os.environ["PACKAGE_VERSION"]'
+        for command in sk4n canvas nusmods talent-connect nus-outlook; do
+          for flag in -h --help -v --version; do
+            "$command" "$flag"
+          done
+        done
+        sk4n doctor --skip-external

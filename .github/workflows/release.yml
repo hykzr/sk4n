@@ -153,6 +153,11 @@ jobs:
           - windows-latest
 
     steps:
+      - name: Check out the repository for the shared command checks
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
@@ -197,18 +202,9 @@ jobs:
         run: python -m pip install --disable-pip-version-check test-dist/sk4n-*.whl
 
       - name: Exercise the installed package and console scripts
-        shell: bash
-        env:
-          PACKAGE_VERSION: ${{ needs.build.outputs.version }}
-          SK4N_HOME: ${{ runner.temp }}/sk4n-release-smoke
-        run: |
-          python -c 'import os; from importlib.metadata import version; assert version("sk4n") == os.environ["PACKAGE_VERSION"]'
-          for command in sk4n canvas nusmods talent-connect nus-outlook; do
-            for flag in -h --help -v --version; do
-              "$command" "$flag"
-            done
-          done
-          sk4n doctor --skip-external
+        uses: ./.github/actions/smoke-installed-package
+        with:
+          package-version: ${{ needs.build.outputs.version }}
 
   publish-pypi:
     name: Publish to PyPI
