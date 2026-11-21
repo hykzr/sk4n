@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Add Python 3.15 support.
 - Dropped Python 3.11 support due to Soup Sieve vulnerability
 - Add `-v`/`--version` to all five commands, showing the package version and Python executable.
 - Fix `sk4n doctor` false errors for pipx on MacOS for Python version check
